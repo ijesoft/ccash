@@ -1,15 +1,16 @@
 import strawberry
 
 from app.domains.auth.graphql import AuthMutations, AuthQueries
+from app.domains.wallets.graphql import WalletMutations, WalletQueries
 
 
 @strawberry.type
-class Query(AuthQueries):
+class Query(AuthQueries, WalletQueries):
     pass
 
 
 @strawberry.type
-class Mutation(AuthMutations):
+class Mutation(AuthMutations, WalletMutations):
     pass
 
 
