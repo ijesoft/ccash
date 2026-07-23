@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Typography, Pagination, Select, MenuItem, FormControl, InputLabel, Chip } from "@mui/material";
+import { Box, Typography, Pagination, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
 import { useTransactions } from "../hooks/useTransactions";
 import TransactionList from "../components/TransactionList";
 

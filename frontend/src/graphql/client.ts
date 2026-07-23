@@ -1,4 +1,4 @@
-import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, Observable } from "@apollo/client";
+import { ApolloClient, ApolloLink, HttpLink, InMemoryCache } from "@apollo/client";
 
 const httpLink = new HttpLink({
   uri: "/api/graphql",

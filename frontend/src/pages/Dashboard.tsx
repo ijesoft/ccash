@@ -29,25 +29,25 @@ export default function Dashboard() {
       )}
 
       <Grid container spacing={2} mb={3}>
-        <Grid size={{ xs: 6, md: 3 }}>
+        <Grid xs={6} md={3}>
           <Paper sx={{ p: 2, textAlign: "center", cursor: "pointer" }} onClick={() => navigate("/send")}>
             <SendIcon color="primary" sx={{ fontSize: 32 }} />
             <Typography variant="body2">Send</Typography>
           </Paper>
         </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
+        <Grid xs={6} md={3}>
           <Paper sx={{ p: 2, textAlign: "center", cursor: "pointer" }} onClick={() => navigate("/cash-in")}>
             <AddIcon color="success" sx={{ fontSize: 32 }} />
             <Typography variant="body2">Cash In</Typography>
           </Paper>
         </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
+        <Grid xs={6} md={3}>
           <Paper sx={{ p: 2, textAlign: "center", cursor: "pointer" }} onClick={() => navigate("/cash-out")}>
             <RemoveIcon color="error" sx={{ fontSize: 32 }} />
             <Typography variant="body2">Cash Out</Typography>
           </Paper>
         </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
+        <Grid xs={6} md={3}>
           <Paper sx={{ p: 2, textAlign: "center", cursor: "pointer" }} onClick={() => navigate("/qr-payment")}>
             <QrCodeIcon color="info" sx={{ fontSize: 32 }} />
             <Typography variant="body2">QR Pay</Typography>

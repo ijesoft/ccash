@@ -2,9 +2,7 @@ import { useState } from "react";
 import { Box, Typography, TextField, Button, Alert } from "@mui/material";
 import { useWallet } from "../hooks/useWallet";
 import BalanceCard from "../components/BalanceCard";
-import { useMutation } from "@apollo/client";
-import { gql } from "@apollo/client";
-import { formatMoney } from "../utils/format";
+import { useMutation, gql } from "@apollo/client";
 
 const SET_PIN = gql`
   mutation SetPin($pin: String!) {

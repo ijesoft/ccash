@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Box, Typography, Button, TextField, Alert, Tab, Tabs } from "@mui/material";
-import { useMutation } from "@apollo/client";
-import { gql } from "@apollo/client";
-import { amountToCents } from "../utils/format";
+import { useMutation, gql } from "@apollo/client";
 
 const SCAN_QR = gql`
   mutation ScanQrPayment($data: String!) {
@@ -13,7 +11,6 @@ const SCAN_QR = gql`
 export default function QrPayment() {
   const [tab, setTab] = useState(0);
   const [qrData, setQrData] = useState("");
-  const [amount, setAmount] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [scanQr, { loading }] = useMutation(SCAN_QR);

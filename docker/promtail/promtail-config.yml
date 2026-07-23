@@ -14,4 +14,4 @@ scrape_configs:
       - targets: ["localhost"]
         labels:
           job: docker
-          __path__: /var/log/ccash/*.log
+          __path__: /var/log/*.log

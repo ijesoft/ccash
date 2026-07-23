@@ -6,7 +6,7 @@ export default function AdminDashboard() {
       <Typography variant="h5" fontWeight="bold" mb={3}>Admin Dashboard</Typography>
 
       <Grid container spacing={3} mb={3}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="h4" fontWeight="bold">--</Typography>
@@ -14,7 +14,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="h4" fontWeight="bold">--</Typography>
@@ -22,7 +22,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="h4" fontWeight="bold">--</Typography>
@@ -30,7 +30,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Typography variant="h4" fontWeight="bold">--</Typography>

@@ -36,7 +36,7 @@ class Transaction(SQLModel, table=True):
     net_amount_cents: int = Field(ge=0)
     reference: str | None = Field(default=None, max_length=255)
     description: str | None = Field(default=None, max_length=500)
-    metadata: dict | None = Field(default=None, sa_type=sa.JSON)
+    tx_metadata: dict | None = Field(default=None, sa_type=sa.JSON)
 
     created_at: datetime = Field(
         default_factory=datetime.utcnow,

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Box, Typography, TextField, Button, Alert, Card, CardContent } from "@mui/material";
 import { useMutation } from "@apollo/client";
 import { SEND_MONEY } from "../graphql/mutations/transactions";
-import { amountToCents, formatMoney } from "../utils/format";
+import { amountToCents } from "../utils/format";
 
 export default function SendMoney() {
   const [receiverId, setReceiverId] = useState("");
