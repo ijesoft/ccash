@@ -17,6 +17,7 @@ import QrPayment from "./pages/QrPayment";
 import TransactionsPage from "./pages/Transactions";
 import Profile from "./pages/Profile";
 import NotificationsPage from "./pages/Notifications";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ export default function App() {
                 <Route path="/transactions" element={<TransactionsPage />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/admin" element={<AdminDashboard />} />
               </Route>
             </Routes>
           </BrowserRouter>
