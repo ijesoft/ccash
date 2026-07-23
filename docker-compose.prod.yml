@@ -1,0 +1,32 @@
+name: ccash-prod
+
+services:
+  backend:
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+    restart: always
+
+  frontend:
+    build:
+      args:
+        - VITE_API_URL=https://api.ccash.ph
+        - VITE_WS_URL=wss://api.ccash.ph/ws
+
+  nginx:
+    ports:
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+
+  pgadmin:
+    profiles:
+      - dev
+    ports: []
+
+  mailpit:
+    profiles:
+      - dev
+    ports: []
