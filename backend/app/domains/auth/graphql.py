@@ -70,11 +70,32 @@ class AuthMutations:
             await service.session.close()
 
     @strawberry.mutation
+    async def setup_verify_totp(self, info: Info, email: str) -> TwoFactorSetup:
+        service = await get_auth_service(info)
+        try:
+            secret, uri = await service.setup_verify_totp(email)
+            return TwoFactorSetup(secret=secret, uri=uri)
+        except NotFoundError as e:
+            raise Exception(str(e))
+        finally:
+            await service.session.close()
+
+    @strawberry.mutation
     async def verify_otp(self, info: Info, email: str, code: str) -> bool:
         service = await get_auth_service(info)
         try:
             return await service.verify_otp(email, code)
         except (ValidationError, NotFoundError) as e:
+            raise Exception(str(e))
+        finally:
+            await service.session.close()
+
+    @strawberry.mutation
+    async def send_login_otp(self, info: Info, email: str) -> bool:
+        service = await get_auth_service(info)
+        try:
+            return await service.send_login_otp(email)
+        except NotFoundError as e:
             raise Exception(str(e))
         finally:
             await service.session.close()

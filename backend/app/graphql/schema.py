@@ -18,9 +18,4 @@ class Mutation(AdminMutations, AuthMutations, KycMutations, NotificationMutation
     pass
 
 
-@strawberry.type
-class Subscription:
-    pass
-
-
-schema = strawberry.Schema(query=Query, mutation=Mutation, subscription=Subscription)
+schema = strawberry.Schema(query=Query, mutation=Mutation)

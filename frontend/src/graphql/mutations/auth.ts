@@ -16,6 +16,15 @@ export const VERIFY_OTP = gql`
   }
 `;
 
+export const SETUP_VERIFY_TOTP = gql`
+  mutation SetupVerifyTotp($email: String!) {
+    setupVerifyTotp(email: $email) {
+      secret
+      uri
+    }
+  }
+`;
+
 export const LOGIN = gql`
   mutation Login($email: String!, $password: String!, $otpCode: String) {
     login(email: $email, password: $password, otpCode: $otpCode) {
@@ -47,6 +56,12 @@ export const REFRESH_TOKEN = gql`
 export const LOGOUT = gql`
   mutation Logout($refreshToken: String!) {
     logout(refreshToken: $refreshToken)
+  }
+`;
+
+export const SEND_LOGIN_OTP = gql`
+  mutation SendLoginOtp($email: String!) {
+    sendLoginOtp(email: $email)
   }
 `;
 

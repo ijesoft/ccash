@@ -26,7 +26,7 @@ class Notification(SQLModel, table=True):
     title: str = Field(max_length=255)
     body: str = Field(max_length=1000)
     is_read: bool = Field(default=False)
-    metadata: dict | None = Field(default=None, sa_type=sa.JSON)
+    data: dict | None = Field(default=None, sa_type=sa.JSON)
 
     created_at: datetime = Field(
         default_factory=datetime.utcnow,

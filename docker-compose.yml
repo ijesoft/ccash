@@ -51,7 +51,7 @@ services:
       - backend_net
 
   rabbitmq:
-    image: rabbitmq:4-management-alpine
+    image: rabbitmq:3.13-management-alpine
     container_name: ccash-rabbitmq
     restart: unless-stopped
     environment:
@@ -226,6 +226,7 @@ services:
     image: grafana/loki:latest
     container_name: ccash-loki
     restart: unless-stopped
+    user: root
     volumes:
       - ./docker/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki

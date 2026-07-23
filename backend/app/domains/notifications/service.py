@@ -13,9 +13,9 @@ class NotificationService:
         self.session = session
 
     async def send_notification(
-        self, user_id: uuid.UUID, notif_type: NotificationType, title: str, body: str, metadata: dict | None = None
+        self, user_id: uuid.UUID, notif_type: NotificationType, title: str, body: str, data: dict | None = None
     ) -> Notification:
-        notif = await self.repo.create(user_id, notif_type, title, body, metadata)
+        notif = await self.repo.create(user_id, notif_type, title, body, data)
 
         await manager.send_to_user(
             str(user_id),

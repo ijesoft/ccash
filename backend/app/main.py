@@ -16,7 +16,6 @@ from app.websocket.manager import manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_tables()
-    Instrumentator().instrument(app).expose(app)
     yield
     await close_db()
 
@@ -60,6 +59,8 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(user_id, websocket)
 
+
+Instrumentator().instrument(app).expose(app)
 
 @app.get("/health")
 async def health():

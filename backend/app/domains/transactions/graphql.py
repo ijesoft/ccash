@@ -1,3 +1,4 @@
+import enum
 import uuid
 from datetime import datetime
 
@@ -13,7 +14,7 @@ from app.graphql.scalars import Money, PaginationInfo
 
 
 @strawberry.enum
-class TransactionTypeEnum:
+class TransactionTypeEnum(str, enum.Enum):
     CASH_IN = "CASH_IN"
     CASH_OUT = "CASH_OUT"
     SEND = "SEND"
@@ -22,7 +23,7 @@ class TransactionTypeEnum:
 
 
 @strawberry.enum
-class TransactionStatusEnum:
+class TransactionStatusEnum(str, enum.Enum):
     PENDING = "PENDING"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"

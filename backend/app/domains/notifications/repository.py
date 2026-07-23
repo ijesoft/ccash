@@ -10,8 +10,8 @@ class NotificationRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create(self, user_id: uuid.UUID, notif_type: NotificationType, title: str, body: str, metadata: dict | None = None) -> Notification:
-        notif = Notification(user_id=user_id, type=notif_type, title=title, body=body, metadata=metadata)
+    async def create(self, user_id: uuid.UUID, notif_type: NotificationType, title: str, body: str, data: dict | None = None) -> Notification:
+        notif = Notification(user_id=user_id, type=notif_type, title=title, body=body, data=data)
         self.session.add(notif)
         await self.session.flush()
         return notif

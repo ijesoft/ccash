@@ -17,6 +17,7 @@ from app.core.security import (
 )
 from app.domains.auth.models import User, UserStatus
 from app.domains.auth.repository import UserRepository
+from app.tasks.notifications import send_email_notification
 
 
 class AuthService:
@@ -36,25 +37,73 @@ class AuthService:
 
         password_hash = hash_password(password)
         user = await self.repo.create(email, phone, password_hash)
+        await self.session.commit()
 
         otp = generate_otp()
         await self.redis.setex(f"otp:{email}", 300, otp)
 
+        send_email_notification.delay(
+            to_email=email,
+            subject="Verify your CCash account",
+            body=f"Your verification code is: {otp}\n\nThis code expires in 5 minutes.",
+        )
+
         return user
 
-    async def verify_otp(self, email: str, code: str) -> bool:
-        stored = await self.redis.get(f"otp:{email}")
-        if not stored or stored.decode() != code:
-            raise ValidationError("Invalid or expired OTP")
-
+    async def setup_verify_totp(self, email: str) -> tuple[str, str]:
         user = await self.repo.get_by_email(email)
         if not user:
             raise NotFoundError("User not found")
 
+        secret = generate_totp_secret()
+        uri = f"otpauth://totp/CCash:{email}?secret={secret}&issuer=CCash"
+        await self.redis.setex(f"verify_totp_secret:{email}", 600, secret)
+
+        return secret, uri
+
+    async def verify_otp(self, email: str, code: str) -> bool:
+        user = await self.repo.get_by_email(email)
+        if not user:
+            raise NotFoundError("User not found")
+
+        verified = False
+
+        # Try email OTP first
+        stored = await self.redis.get(f"otp:{email}")
+        if stored and stored.decode() == code:
+            verified = True
+            await self.redis.delete(f"otp:{email}")
+
+        # Fall back to TOTP (authenticator app)
+        if not verified:
+            secret = await self.redis.get(f"verify_totp_secret:{email}")
+            if secret and verify_totp(secret.decode(), code):
+                verified = True
+                await self.redis.delete(f"verify_totp_secret:{email}")
+
+        if not verified:
+            raise ValidationError("Invalid or expired code")
+
         user.is_verified = True
         user.status = UserStatus.ACTIVE
         await self.repo.update(user)
-        await self.redis.delete(f"otp:{email}")
+        await self.session.commit()
+
+        return True
+
+    async def send_login_otp(self, email: str) -> bool:
+        user = await self.repo.get_by_email(email)
+        if not user:
+            raise NotFoundError("User not found")
+
+        otp = generate_otp()
+        await self.redis.setex(f"login_otp:{email}", 300, otp)
+
+        send_email_notification.delay(
+            to_email=email,
+            subject="Your CCash login code",
+            body=f"Your login verification code is: {otp}\n\nThis code expires in 5 minutes.",
+        )
 
         return True
 
@@ -72,8 +121,17 @@ class AuthService:
         if user.is_2fa_enabled:
             if not otp_code:
                 raise ValidationError("2FA code required")
-            if not user.totp_secret or not verify_totp(user.totp_secret, otp_code):
-                raise AuthenticationError("Invalid 2FA code")
+
+            # Try TOTP (authenticator app) first
+            if user.totp_secret and verify_totp(user.totp_secret, otp_code):
+                pass  # TOTP verified
+            else:
+                # Fall back to email OTP
+                stored = await self.redis.get(f"login_otp:{email}")
+                if not stored or stored.decode() != otp_code:
+                    raise AuthenticationError("Invalid 2FA code")
+                # Consume the OTP so it cannot be reused
+                await self.redis.delete(f"login_otp:{email}")
 
         access_token = create_access_token(str(user.id), scopes=["wallet:read", "wallet:write"])
         refresh_token, token_id = create_refresh_token(str(user.id))
@@ -117,6 +175,7 @@ class AuthService:
         user.totp_secret = secret
         user.is_2fa_enabled = True
         await self.repo.update(user)
+        await self.session.commit()
 
         return True
 
