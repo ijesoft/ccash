@@ -78,7 +78,7 @@ class TransactionService:
         await self.wallet_repo.update_balance(receiver_wallet.id, net_amount)
         await self.wallet_repo.update_daily_usage(sender_wallet.id, amount_cents)
 
-        await self.session.flush()
+        await self.session.commit()
         return tx
 
     async def cash_in(
@@ -111,7 +111,7 @@ class TransactionService:
         )
         await self.tx_repo.create(tx)
         await self.wallet_repo.update_balance(wallet.id, amount_cents)
-        await self.session.flush()
+        await self.session.commit()
         return tx
 
     async def cash_out(
@@ -146,7 +146,7 @@ class TransactionService:
         )
         await self.tx_repo.create(tx)
         await self.wallet_repo.update_balance(wallet.id, -amount_cents)
-        await self.session.flush()
+        await self.session.commit()
         return tx
 
     async def get_transaction(self, tx_id: uuid.UUID) -> Transaction:

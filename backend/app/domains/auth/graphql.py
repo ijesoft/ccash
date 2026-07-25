@@ -2,14 +2,12 @@ import strawberry
 from strawberry.types import Info
 
 from app.core.errors import AuthenticationError, NotFoundError, ValidationError
+from app.core.redis import get_redis
 from app.core.security import generate_totp_secret
 from app.database import async_session_factory
-from app.domains.auth.models import KycLevel, User, UserStatus
+from app.domains.auth.models import User, UserStatus
 from app.domains.auth.service import AuthService
 from app.graphql.middleware import AuthContext
-from app.config import settings
-
-import redis.asyncio as aioredis
 
 
 @strawberry.type
@@ -51,7 +49,7 @@ class TwoFactorSetup:
 
 
 async def get_auth_service(info: Info) -> AuthService:
-    redis = aioredis.from_url(settings.redis_url)
+    redis = await get_redis()
     session = async_session_factory()
     return AuthService(session, redis)
 

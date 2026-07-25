@@ -1,29 +1,38 @@
-import time
+import json
 
 from fastapi import Request, HTTPException
-from redis.asyncio import Redis
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.types import ASGIApp, Receive, Scope, Send
 
-from app.config import settings
+from app.core.redis import get_redis
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, redis: Redis):
-        super().__init__(app)
-        self.redis = redis
-
-    async def dispatch(self, request: Request, call_next):
-        if request.url.path in ("/graphql",) and request.method == "POST":
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
+        if request.url.path == "/graphql" and request.method == "POST":
             client_ip = request.client.host if request.client else "unknown"
-            key = f"rate:{client_ip}:{request.url.path}"
+            redis = await get_redis()
 
-            current = await self.redis.get(key)
-            if current and int(current) > 30:
+            body = await request.body()
+
+            try:
+                data = json.loads(body)
+                operation_name = data.get("operationName", "")
+                is_auth_operation = operation_name in ("login", "register", "verifyOtp", "sendLoginOtp")
+            except (json.JSONDecodeError, AttributeError):
+                is_auth_operation = False
+
+            key = f"rate:{client_ip}:{'auth' if is_auth_operation else 'graphql'}"
+            limit = 5 if is_auth_operation else 60
+            window = 60
+
+            current = await redis.get(key)
+            if current and int(current) >= limit:
                 raise HTTPException(status_code=429, detail="Too many requests")
 
-            pipe = self.redis.pipeline()
+            pipe = redis.pipeline()
             pipe.incr(key)
-            pipe.expire(key, 60)
+            pipe.expire(key, window)
             await pipe.execute()
 
         response = await call_next(request)

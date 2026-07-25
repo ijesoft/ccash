@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+logs/
+
+# Environment
+backend/.env
+
+# Graphify
+graphify-out/
+
+# PM2
+.pm2/
+
+# OS
+.DS_Store

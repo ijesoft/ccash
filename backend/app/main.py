@@ -6,17 +6,21 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from strawberry.fastapi import GraphQLRouter
 
 from app.config import settings
+from app.core.redis import close_redis, get_redis
 from app.core.security import decode_token
 from app.database import close_db, create_tables
 from app.graphql.middleware import get_context
 from app.graphql.schema import schema
+from app.middleware.rate_limit import RateLimitMiddleware
 from app.websocket.manager import manager
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_tables()
+    await get_redis()
     yield
+    await close_redis()
     await close_db()
 
 
@@ -33,6 +37,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RateLimitMiddleware)
 
 graphql_router = GraphQLRouter(schema, context_getter=get_context)
 app.include_router(graphql_router, prefix="/graphql")

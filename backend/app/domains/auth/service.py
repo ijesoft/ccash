@@ -109,7 +109,9 @@ class AuthService:
 
     async def login(self, email: str, password: str, otp_code: str | None = None) -> tuple[str, str, User]:
         user = await self.repo.get_by_email(email)
+
         if not user:
+            hash_password(password)
             raise AuthenticationError("Invalid credentials")
 
         if not verify_password(password, user.password_hash):
