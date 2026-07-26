@@ -58,7 +58,19 @@ export default function SuccessDialog({
   const handleCopy = async () => {
     if (!reference) return;
     try {
-      await navigator.clipboard.writeText(reference);
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(reference);
+      } else {
+        const input = document.createElement("textarea");
+        input.value = reference;
+        input.setAttribute("readonly", "");
+        input.style.position = "fixed";
+        input.style.left = "-9999px";
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {

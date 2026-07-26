@@ -1,11 +1,23 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Typography, TextField, Button, Alert, Card, CardContent, ToggleButton, ToggleButtonGroup } from "@mui/material";
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Alert,
+  Card,
+  CardContent,
+  ToggleButton,
+  ToggleButtonGroup,
+  Divider,
+} from "@mui/material";
 import QrCodeIcon from "@mui/icons-material/QrCode";
 import { useMutation, useQuery, gql } from "@apollo/client";
 import { GET_WALLET, GET_TRANSACTIONS } from "../graphql/queries/wallet";
 import { formatDate } from "../utils/format";
 import SuccessDialog from "../components/SuccessDialog";
+import QrCameraScanner from "../components/QrCameraScanner";
 import type { Transaction } from "../types";
 
 const MY_QR_CODE = gql`
@@ -41,25 +53,26 @@ export default function QrPayment() {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<Transaction | null>(null);
+  const [scannedHint, setScannedHint] = useState("");
 
   const { data: qrData } = useQuery(MY_QR_CODE);
   const [scanQrPayment, { loading }] = useMutation(SCAN_QR_PAYMENT, {
     refetchQueries: [{ query: GET_WALLET }, { query: GET_TRANSACTIONS, variables: { limit: 5, offset: 0 } }],
   });
 
-  const handleScan = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const payWithPayload = async (payload: string) => {
     setError("");
+    setScannedHint("");
 
-    if (!scanPayload.trim()) {
-      setError("Enter a QR payload");
+    if (!payload.trim()) {
+      setError("Enter or scan a QR payload");
       return;
     }
 
     try {
       const { data } = await scanQrPayment({
         variables: {
-          payload: scanPayload,
+          payload,
           idempotencyKey: crypto.randomUUID(),
           pin: pin || undefined,
         },
@@ -70,6 +83,16 @@ export default function QrPayment() {
     } catch (err: any) {
       setError(err.message || "QR payment failed");
     }
+  };
+
+  const handleScan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await payWithPayload(scanPayload);
+  };
+
+  const handleCameraScan = (payload: string) => {
+    setScanPayload(payload);
+    setScannedHint("QR detected — review the payload and confirm payment.");
   };
 
   return (
@@ -83,12 +106,18 @@ export default function QrPayment() {
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
+      {scannedHint && <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>{scannedHint}</Alert>}
 
       <ToggleButtonGroup
         exclusive
         fullWidth
         value={activeTab}
-        onChange={(_, v) => v && setActiveTab(v)}
+        onChange={(_, v) => {
+          if (!v) return;
+          setActiveTab(v);
+          setError("");
+          setScannedHint("");
+        }}
         sx={{
           mb: 3,
           "& .MuiToggleButton-root": {
@@ -153,6 +182,14 @@ export default function QrPayment() {
       {activeTab === "scan" && (
         <Card sx={{ borderRadius: 3 }}>
           <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+            <QrCameraScanner active={activeTab === "scan"} onScan={handleCameraScan} />
+
+            <Divider sx={{ my: 2 }}>
+              <Typography variant="caption" color="text.secondary">
+                or paste manually
+              </Typography>
+            </Divider>
+
             <Box component="form" onSubmit={handleScan}>
               <TextField
                 fullWidth
@@ -164,7 +201,7 @@ export default function QrPayment() {
                 rows={3}
                 sx={{ mb: 2 }}
                 placeholder='{"to":"09181234567","amount":500}'
-                helperText="Paste the QR payload JSON from the payer"
+                helperText="Paste the QR payload JSON, or use the camera above"
               />
               <TextField
                 fullWidth
