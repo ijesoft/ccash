@@ -6,8 +6,11 @@ export const SEND_MONEY = gql`
       id
       type
       status
+      direction
+      counterparty { walletId name maskedMobile }
       amount { cents }
       fee { cents }
+      reference
       receiverWalletId
       description
       createdAt
@@ -21,7 +24,9 @@ export const CASH_IN = gql`
       id
       type
       status
+      direction
       amount { cents }
+      reference
       createdAt
     }
   }
@@ -33,7 +38,9 @@ export const CASH_OUT = gql`
       id
       type
       status
+      direction
       amount { cents }
+      reference
       createdAt
     }
   }

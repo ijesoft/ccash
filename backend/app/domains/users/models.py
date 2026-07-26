@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, Enum, func
 from sqlmodel import Field, SQLModel
@@ -29,7 +29,7 @@ class KycDocument(SQLModel, table=True):
     rejection_reason: str | None = Field(default=None, max_length=500)
 
     uploaded_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_type=DateTime(timezone=True),
         sa_column_kwargs={"server_default": func.now()},
     )

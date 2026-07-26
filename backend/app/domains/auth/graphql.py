@@ -15,6 +15,8 @@ class UserType:
     id: str
     email: str
     phone: str
+    first_name: str | None
+    last_name: str | None
     status: str
     kyc_level: str
     is_2fa_enabled: bool
@@ -27,6 +29,8 @@ class UserType:
             id=str(user.id),
             email=user.email,
             phone=user.phone,
+            first_name=user.first_name,
+            last_name=user.last_name,
             status=user.status.value,
             kyc_level=user.kyc_level.value,
             is_2fa_enabled=user.is_2fa_enabled,

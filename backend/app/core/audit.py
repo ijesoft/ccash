@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 import sqlalchemy as sa
 from sqlalchemy import Column, DateTime, func
@@ -20,7 +20,7 @@ class AuditLog(SQLModel, table=True):
     user_agent: str | None = Field(default=None, max_length=500)
 
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_type=DateTime(timezone=True),
         sa_column_kwargs={"server_default": func.now()},
     )

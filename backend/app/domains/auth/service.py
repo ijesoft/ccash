@@ -26,7 +26,7 @@ class AuthService:
         self.session = session
         self.redis = redis
 
-    async def register(self, email: str, phone: str, password: str) -> User:
+    async def register(self, email: str, phone: str, password: str, first_name: str | None = None, last_name: str | None = None) -> User:
         existing = await self.repo.get_by_email(email)
         if existing:
             raise ValidationError("Email already registered")
@@ -36,7 +36,7 @@ class AuthService:
             raise ValidationError("Phone already registered")
 
         password_hash = hash_password(password)
-        user = await self.repo.create(email, phone, password_hash)
+        user = await self.repo.create(email, phone, password_hash, first_name, last_name)
         await self.session.commit()
 
         otp = generate_otp()

@@ -4,25 +4,28 @@ A production-ready digital wallet platform built with Python 3.13 + FastAPI + St
 
 ## Quick Start
 
+Application processes run under PM2 on the host; stateful infrastructure runs in
+Docker. `docker-compose.yml` (the all-in-Docker variant) is not the deployment
+that serves the app — use `docker-compose.infra.yml` plus PM2.
+
 ```bash
 cp .env.example .env
-docker compose up -d
+docker compose -f docker-compose.infra.yml up -d   # postgres, redis, rabbitmq, mailpit
+pm2 start ecosystem.config.js                      # backend, celery, frontend
+cd backend && ./.venv/bin/python -m alembic -c migrations/alembic.ini upgrade head
 ```
 
 Access:
-- **Frontend**: http://localhost
-- **GraphQL Playground**: http://localhost/api/graphql
-- **pgAdmin**: http://localhost/pgadmin (admin@ccash.ph / admin)
-- **Mailpit**: http://localhost/mailpit
-- **Grafana**: http://localhost:3001 (admin / admin)
-- **Prometheus**: http://localhost:9090
+- **Frontend**: http://localhost:8830
+- **GraphQL**: http://localhost:8830/api/graphql (proxied) or http://localhost:8831/graphql (direct)
+- **Mailpit**: http://localhost:8025
 
 ## Seed Data
 
 Run the seed script to create test users:
 
 ```bash
-docker compose exec backend python -m app.seed
+cd backend && ./.venv/bin/python -m app.seed
 ```
 
 | User | Email | Password |
@@ -57,16 +60,26 @@ docker compose exec backend python -m app.seed
 
 ## Features
 
-- User registration with OTP verification
+- User registration with email OTP or authenticator-app verification
 - Login with optional 2FA (TOTP)
-- KYC document upload and verification
-- Wallet management with PIN protection
-- Send money between wallets (idempotent)
+- KYC document upload and verification (does not yet affect wallet limits)
+- Wallet management with a stored transaction PIN (not yet enforced on transfers)
+- Send money between wallets — idempotent, amount-validated, with a customer-facing reference
 - Cash in / Cash out (simulated)
-- QR code payments
-- Transaction history with filtering
-- Real-time notifications via WebSocket
+- Transaction history with per-viewer direction and masked counterparty
+- Real-time notifications via WebSocket, fanned out across workers over Redis pub/sub
 - Admin dashboard with user management
+
+Not yet implemented: QR payments (the page exists but calls a mutation the schema
+does not define, so it is unrouted), Request Money, Bills Payment, Buy Load, bank
+transfer, tiered limits by KYC level, and transaction fees.
+
+## Testing
+
+```bash
+cd backend && ./.venv/bin/python -m pytest                 # 51 tests
+./backend/.venv/bin/python scripts/verify_realtime.py      # live WebSocket push
+```
 
 ## GraphQL API
 
@@ -84,6 +97,13 @@ cashOut(input: CashOutInput!): TransactionType!
 wallet: WalletType!
 transactions(limit: Int, offset: Int, txType: String): TransactionConnection!
 notifications(limit: Int, offset: Int): NotificationConnection!
+
+# Every TransactionType carries a per-caller view of the row:
+#   direction: IN | OUT          — resolved against the caller's wallet
+#   counterparty { name maskedMobile }  — the other party, or null for cash in/out
+#   reference: String            — customer-facing, e.g. "CC260726H7K2QP3M"
+# Clients must render sign and colour from `direction`, never from `type`:
+# one SEND row is OUT for the sender and IN for the recipient.
 
 # Subscriptions
 walletBalance(userId: UUID!): Money!
@@ -115,7 +135,15 @@ ccash/
 - Passwords hashed with Argon2id
 - JWT access (15min) + refresh tokens (7 days)
 - TOTP-based 2FA
-- Rate limiting via Redis
-- Idempotency keys for all financial mutations
+- Idempotency keys for all financial mutations, safe under concurrent double-submit
+- Amount policy enforced in the service layer, backstopped by DB CHECK constraints
+- Ownership checks on transaction reads
+- Counterparty mobile numbers masked
 - CORS restricted to frontend origin
-- Soft delete and audit logging
+- Soft delete
+
+Known gaps: the `audit_logs` table exists but nothing writes to it; the rate
+limiter keys on `request.client.host` (one shared bucket behind a proxy) and
+selects its limit from the client-supplied `operationName`, so the stricter auth
+limit is bypassed by omitting that field. The transaction PIN is stored but not
+required for transfers.

@@ -16,6 +16,23 @@ module.exports = {
       log_date_format: "YYYY-MM-DD HH:mm:ss Z",
     },
     {
+      // Consumes the email/OTP queue and runs the daily-limit reset on beat.
+      // Nothing consumed this queue before, so OTP emails never left RabbitMQ.
+      name: "ccash-celery",
+      script: "/home/ubuntu/Github/ccash/start-celery.sh",
+      exec_mode: "fork",
+      instances: 1,
+      autorestart: true,
+      max_memory_restart: "512M",
+      env_file: "/home/ubuntu/Github/ccash/backend/.env",
+      env: {
+        PYTHONUNBUFFERED: "1",
+      },
+      error_file: "/home/ubuntu/Github/ccash/logs/celery-error.log",
+      out_file: "/home/ubuntu/Github/ccash/logs/celery-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
+    },
+    {
       name: "ccash-frontend",
       cwd: "/home/ubuntu/Github/ccash/frontend",
       script: "npx",

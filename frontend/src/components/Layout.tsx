@@ -20,6 +20,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import SendIcon from "@mui/icons-material/Send";
 import ReceiptIcon from "@mui/icons-material/Receipt";
+import QrCodeIcon from "@mui/icons-material/QrCode";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import PersonIcon from "@mui/icons-material/Person";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -32,6 +33,7 @@ const navItems = [
   { label: "Dashboard", icon: <HomeIcon />, path: "/" },
   { label: "Wallet", icon: <AccountBalanceWalletIcon />, path: "/wallet" },
   { label: "Send Money", icon: <SendIcon />, path: "/send" },
+  { label: "QR Payment", icon: <QrCodeIcon />, path: "/qr-payment" },
   { label: "Transactions", icon: <ReceiptIcon />, path: "/transactions" },
   { label: "Notifications", icon: <NotificationsIcon />, path: "/notifications" },
   { label: "Profile", icon: <PersonIcon />, path: "/profile" },

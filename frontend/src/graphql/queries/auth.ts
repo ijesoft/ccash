@@ -6,6 +6,8 @@ export const ME = gql`
       id
       email
       phone
+      firstName
+      lastName
       status
       kycLevel
       is2faEnabled

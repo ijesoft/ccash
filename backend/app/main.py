@@ -19,7 +19,11 @@ from app.websocket.manager import manager
 async def lifespan(app: FastAPI):
     await create_tables()
     await get_redis()
+    # Each worker must subscribe to the push channel, otherwise a notification
+    # raised in one worker never reaches a socket held by another.
+    await manager.start_listener()
     yield
+    await manager.stop_listener()
     await close_redis()
     await close_db()
 

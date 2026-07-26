@@ -74,7 +74,11 @@ def upgrade() -> None:
         sa.Column("net_amount_cents", sa.BigInteger(), nullable=False),
         sa.Column("reference", sa.String(length=255), nullable=True),
         sa.Column("description", sa.String(length=500), nullable=True),
-        sa.Column("metadata", sa.JSON(), nullable=True),
+        # Must match Transaction.tx_metadata: `metadata` is reserved on
+        # SQLAlchemy declarative classes, so the model cannot use that name. A
+        # database built from this migration with the column named `metadata`
+        # cannot read the transactions table at all.
+        sa.Column("tx_metadata", sa.JSON(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("created_by", sa.Uuid(), nullable=True),
@@ -103,11 +107,28 @@ def upgrade() -> None:
         "notifications",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column("type", sa.String(length=50), nullable=False),
+        # Must be the enum type, not VARCHAR: Notification.type is a
+        # NotificationType enum, so SQLAlchemy binds inserts as
+        # ::notificationtype and a VARCHAR column makes every insert fail.
+        sa.Column(
+            "type",
+            sa.Enum(
+                "TRANSFER_RECEIVED",
+                "CASH_IN",
+                "CASH_OUT",
+                "SENT",
+                "QR_PAYMENT",
+                "KYC_UPDATE",
+                "SECURITY",
+                name="notificationtype",
+            ),
+            nullable=False,
+        ),
         sa.Column("title", sa.String(length=255), nullable=False),
         sa.Column("body", sa.String(length=1000), nullable=False),
         sa.Column("is_read", sa.Boolean(), nullable=False, server_default="false"),
-        sa.Column("metadata", sa.JSON(), nullable=True),
+        # Matches Notification.data, for the same reason as above.
+        sa.Column("data", sa.JSON(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"],),
         sa.PrimaryKeyConstraint("id"),

@@ -1,5 +1,9 @@
 {
   "compilerOptions": {
+    // Vite transpiles; tsc only typechecks. Without this, tsc writes a .js
+    // beside each source and Vite resolves those before the .tsx, so source
+    // edits stop reaching the bundle.
+    "noEmit": true,
     "target": "ES2022",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",

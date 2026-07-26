@@ -22,8 +22,8 @@ class UserRepository:
         result = await self.session.execute(select(User).where(User.phone == phone, User.deleted_at.is_(None)))
         return result.scalar_one_or_none()
 
-    async def create(self, email: str, phone: str, password_hash: str) -> User:
-        user = User(email=email, phone=phone, password_hash=password_hash)
+    async def create(self, email: str, phone: str, password_hash: str, first_name: str | None = None, last_name: str | None = None) -> User:
+        user = User(email=email, phone=phone, password_hash=password_hash, first_name=first_name, last_name=last_name)
         self.session.add(user)
         await self.session.flush()
         return user

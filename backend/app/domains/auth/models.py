@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, Enum, func
 from sqlmodel import Field, SQLModel
@@ -24,6 +24,8 @@ class User(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     email: str = Field(unique=True, index=True, max_length=255)
     phone: str = Field(unique=True, index=True, max_length=20)
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
     password_hash: str = Field(max_length=255)
     status: UserStatus = Field(default=UserStatus.PENDING, sa_type=Enum(UserStatus))
     kyc_level: KycLevel = Field(default=KycLevel.NONE, sa_type=Enum(KycLevel))
@@ -33,12 +35,12 @@ class User(SQLModel, table=True):
     is_verified: bool = Field(default=False)
 
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_type=DateTime(timezone=True),
         sa_column_kwargs={"server_default": func.now()},
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_type=DateTime(timezone=True),
         sa_column_kwargs={"onupdate": func.now()},
     )

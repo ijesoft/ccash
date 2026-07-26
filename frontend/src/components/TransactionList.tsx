@@ -8,20 +8,24 @@ interface Props {
   transactions: Transaction[];
 }
 
-const typeColors: Record<string, "success" | "error" | "info" | "default"> = {
-  CASH_IN: "success",
-  CASH_OUT: "error",
-  SEND: "error",
-  RECEIVE: "success",
-  QR_PAYMENT: "info",
+const typeLabels: Record<string, string> = {
+  CASH_IN: "Cash In",
+  CASH_OUT: "Cash Out",
+  SEND: "Transfer",
+  RECEIVE: "Transfer",
+  QR_PAYMENT: "QR Payment",
 };
 
-const typeIcons: Record<string, React.ReactNode> = {
-  CASH_IN: <ArrowDownwardIcon fontSize="small" />,
-  RECEIVE: <ArrowDownwardIcon fontSize="small" />,
-  CASH_OUT: <ArrowUpwardIcon fontSize="small" />,
-  SEND: <ArrowUpwardIcon fontSize="small" />,
-};
+/**
+ * `direction` comes from the server and is relative to the signed-in user: the
+ * same SEND row is OUT for the sender and IN for the recipient. Deriving it from
+ * `tx.type` showed recipients their incoming money as a red debit.
+ */
+function counterpartyLabel(tx: Transaction): string {
+  if (!tx.counterparty) return typeLabels[tx.type] ?? tx.type.replace("_", " ");
+  const who = tx.counterparty.name ?? tx.counterparty.maskedMobile;
+  return tx.direction === "IN" ? `From ${who}` : `To ${who}`;
+}
 
 export default function TransactionList({ transactions }: Props) {
   if (!transactions.length) {
@@ -30,23 +34,40 @@ export default function TransactionList({ transactions }: Props) {
 
   return (
     <List>
-      {transactions.map((tx) => (
-        <ListItem key={tx.id} divider>
-          <Box sx={{ mr: 2 }}>
-            {typeIcons[tx.type] ?? null}
-          </Box>
-          <ListItemText
-            primary={tx.description || tx.type.replace("_", " ")}
-            secondary={formatDate(tx.createdAt)}
-          />
-          <Box sx={{ textAlign: "right" }}>
-            <Typography variant="body2" fontWeight="bold">
-              {["CASH_IN", "RECEIVE"].includes(tx.type) ? "+" : "-"}{formatMoney(tx.amount.cents)}
-            </Typography>
-            <Chip label={tx.type.replace("_", " ")} size="small" color={typeColors[tx.type] ?? "default"} variant="outlined" />
-          </Box>
-        </ListItem>
-      ))}
+      {transactions.map((tx) => {
+        const incoming = tx.direction === "IN";
+        return (
+          <ListItem key={tx.id} divider>
+            <Box sx={{ mr: 2, display: "flex", color: incoming ? "success.main" : "error.main" }}>
+              {incoming ? <ArrowDownwardIcon fontSize="small" /> : <ArrowUpwardIcon fontSize="small" />}
+            </Box>
+            <ListItemText
+              primary={tx.description || counterpartyLabel(tx)}
+              secondary={
+                <>
+                  {formatDate(tx.createdAt)}
+                  {tx.reference && (
+                    <Typography component="span" variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                      Ref {tx.reference}
+                    </Typography>
+                  )}
+                </>
+              }
+            />
+            <Box sx={{ textAlign: "right" }}>
+              <Typography variant="body2" fontWeight="bold" color={incoming ? "success.main" : "error.main"}>
+                {incoming ? "+" : "-"}{formatMoney(tx.amount.cents)}
+              </Typography>
+              <Chip
+                label={typeLabels[tx.type] ?? tx.type.replace("_", " ")}
+                size="small"
+                color={incoming ? "success" : "error"}
+                variant="outlined"
+              />
+            </Box>
+          </ListItem>
+        );
+      })}
     </List>
   );
 }

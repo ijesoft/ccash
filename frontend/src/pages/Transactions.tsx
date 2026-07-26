@@ -21,9 +21,9 @@ export default function TransactionsPage() {
           <MenuItem value="">All</MenuItem>
           <MenuItem value="CASH_IN">Cash In</MenuItem>
           <MenuItem value="CASH_OUT">Cash Out</MenuItem>
-          <MenuItem value="SEND">Sent</MenuItem>
-          <MenuItem value="RECEIVE">Received</MenuItem>
-          <MenuItem value="QR_PAYMENT">QR Payment</MenuItem>
+          {/* One SEND row covers both sides of a transfer, so there is no
+              separate RECEIVE type to filter on. */}
+          <MenuItem value="SEND">Transfers</MenuItem>
         </Select>
       </FormControl>
 
