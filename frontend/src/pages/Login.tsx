@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Box, Button, Card, CardContent, TextField, Typography, Alert } from "@mui/material";
+import SecurityIcon from "@mui/icons-material/Security";
 import { useMutation } from "@apollo/client";
 import { useAuth } from "../context/AuthContext";
 import { SEND_LOGIN_OTP } from "../graphql/mutations/auth";
@@ -49,31 +50,102 @@ export default function Login() {
   };
 
   return (
-    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", bgcolor: "#f5f5f5" }}>
-      <Card sx={{ maxWidth: 400, width: "100%", mx: 2 }}>
-        <CardContent sx={{ p: 4 }}>
-          <Typography variant="h4" fontWeight="bold" color="primary" textAlign="center" gutterBottom>CCash</Typography>
-          <Typography variant="body2" color="text.secondary" textAlign="center" mb={3}>Sign in to your account</Typography>
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "100vh",
+        bgcolor: "background.default",
+        px: 2,
+      }}
+    >
+      <Card sx={{ maxWidth: 400, width: "100%", borderRadius: 3, boxShadow: "lg" }}>
+        <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
+          <Box sx={{ textAlign: "center", mb: 3 }}>
+            <Box
+              sx={{
+                width: 56,
+                height: 56,
+                borderRadius: 2.5,
+                bgcolor: "primary.main",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                mx: "auto",
+                mb: 1.5,
+              }}
+            >
+              <SecurityIcon sx={{ fontSize: 30, color: "white" }} />
+            </Box>
+            <Typography variant="h4" fontWeight={700} sx={{ fontFamily: '"League Spartan", sans-serif', color: "primary.main" }}>
+              CCash
+            </Typography>
+            <Typography variant="body2" color="text.secondary">Sign in to your account</Typography>
+          </Box>
 
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-          {otpSent && <Alert severity="success" sx={{ mb: 2 }}>Verification code sent to your email</Alert>}
+          {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
+          {otpSent && <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>Verification code sent to your email</Alert>}
 
           <Box component="form" onSubmit={handleSubmit}>
-            <TextField fullWidth label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required sx={{ mb: 2 }} />
-            <TextField fullWidth label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required sx={{ mb: 2 }} />
-            <TextField fullWidth label="2FA / OTP Code" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="6-digit code" sx={{ mb: 2 }} />
-            <Button fullWidth type="submit" variant="contained" size="large" disabled={loading} sx={{ mb: 1 }}>
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              margin="normal"
+              sx={{ borderRadius: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              margin="normal"
+              sx={{ borderRadius: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="2FA / OTP Code (optional)"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value)}
+              placeholder="6-digit code"
+              margin="normal"
+              inputProps={{ maxLength: 6 }}
+              sx={{ borderRadius: 2 }}
+            />
+            <Button
+              fullWidth
+              type="submit"
+              variant="contained"
+              size="large"
+              disabled={loading}
+              sx={{ mt: 2, mb: 1, borderRadius: 2, py: 1.5 }}
+            >
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </Box>
 
-          <Button fullWidth variant="outlined" size="small" disabled={sendingOtp} onClick={handleSendOtp}>
+          <Button
+            fullWidth
+            variant="outlined"
+            size="small"
+            disabled={sendingOtp}
+            onClick={handleSendOtp}
+            sx={{ borderRadius: 2 }}
+          >
             {sendingOtp ? "Sending..." : "Send code to email"}
           </Button>
 
-          <Typography textAlign="center" mt={2}>
-            <Link to="/register" style={{ color: "#0f6ecd" }}>Don't have an account? Sign up</Link>
-          </Typography>
+          <Box sx={{ textAlign: "center", mt: 3 }}>
+            <a href="/register" style={{ color: "#0f6ecd", textDecoration: "none", fontWeight: 500 }}>
+              Don't have an account? Sign up
+            </a>
+          </Box>
         </CardContent>
       </Card>
     </Box>

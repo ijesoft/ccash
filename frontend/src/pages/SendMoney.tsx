@@ -12,6 +12,7 @@ import {
   Stepper,
   Chip,
   Avatar,
+  Fade,
 } from "@mui/material";
 import { useMutation, useQuery, gql } from "@apollo/client";
 import { SEND_MONEY } from "../graphql/mutations/transactions";
@@ -29,7 +30,7 @@ const RESOLVE_RECIPIENT = gql`
   }
 `;
 
-const STEPS = ["Enter mobile", "Confirm recipient", "Amount & note", "MPIN & send"];
+const STEPS = ["Recipient", "Amount", "Confirm"];
 
 export default function SendMoney() {
   const [step, setStep] = useState(0);
@@ -64,21 +65,6 @@ export default function SendMoney() {
     }
   };
 
-  const handleConfirmRecipient = () => {
-    setError("");
-    setStep(2);
-  };
-
-  const handleStep3Next = () => {
-    setError("");
-    const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      setError("Enter a valid amount");
-      return;
-    }
-    setStep(3);
-  };
-
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -87,6 +73,10 @@ export default function SendMoney() {
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
       setError("Enter a valid amount");
+      return;
+    }
+    if (!pin || pin.length < 4) {
+      setError("Enter your MPIN");
       return;
     }
 
@@ -102,7 +92,8 @@ export default function SendMoney() {
           },
         },
       });
-      setReference(data?.sendMoney?.reference ?? "");
+      const ref = data?.sendMoney?.reference ?? "";
+      setReference(ref);
       setStep(0);
       setMobile("");
       setRecipient(null);
@@ -119,159 +110,146 @@ export default function SendMoney() {
     setRecipient(null);
   };
 
-  const resetForm = () => {
-    setStep(0);
-    setMobile("");
-    setRecipient(null);
-    setAmount("");
-    setNote("");
-    setPin("");
-    setError("");
-    setReference("");
-  };
-
   return (
     <Box sx={{ maxWidth: 520, mx: "auto" }}>
-      <Typography variant="h5" fontWeight="bold" mb={3}>Send Money</Typography>
+      <Typography variant="h5" fontWeight={700} mb={1} gutterBottom sx={{ fontFamily: '"League Spartan", sans-serif' }}>
+        Send Money
+      </Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {reference && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Money sent! Reference: <strong>{reference}</strong>
-        </Alert>
-      )}
-
-      <Stepper activeStep={step} sx={{ mb: 4 }}>
+      <Stepper activeStep={step} sx={{ mb: 3 }}>
         {STEPS.map((label) => (
           <Step key={label}>
-            <StepLabel>{label}</StepLabel>
+            <StepLabel sx={{ "& .MuiStepLabel-label": { fontWeight: 500 } }}>{label}</StepLabel>
           </Step>
         ))}
       </Stepper>
 
-      <Card>
+      {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
+      {reference && (
+        <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>
+          Money sent! Ref: <strong>{reference}</strong>
+        </Alert>
+      )}
+
+      <Card sx={{ borderRadius: 3 }}>
         <CardContent>
           {step === 0 && (
-            <Box component="form" onSubmit={(e) => { e.preventDefault(); handleResolveMobile(); }}>
-              {favsData?.favorites && favsData.favorites.length > 0 && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Saved recipients</Typography>
-                  {favsData.favorites.map((fav) => (
-                    <Chip
-                      key={fav.id}
-                      label={`${fav.name} (${fav.accountIdentifier})`}
-                      onClick={() => handleSelectFavorite(fav)}
-                      sx={{ mr: 1, mb: 1, cursor: "pointer" }}
-                      variant="outlined"
-                      size="small"
-                    />
-                  ))}
-                </Box>
-              )}
-              <TextField
-                fullWidth
-                label="Mobile number"
-                value={mobile}
-                onChange={(e) => setMobile(e.target.value)}
-                required
-                inputProps={{ maxLength: 11 }}
-                placeholder="09181234567"
-                sx={{ mb: 3 }}
-              />
-              <Button fullWidth type="submit" variant="contained" size="large">
-                Continue
-              </Button>
-            </Box>
+            <Fade in timeout={300}>
+              <Box component="form" onSubmit={(e) => { e.preventDefault(); handleResolveMobile(); }}>
+                {favsData?.favorites && favsData.favorites.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="caption" color="text.secondary" display="block" mb={1}>Saved recipients</Typography>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                      {favsData.favorites.map((fav) => (
+                        <Chip
+                          key={fav.id}
+                          label={`${fav.name} (${fav.accountIdentifier})`}
+                          onClick={() => handleSelectFavorite(fav)}
+                          sx={{ cursor: "pointer" }}
+                          variant="outlined"
+                          size="small"
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+                <TextField
+                  fullWidth
+                  label="Mobile number"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
+                  required
+                  inputProps={{ maxLength: 11 }}
+                  placeholder="09181234567"
+                  sx={{ mb: 3 }}
+                />
+                <Button fullWidth type="submit" variant="contained" size="large" sx={{ borderRadius: 2 }}>
+                  Continue
+                </Button>
+              </Box>
+            </Fade>
           )}
 
           {step === 1 && recipient && (
-            <Box>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                Confirm the recipient
-              </Typography>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-                <Avatar sx={{ bgcolor: "primary.main" }}>
-                  {recipient.name.charAt(0) || "?"}
-                </Avatar>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    {recipient.name || "Recipient"}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {recipient.maskedMobile}
-                  </Typography>
+            <Fade in timeout={300}>
+              <Box>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3, p: 2, bgcolor: "background.muted", borderRadius: 2 }}>
+                  <Avatar sx={{ bgcolor: "primary.main", width: 48, height: 48 }}>
+                    {recipient.name.charAt(0) || "?"}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {recipient.name || "Recipient"}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {recipient.maskedMobile}
+                    </Typography>
+                  </Box>
+                </Box>
+                <TextField
+                  fullWidth
+                  label="Amount (PHP)"
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 1, step: 0.01 }}
+                />
+                <TextField
+                  fullWidth
+                  label="Note (optional)"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  sx={{ mb: 3 }}
+                  multiline
+                  rows={2}
+                />
+                <Box sx={{ display: "flex", gap: 2 }}>
+                  <Button variant="outlined" onClick={() => setStep(0)} sx={{ borderRadius: 2 }}>
+                    Back
+                  </Button>
+                  <Button fullWidth variant="contained" onClick={() => setStep(2)} sx={{ borderRadius: 2 }}>
+                    Continue
+                  </Button>
                 </Box>
               </Box>
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <Button variant="outlined" onClick={resetForm}>
-                  Change
-                </Button>
-                <Button fullWidth variant="contained" onClick={handleConfirmRecipient}>
-                  Continue
-                </Button>
-              </Box>
-            </Box>
+            </Fade>
           )}
 
           {step === 2 && (
-            <Box component="form" onSubmit={(e) => { e.preventDefault(); handleStep3Next(); }}>
-              <TextField
-                fullWidth
-                label="Amount (PHP)"
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-                sx={{ mb: 2 }}
-                inputProps={{ min: 1, step: 0.01 }}
-              />
-              <TextField
-                fullWidth
-                label="Note (optional)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                sx={{ mb: 3 }}
-                multiline
-                rows={2}
-              />
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <Button variant="outlined" onClick={() => setStep(1)}>
-                  Back
-                </Button>
-                <Button fullWidth type="submit" variant="contained" size="large">
-                  Continue
-                </Button>
+            <Fade in timeout={300}>
+              <Box component="form" onSubmit={handleSend}>
+                <Box sx={{ p: 2, bgcolor: "background.muted", borderRadius: 2, mb: 3, textAlign: "center" }}>
+                  <Typography variant="caption" color="text.secondary" display="block">You are sending</Typography>
+                  <Typography variant="h4" fontWeight={700} color="primary.main">
+                    {formatMoney(amountToCents(parseFloat(amount) || 0))}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    to <strong>{recipient?.name || recipient?.maskedMobile}</strong>
+                  </Typography>
+                </Box>
+                <TextField
+                  fullWidth
+                  label="MPIN"
+                  type="password"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  required
+                  inputProps={{ maxLength: 6 }}
+                  placeholder="Enter MPIN"
+                  sx={{ mb: 3 }}
+                />
+                <Box sx={{ display: "flex", gap: 2 }}>
+                  <Button variant="outlined" onClick={() => setStep(1)} sx={{ borderRadius: 2 }}>
+                    Back
+                  </Button>
+                  <Button fullWidth type="submit" variant="contained" size="large" disabled={loading} sx={{ borderRadius: 2 }}>
+                    {loading ? "Sending..." : "Send"}
+                  </Button>
+                </Box>
               </Box>
-            </Box>
-          )}
-
-          {step === 3 && (
-            <Box component="form" onSubmit={handleSend}>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                You are sending{" "}
-                <strong>{formatMoney(amountToCents(parseFloat(amount) || 0))}</strong>{" "}
-                to <strong>{recipient?.name || recipient?.maskedMobile}</strong>
-              </Typography>
-              <TextField
-                fullWidth
-                label="MPIN"
-                type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                required
-                inputProps={{ maxLength: 6 }}
-                placeholder="Enter your MPIN"
-                sx={{ mb: 3 }}
-              />
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <Button variant="outlined" onClick={() => setStep(2)}>
-                  Back
-                </Button>
-                <Button fullWidth type="submit" variant="contained" size="large" disabled={loading}>
-                  {loading ? "Sending..." : "Send Money"}
-                </Button>
-              </Box>
-            </Box>
+            </Fade>
           )}
         </CardContent>
       </Card>
