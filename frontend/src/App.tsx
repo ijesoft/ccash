@@ -18,6 +18,7 @@ import TransactionsPage from "./pages/Transactions";
 import Profile from "./pages/Profile";
 import NotificationsPage from "./pages/Notifications";
 import AdminDashboard from "./pages/AdminDashboard";
+import PwaInstallPrompt from "./components/PwaInstallPrompt";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ export default function App() {
                 <Route path="/admin" element={<AdminDashboard />} />
               </Route>
             </Routes>
+            <PwaInstallPrompt />
           </BrowserRouter>
         </AuthProvider>
       </QueryClientProvider>
