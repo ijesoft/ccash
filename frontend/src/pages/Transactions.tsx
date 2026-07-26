@@ -18,12 +18,16 @@ export default function TransactionsPage() {
   }
 
   return (
-    <Box>
-      <Typography variant="h5" fontWeight={700} mb={3} sx={{ fontFamily: '"League Spartan", sans-serif' }}>
+    <Box className="animate-fade-in">
+      <Typography
+        fontWeight={700}
+        mb={2.5}
+        sx={{ fontFamily: '"League Spartan", sans-serif', fontSize: { xs: "1.35rem", sm: "1.5rem" } }}
+      >
         Transaction History
       </Typography>
 
-      <FormControl size="small" sx={{ mb: 2, minWidth: 140 }}>
+      <FormControl size="small" sx={{ mb: 2, minWidth: { xs: "100%", sm: 160 } }}>
         <InputLabel>Filter</InputLabel>
         <Select
           value={filter}
@@ -35,11 +39,14 @@ export default function TransactionsPage() {
           <MenuItem value="CASH_IN">Cash In</MenuItem>
           <MenuItem value="CASH_OUT">Cash Out</MenuItem>
           <MenuItem value="SEND">Transfers</MenuItem>
+          <MenuItem value="QR_PAYMENT">QR Payment</MenuItem>
         </Select>
       </FormControl>
 
       {transactions ? (
-        <TransactionList transactions={transactions.items} />
+        <Paper elevation={0} sx={{ borderRadius: 3, border: "1px solid", borderColor: "divider", overflow: "hidden" }}>
+          <TransactionList transactions={transactions.items} />
+        </Paper>
       ) : (
         <Paper elevation={0} sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
           <Typography variant="body2" color="text.secondary">No transactions found</Typography>
@@ -47,14 +54,15 @@ export default function TransactionsPage() {
       )}
 
       {transactions && transactions.pagination.total > limit && (
-        <Box sx={{ display: "flex", justifyContent: "center", mt: 3, pb: 2 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 3, pb: 2, overflowX: "auto" }}>
           <Pagination
             count={Math.ceil(transactions.pagination.total / limit)}
             page={page}
             onChange={(_, p) => setPage(p)}
             color="primary"
             shape="rounded"
-            size="medium"
+            size="small"
+            siblingCount={0}
           />
         </Box>
       )}

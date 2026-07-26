@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -14,11 +15,12 @@ import {
   Avatar,
   Fade,
 } from "@mui/material";
-import { useMutation, useQuery, gql } from "@apollo/client";
+import { useMutation, useQuery, useLazyQuery, gql } from "@apollo/client";
 import { SEND_MONEY } from "../graphql/mutations/transactions";
-import { GET_FAVORITES } from "../graphql/queries/wallet";
-import { amountToCents, formatMoney } from "../utils/format";
-import type { Favorite } from "../types";
+import { GET_FAVORITES, GET_WALLET, GET_TRANSACTIONS } from "../graphql/queries/wallet";
+import { amountToCents, formatDate, formatMoney } from "../utils/format";
+import SuccessDialog from "../components/SuccessDialog";
+import type { Favorite, Transaction } from "../types";
 
 const RESOLVE_RECIPIENT = gql`
   query ResolveRecipient($mobile: String!) {
@@ -33,6 +35,7 @@ const RESOLVE_RECIPIENT = gql`
 const STEPS = ["Recipient", "Amount", "Confirm"];
 
 export default function SendMoney() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [mobile, setMobile] = useState("");
   const [recipient, setRecipient] = useState<{ walletId: string; name: string; maskedMobile: string } | null>(null);
@@ -40,11 +43,21 @@ export default function SendMoney() {
   const [note, setNote] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
-  const [reference, setReference] = useState("");
+  const [receipt, setReceipt] = useState<{ tx: Transaction; recipientLabel: string; note: string } | null>(null);
   const { data: favsData } = useQuery<{ favorites: Favorite[] }>(GET_FAVORITES);
+  const [resolveRecipient, { loading: resolving }] = useLazyQuery(RESOLVE_RECIPIENT);
+  const [sendMoneyMut, { loading }] = useMutation(SEND_MONEY, {
+    refetchQueries: [{ query: GET_WALLET }, { query: GET_TRANSACTIONS, variables: { limit: 5, offset: 0 } }],
+  });
 
-  const [resolveRecipient] = useMutation(RESOLVE_RECIPIENT);
-  const [sendMoneyMut, { loading }] = useMutation(SEND_MONEY);
+  const resetForm = () => {
+    setStep(0);
+    setMobile("");
+    setRecipient(null);
+    setAmount("");
+    setNote("");
+    setPin("");
+  };
 
   const handleResolveMobile = async () => {
     setError("");
@@ -68,7 +81,6 @@ export default function SendMoney() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setReference("");
 
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
@@ -79,6 +91,9 @@ export default function SendMoney() {
       setError("Enter your MPIN");
       return;
     }
+
+    const recipientLabel = recipient?.name || recipient?.maskedMobile || mobile;
+    const sentNote = note;
 
     try {
       const { data } = await sendMoneyMut({
@@ -92,14 +107,10 @@ export default function SendMoney() {
           },
         },
       });
-      const ref = data?.sendMoney?.reference ?? "";
-      setReference(ref);
-      setStep(0);
-      setMobile("");
-      setRecipient(null);
-      setAmount("");
-      setNote("");
-      setPin("");
+      if (data?.sendMoney) {
+        setReceipt({ tx: data.sendMoney, recipientLabel, note: sentNote });
+      }
+      resetForm();
     } catch (err: any) {
       setError(err.message || "Transfer failed");
     }
@@ -111,41 +122,52 @@ export default function SendMoney() {
   };
 
   return (
-    <Box sx={{ maxWidth: 520, mx: "auto" }}>
-      <Typography variant="h5" fontWeight={700} mb={1} gutterBottom sx={{ fontFamily: '"League Spartan", sans-serif' }}>
+    <Box sx={{ maxWidth: 520, mx: "auto" }} className="animate-fade-in">
+      <Typography
+        fontWeight={700}
+        mb={2}
+        sx={{ fontFamily: '"League Spartan", sans-serif', fontSize: { xs: "1.35rem", sm: "1.5rem" } }}
+      >
         Send Money
       </Typography>
 
-      <Stepper activeStep={step} sx={{ mb: 3 }}>
+      <Stepper
+        activeStep={step}
+        alternativeLabel
+        sx={{
+          mb: 3,
+          "& .MuiStepLabel-label": {
+            fontWeight: 500,
+            fontSize: { xs: "0.7rem", sm: "0.8rem" },
+          },
+        }}
+      >
         {STEPS.map((label) => (
           <Step key={label}>
-            <StepLabel sx={{ "& .MuiStepLabel-label": { fontWeight: 500 } }}>{label}</StepLabel>
+            <StepLabel>{label}</StepLabel>
           </Step>
         ))}
       </Stepper>
 
       {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
-      {reference && (
-        <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>
-          Money sent! Ref: <strong>{reference}</strong>
-        </Alert>
-      )}
 
       <Card sx={{ borderRadius: 3 }}>
-        <CardContent>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           {step === 0 && (
             <Fade in timeout={300}>
               <Box component="form" onSubmit={(e) => { e.preventDefault(); handleResolveMobile(); }}>
                 {favsData?.favorites && favsData.favorites.length > 0 && (
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary" display="block" mb={1}>Saved recipients</Typography>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                      Saved recipients
+                    </Typography>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
                       {favsData.favorites.map((fav) => (
                         <Chip
                           key={fav.id}
-                          label={`${fav.name} (${fav.accountIdentifier})`}
+                          label={`${fav.name}`}
                           onClick={() => handleSelectFavorite(fav)}
-                          sx={{ cursor: "pointer" }}
+                          sx={{ cursor: "pointer", maxWidth: "100%" }}
                           variant="outlined"
                           size="small"
                         />
@@ -159,12 +181,12 @@ export default function SendMoney() {
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
                   required
-                  inputProps={{ maxLength: 11 }}
+                  inputProps={{ maxLength: 11, inputMode: "tel" }}
                   placeholder="09181234567"
                   sx={{ mb: 3 }}
                 />
-                <Button fullWidth type="submit" variant="contained" size="large" sx={{ borderRadius: 2 }}>
-                  Continue
+                <Button fullWidth type="submit" variant="contained" size="large" disabled={resolving} sx={{ borderRadius: 2, py: 1.4 }}>
+                  {resolving ? "Looking up..." : "Continue"}
                 </Button>
               </Box>
             </Fade>
@@ -173,12 +195,22 @@ export default function SendMoney() {
           {step === 1 && recipient && (
             <Fade in timeout={300}>
               <Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3, p: 2, bgcolor: "background.muted", borderRadius: 2 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    mb: 3,
+                    p: 2,
+                    bgcolor: "grey.50",
+                    borderRadius: 2,
+                  }}
+                >
                   <Avatar sx={{ bgcolor: "primary.main", width: 48, height: 48 }}>
                     {recipient.name.charAt(0) || "?"}
                   </Avatar>
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight={600}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="subtitle1" fontWeight={600} noWrap>
                       {recipient.name || "Recipient"}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -194,7 +226,7 @@ export default function SendMoney() {
                   onChange={(e) => setAmount(e.target.value)}
                   required
                   sx={{ mb: 2 }}
-                  inputProps={{ min: 1, step: 0.01 }}
+                  inputProps={{ min: 1, step: 0.01, inputMode: "decimal" }}
                 />
                 <TextField
                   fullWidth
@@ -205,11 +237,11 @@ export default function SendMoney() {
                   multiline
                   rows={2}
                 />
-                <Box sx={{ display: "flex", gap: 2 }}>
-                  <Button variant="outlined" onClick={() => setStep(0)} sx={{ borderRadius: 2 }}>
+                <Box sx={{ display: "flex", flexDirection: { xs: "column-reverse", sm: "row" }, gap: 1.5 }}>
+                  <Button variant="outlined" onClick={() => setStep(0)} sx={{ borderRadius: 2, minHeight: 48 }}>
                     Back
                   </Button>
-                  <Button fullWidth variant="contained" onClick={() => setStep(2)} sx={{ borderRadius: 2 }}>
+                  <Button fullWidth variant="contained" onClick={() => setStep(2)} sx={{ borderRadius: 2, minHeight: 48 }}>
                     Continue
                   </Button>
                 </Box>
@@ -220,9 +252,15 @@ export default function SendMoney() {
           {step === 2 && (
             <Fade in timeout={300}>
               <Box component="form" onSubmit={handleSend}>
-                <Box sx={{ p: 2, bgcolor: "background.muted", borderRadius: 2, mb: 3, textAlign: "center" }}>
-                  <Typography variant="caption" color="text.secondary" display="block">You are sending</Typography>
-                  <Typography variant="h4" fontWeight={700} color="primary.main">
+                <Box sx={{ p: { xs: 2, sm: 2.5 }, bgcolor: "grey.50", borderRadius: 2, mb: 3, textAlign: "center" }}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    You are sending
+                  </Typography>
+                  <Typography
+                    fontWeight={700}
+                    color="primary.main"
+                    sx={{ fontFamily: '"League Spartan", sans-serif', fontSize: { xs: "1.75rem", sm: "2rem" }, my: 0.5 }}
+                  >
                     {formatMoney(amountToCents(parseFloat(amount) || 0))}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
@@ -236,15 +274,15 @@ export default function SendMoney() {
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
                   required
-                  inputProps={{ maxLength: 6 }}
+                  inputProps={{ maxLength: 6, inputMode: "numeric" }}
                   placeholder="Enter MPIN"
                   sx={{ mb: 3 }}
                 />
-                <Box sx={{ display: "flex", gap: 2 }}>
-                  <Button variant="outlined" onClick={() => setStep(1)} sx={{ borderRadius: 2 }}>
+                <Box sx={{ display: "flex", flexDirection: { xs: "column-reverse", sm: "row" }, gap: 1.5 }}>
+                  <Button variant="outlined" onClick={() => setStep(1)} sx={{ borderRadius: 2, minHeight: 48 }}>
                     Back
                   </Button>
-                  <Button fullWidth type="submit" variant="contained" size="large" disabled={loading} sx={{ borderRadius: 2 }}>
+                  <Button fullWidth type="submit" variant="contained" size="large" disabled={loading} sx={{ borderRadius: 2, minHeight: 48 }}>
                     {loading ? "Sending..." : "Send"}
                   </Button>
                 </Box>
@@ -253,6 +291,28 @@ export default function SendMoney() {
           )}
         </CardContent>
       </Card>
+
+      <SuccessDialog
+        open={!!receipt}
+        onClose={() => setReceipt(null)}
+        title="Money Sent!"
+        subtitle={`Sent to ${receipt?.recipientLabel ?? ""}`}
+        amountCents={receipt?.tx.amount.cents ?? 0}
+        signPrefix="−"
+        rows={[
+          { label: "Recipient", value: receipt?.recipientLabel ?? "—" },
+          { label: "Date", value: receipt ? formatDate(receipt.tx.createdAt) : "—" },
+          ...(receipt?.note ? [{ label: "Note", value: receipt.note }] : []),
+        ]}
+        reference={receipt?.tx.reference}
+        primaryLabel="Done"
+        onPrimary={() => {
+          setReceipt(null);
+          navigate("/");
+        }}
+        secondaryLabel="Send again"
+        onSecondary={() => setReceipt(null)}
+      />
     </Box>
   );
 }

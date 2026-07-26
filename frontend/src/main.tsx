@@ -8,13 +8,13 @@ const theme = createTheme({
   palette: {
     primary: {
       main: "#0f6ecd",
-      light: "#59aaf5",
+      light: "#e3f0fc",
       dark: "#0b57a8",
       contrastText: "#ffffff",
     },
     secondary: {
       main: "#00b894",
-      light: "#7cedb6",
+      light: "#e0faf3",
       dark: "#008f6c",
       contrastText: "#ffffff",
     },
@@ -42,7 +42,7 @@ const theme = createTheme({
     divider: "#e5e7eb",
   },
   typography: {
-    fontFamily: '"DM Sans", "Inter", "Segoe UI", system-ui, sans-serif',
+    fontFamily: '"DM Sans", "Segoe UI", system-ui, sans-serif',
     h1: { fontFamily: '"League Spartan", sans-serif', fontWeight: 700, fontSize: "2rem", lineHeight: 1.1 },
     h2: { fontFamily: '"League Spartan", sans-serif', fontWeight: 600, fontSize: "1.5rem", lineHeight: 1.2 },
     h3: { fontFamily: '"League Spartan", sans-serif', fontWeight: 600, fontSize: "1.25rem", lineHeight: 1.3 },
@@ -50,9 +50,9 @@ const theme = createTheme({
     h5: { fontFamily: '"League Spartan", sans-serif', fontWeight: 600, fontSize: "1rem", lineHeight: 1.4 },
     h6: { fontFamily: '"League Spartan", sans-serif', fontWeight: 600, fontSize: "0.875rem", lineHeight: 1.4 },
     body1: { fontFamily: '"DM Sans", sans-serif', fontSize: "0.875rem", lineHeight: 1.6 },
-    body2: { fontFamily: '"DM Sans", sans-serif', fontSize: "0.75rem", lineHeight: 1.5 },
+    body2: { fontFamily: '"DM Sans", sans-serif', fontSize: "0.8rem", lineHeight: 1.5 },
     button: { fontFamily: '"DM Sans", sans-serif', fontWeight: 600, textTransform: "none", fontSize: "0.875rem" },
-    caption: { fontFamily: '"DM Sans", sans-serif', fontSize: "0.6875rem", lineHeight: 1.5 },
+    caption: { fontFamily: '"DM Sans", sans-serif', fontSize: "0.7rem", lineHeight: 1.5 },
     overline: { fontFamily: '"DM Sans", sans-serif', fontSize: "0.6875rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" },
   },
   shape: {
@@ -67,6 +67,7 @@ const theme = createTheme({
           fontWeight: 600,
           fontSize: "0.875rem",
           boxShadow: "none",
+          minHeight: 44,
           "&:hover": { boxShadow: "none" },
         },
         containedPrimary: {
@@ -129,7 +130,14 @@ const theme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+          boxShadow: "none",
+        },
+      },
+    },
+    MuiBottomNavigationAction: {
+      styleOverrides: {
+        root: {
+          minWidth: 0,
         },
       },
     },
