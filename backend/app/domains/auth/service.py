@@ -70,14 +70,14 @@ class AuthService:
 
         # Try email OTP first
         stored = await self.redis.get(f"otp:{email}")
-        if stored and stored.decode() == code:
+        if stored and stored == code:
             verified = True
             await self.redis.delete(f"otp:{email}")
 
         # Fall back to TOTP (authenticator app)
         if not verified:
             secret = await self.redis.get(f"verify_totp_secret:{email}")
-            if secret and verify_totp(secret.decode(), code):
+            if secret and verify_totp(secret, code):
                 verified = True
                 await self.redis.delete(f"verify_totp_secret:{email}")
 
@@ -130,7 +130,7 @@ class AuthService:
             else:
                 # Fall back to email OTP
                 stored = await self.redis.get(f"login_otp:{email}")
-                if not stored or stored.decode() != otp_code:
+                if not stored or stored != otp_code:
                     raise AuthenticationError("Invalid 2FA code")
                 # Consume the OTP so it cannot be reused
                 await self.redis.delete(f"login_otp:{email}")
