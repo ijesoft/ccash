@@ -19,6 +19,7 @@ class WalletService:
         wallet = await self.repo.get_by_user_id(user_id)
         if not wallet:
             wallet = await self.repo.create(user_id)
+            await self.session.commit()
         return wallet
 
     async def get_wallet(self, user_id: uuid.UUID) -> Wallet:
@@ -32,7 +33,9 @@ class WalletService:
         if len(pin) < 4 or len(pin) > 6:
             raise ValidationError("PIN must be 4-6 digits")
         wallet.pin_hash = ph.hash(pin)
-        return await self.repo.update(wallet)
+        wallet = await self.repo.update(wallet)
+        await self.session.commit()
+        return wallet
 
     async def verify_pin(self, user_id: uuid.UUID, pin: str) -> bool:
         wallet = await self.get_wallet(user_id)
@@ -46,13 +49,19 @@ class WalletService:
     async def freeze_wallet(self, user_id: uuid.UUID) -> Wallet:
         wallet = await self.get_wallet(user_id)
         wallet.status = WalletStatus.FROZEN
-        return await self.repo.update(wallet)
+        wallet = await self.repo.update(wallet)
+        await self.session.commit()
+        return wallet
 
     async def get_favorites(self, user_id: uuid.UUID) -> list[Favorite]:
         return await self.repo.get_favorites(user_id)
 
     async def add_favorite(self, user_id: uuid.UUID, name: str, account_identifier: str) -> Favorite:
-        return await self.repo.add_favorite(user_id, name, account_identifier)
+        fav = await self.repo.add_favorite(user_id, name, account_identifier)
+        await self.session.commit()
+        return fav
 
     async def remove_favorite(self, fav_id: uuid.UUID, user_id: uuid.UUID) -> bool:
-        return await self.repo.remove_favorite(fav_id, user_id)
+        result = await self.repo.remove_favorite(fav_id, user_id)
+        await self.session.commit()
+        return result

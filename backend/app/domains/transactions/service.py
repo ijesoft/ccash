@@ -529,6 +529,10 @@ class TransactionService:
     def _label_for(user: User | None) -> str:
         return mask_mobile(user.phone) if user else "your wallet"
 
+    async def _find_user_by_mobile(self, mobile: str) -> User | None:
+        repo = UserRepository(self.session)
+        return await repo.get_by_phone(mobile)
+
     async def request_money(
         self,
         sender_user_id: uuid.UUID,

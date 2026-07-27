@@ -163,6 +163,11 @@ def require_user(info: Info) -> uuid.UUID:
 
 
 @strawberry.type
+class QrCodeType:
+    payload: str
+
+
+@strawberry.type
 class TransactionQueries:
     @strawberry.field
     async def transactions(
@@ -205,6 +210,20 @@ class TransactionQueries:
             to_dt = datetime.fromisoformat(to_date)
             views = await service.get_statement(user_id, from_dt, to_dt)
             return [TransactionType.from_view(view) for view in views]
+        finally:
+            await service.session.close()
+
+    @strawberry.field
+    async def my_qr_code(self, info: Info) -> QrCodeType:
+        user_id = require_user(info)
+
+        service = await get_tx_service(info)
+        try:
+            wallet = await service.wallet_repo.get_by_user_id(user_id)
+            if not wallet:
+                raise Exception("Wallet not found")
+            payload = f'{{"to":"{wallet.id}","amount":0}}'
+            return QrCodeType(payload=payload)
         finally:
             await service.session.close()
 
@@ -308,23 +327,7 @@ class TransactionMutations:
             await service.session.close()
 
 
-@strawberry.type
-class QrCodeType:
-    payload: str
 
 
-@strawberry.type
-class TransactionQueries:
-    @strawberry.field
-    async def my_qr_code(self, info: Info) -> QrCodeType:
-        user_id = require_user(info)
 
-        service = await get_tx_service(info)
-        try:
-            wallet = await service.wallet_repo.get_by_user_id(user_id)
-            if not wallet:
-                raise Exception("Wallet not found")
-            payload = f'{{"to":"{wallet.id}","amount":0}}'
-            return QrCodeType(payload=payload)
-        finally:
-            await service.session.close()
+

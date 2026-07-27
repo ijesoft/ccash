@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import QrCodeIcon from "@mui/icons-material/QrCode";
 import { useMutation, useQuery, gql } from "@apollo/client";
+import QRCode from "qrcode";
 import { GET_WALLET, GET_TRANSACTIONS } from "../graphql/queries/wallet";
 import { formatDate } from "../utils/format";
 import SuccessDialog from "../components/SuccessDialog";
@@ -42,10 +43,6 @@ const SCAN_QR_PAYMENT = gql`
   }
 `;
 
-function qrImageUrl(payload: string, size = 250) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}`;
-}
-
 export default function QrPayment() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"my-qr" | "scan">("my-qr");
@@ -54,8 +51,18 @@ export default function QrPayment() {
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<Transaction | null>(null);
   const [scannedHint, setScannedHint] = useState("");
+  const [qrImageUrl, setQrImageUrl] = useState("");
 
   const { data: qrData } = useQuery(MY_QR_CODE);
+
+  useEffect(() => {
+    if (qrData?.myQrCode?.payload) {
+      QRCode.toDataURL(qrData.myQrCode.payload, { width: 250, margin: 2 })
+        .then(setQrImageUrl)
+        .catch(() => setQrImageUrl(""));
+    }
+  }, [qrData]);
+
   const [scanQrPayment, { loading }] = useMutation(SCAN_QR_PAYMENT, {
     refetchQueries: [{ query: GET_WALLET }, { query: GET_TRANSACTIONS, variables: { limit: 5, offset: 0 } }],
   });
@@ -142,11 +149,11 @@ export default function QrPayment() {
             <Typography variant="body2" color="text.secondary" mb={2}>
               Show this QR code to receive a payment
             </Typography>
-            {qrData?.myQrCode ? (
+            {qrImageUrl ? (
               <Box sx={{ my: 1 }}>
                 <Box
                   component="img"
-                  src={qrImageUrl(qrData.myQrCode.payload, 250)}
+                  src={qrImageUrl}
                   alt="My QR Code"
                   sx={{
                     width: { xs: "min(220px, 70vw)", sm: 250 },
