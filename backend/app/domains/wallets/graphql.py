@@ -72,10 +72,8 @@ class WalletQueries:
 
         service = await get_wallet_service(info)
         try:
-            wallet = await service.get_wallet(context.user_id)
+            wallet = await service.get_or_create_wallet(context.user_id)
             return WalletType.from_model(wallet)
-        except NotFoundError as e:
-            raise Exception(str(e))
         finally:
             await service.session.close()
 

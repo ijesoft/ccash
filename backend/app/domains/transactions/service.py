@@ -71,7 +71,7 @@ class TransactionService:
                 raise NotFoundError("Recipient not found")
             receiver_wallet = await self.wallet_repo.get_by_user_id(user.id)
             if not receiver_wallet:
-                raise NotFoundError("Recipient wallet not found")
+                receiver_wallet = await self.wallet_repo.create(user.id)
             resolved_receiver_wallet_id = receiver_wallet.id
 
         if resolved_receiver_wallet_id is None:
@@ -197,7 +197,7 @@ class TransactionService:
                 raise NotFoundError("Recipient not found")
             _receiver_wallet = await self.wallet_repo.get_by_user_id(user.id)
             if not _receiver_wallet:
-                raise NotFoundError("Recipient wallet not found")
+                _receiver_wallet = await self.wallet_repo.create(user.id)
             resolved_receiver_wallet_id = _receiver_wallet.id
 
         if sender_wallet.id == resolved_receiver_wallet_id:
@@ -409,7 +409,7 @@ class TransactionService:
     async def _lock_own_wallet(self, user_id: uuid.UUID) -> Wallet:
         wallet = await self.wallet_repo.get_by_user_id(user_id)
         if not wallet:
-            raise NotFoundError("Wallet not found")
+            wallet = await self.wallet_repo.create(user_id)
 
         locked = await self.wallet_repo.get_for_update(wallet.id)
         if not locked:
@@ -477,7 +477,7 @@ class TransactionService:
     async def _view_for_user(self, tx: Transaction, user_id: uuid.UUID) -> TransactionView:
         wallet = await self.wallet_repo.get_by_user_id(user_id)
         if not wallet:
-            raise NotFoundError("Wallet not found")
+            wallet = await self.wallet_repo.create(user_id)
         return (await self._build_views([tx], wallet.id))[0]
 
     async def _build_views(

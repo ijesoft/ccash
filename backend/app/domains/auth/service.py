@@ -17,6 +17,7 @@ from app.core.security import (
 )
 from app.domains.auth.models import User, UserStatus
 from app.domains.auth.repository import UserRepository
+from app.domains.wallets.repository import WalletRepository
 from app.tasks.notifications import send_email_notification
 
 
@@ -87,6 +88,12 @@ class AuthService:
         user.is_verified = True
         user.status = UserStatus.ACTIVE
         await self.repo.update(user)
+
+        wallet_repo = WalletRepository(self.session)
+        existing_wallet = await wallet_repo.get_by_user_id(user.id)
+        if not existing_wallet:
+            await wallet_repo.create(user.id)
+
         await self.session.commit()
 
         return True

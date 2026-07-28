@@ -29,7 +29,7 @@ class WalletService:
         return wallet
 
     async def set_pin(self, user_id: uuid.UUID, pin: str) -> Wallet:
-        wallet = await self.get_wallet(user_id)
+        wallet = await self.get_or_create_wallet(user_id)
         if len(pin) < 4 or len(pin) > 6:
             raise ValidationError("PIN must be 4-6 digits")
         wallet.pin_hash = ph.hash(pin)
@@ -38,7 +38,7 @@ class WalletService:
         return wallet
 
     async def verify_pin(self, user_id: uuid.UUID, pin: str) -> bool:
-        wallet = await self.get_wallet(user_id)
+        wallet = await self.get_or_create_wallet(user_id)
         if not wallet.pin_hash:
             raise ValidationError("PIN not set")
         try:
@@ -47,7 +47,7 @@ class WalletService:
             return False
 
     async def freeze_wallet(self, user_id: uuid.UUID) -> Wallet:
-        wallet = await self.get_wallet(user_id)
+        wallet = await self.get_or_create_wallet(user_id)
         wallet.status = WalletStatus.FROZEN
         wallet = await self.repo.update(wallet)
         await self.session.commit()

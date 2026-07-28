@@ -217,11 +217,12 @@ class TransactionQueries:
     async def my_qr_code(self, info: Info) -> QrCodeType:
         user_id = require_user(info)
 
+        from app.domains.wallets.service import WalletService
+
         service = await get_tx_service(info)
+        wallet_service = WalletService(service.session)
         try:
-            wallet = await service.wallet_repo.get_by_user_id(user_id)
-            if not wallet:
-                raise Exception("Wallet not found")
+            wallet = await wallet_service.get_or_create_wallet(user_id)
             payload = f'{{"to":"{wallet.id}","amount":0}}'
             return QrCodeType(payload=payload)
         finally:
