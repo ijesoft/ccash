@@ -10,10 +10,25 @@ from app.tasks.celery_app import celery_app
 
 @celery_app.task
 def send_email_notification(to_email: str, subject: str, body: str):
+    from app.config import settings
+
+    if settings.resend_api_key:
+        import resend
+
+        resend.api_key = settings.resend_api_key
+        try:
+            resend.Emails.send({
+                "from": settings.mail_from,
+                "to": [to_email],
+                "subject": subject,
+                "text": body,
+            })
+            return
+        except Exception as e:
+            print(f"[send_email] Resend failed, falling back to Mailpit: {e}")
+
     import smtplib
     from email.mime.text import MIMEText
-
-    from app.config import settings
 
     msg = MIMEText(body)
     msg["Subject"] = subject

@@ -260,6 +260,7 @@ export default function Layout() {
           ModalProps={{ keepMounted: true }}
           sx={{
             display: { xs: "block", md: "none" },
+            zIndex: { xs: 1400, md: 1300 },
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: DRAWER_WIDTH,
@@ -304,7 +305,7 @@ export default function Layout() {
         <Outlet />
       </Box>
 
-      {isMobile && (
+      {isMobile && !mobileOpen && (
         <BottomNavigation
           showLabels
           value={primaryNav.some((n) => n.path === currentPath) ? currentPath : false}

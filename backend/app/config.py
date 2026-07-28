@@ -13,6 +13,8 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
+    resend_api_key: str | None = None
+
     mailpit_smtp_host: str = "mailpit"
     mailpit_smtp_port: int = 1025
     mail_from: str = "noreply@ccash.ph"

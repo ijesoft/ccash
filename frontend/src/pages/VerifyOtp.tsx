@@ -1,28 +1,31 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Box, Button, Card, CardContent, TextField, Typography, Alert, Tabs, Tab } from "@mui/material";
+import { Box, Button, Card, CardContent, TextField, Typography, Alert } from "@mui/material";
 import { useMutation } from "@apollo/client";
-import { VERIFY_OTP, SETUP_VERIFY_TOTP } from "../graphql/mutations/auth";
+import { VERIFY_OTP } from "../graphql/mutations/auth";
+// import { SETUP_VERIFY_TOTP } from "../graphql/mutations/auth";
 
-function qrImageUrl(payload: string, size = 200) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}`;
-}
+// TODO(josh): uncomment to re-enable authenticator app verification
+// function qrImageUrl(payload: string, size = 200) {
+//   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}`;
+// }
 
 export default function VerifyOtp() {
-  const [tab, setTab] = useState(1);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [searchParams] = useSearchParams();
   const email = searchParams.get("email") || "";
   const [verifyOtp, { loading }] = useMutation(VERIFY_OTP);
-  const [setupTotp, { data: totpSetup, loading: setupLoading }] = useMutation(SETUP_VERIFY_TOTP);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (email) {
-      setupTotp({ variables: { email } }).catch(() => {});
-    }
-  }, [email, setupTotp]);
+  // TODO(josh): uncomment to re-enable authenticator app verification
+  // const [setupTotp, { data: totpSetup, loading: setupLoading }] = useMutation(SETUP_VERIFY_TOTP);
+  //
+  // useEffect(() => {
+  //   if (email) {
+  //     setupTotp({ variables: { email } }).catch(() => {});
+  //   }
+  // }, [email, setupTotp]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,14 +38,15 @@ export default function VerifyOtp() {
     }
   };
 
-  const handleSetupTotp = async () => {
-    setError("");
-    try {
-      await setupTotp({ variables: { email } });
-    } catch (err: any) {
-      setError(err.message || "Failed to setup authenticator");
-    }
-  };
+  // TODO(josh): uncomment to re-enable authenticator app verification
+  // const handleSetupTotp = async () => {
+  //   setError("");
+  //   try {
+  //     await setupTotp({ variables: { email } });
+  //   } catch (err: any) {
+  //     setError(err.message || "Failed to setup authenticator");
+  //   }
+  // };
 
   return (
     <Box
@@ -74,90 +78,28 @@ export default function VerifyOtp() {
           >
             Verify Your Account
           </Typography>
-          <Typography variant="body2" color="text.secondary" textAlign="center" mb={2}>
-            Choose how you want to verify your email
-          </Typography>
-
           {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
 
-          <Tabs
-            value={tab}
-            onChange={(_, v) => { setTab(v); setError(""); }}
-            variant="fullWidth"
-            sx={{ mb: 3, minHeight: 44, "& .MuiTab-root": { minHeight: 44, fontSize: { xs: "0.75rem", sm: "0.875rem" } } }}
-          >
-            <Tab label="Email Code" />
-            <Tab label="Authenticator" />
-          </Tabs>
+          {/* TODO(josh): uncomment Tabs + Authenticator tab to re-enable authenticator app verification */}
+          <Box component="form" onSubmit={handleVerify}>
+            <Typography variant="body2" color="text.secondary" textAlign="center" mb={2} sx={{ wordBreak: "break-word" }}>
+              Enter the 6-digit code sent to <strong>{email}</strong>
+            </Typography>
+            <TextField
+              fullWidth
+              label="Code from Email"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              required
+              inputProps={{ maxLength: 6, inputMode: "numeric" }}
+              sx={{ mb: 3 }}
+            />
+            <Button fullWidth type="submit" variant="contained" size="large" disabled={loading} sx={{ minHeight: 48 }}>
+              {loading ? "Verifying..." : "Verify"}
+            </Button>
+          </Box>
 
-          {tab === 0 && (
-            <Box component="form" onSubmit={handleVerify}>
-              <Typography variant="body2" color="text.secondary" textAlign="center" mb={2} sx={{ wordBreak: "break-word" }}>
-                Enter the 6-digit code sent to <strong>{email}</strong>
-              </Typography>
-              <TextField
-                fullWidth
-                label="Code from Email"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                required
-                inputProps={{ maxLength: 6, inputMode: "numeric" }}
-                sx={{ mb: 3 }}
-              />
-              <Button fullWidth type="submit" variant="contained" size="large" disabled={loading} sx={{ minHeight: 48 }}>
-                {loading ? "Verifying..." : "Verify"}
-              </Button>
-            </Box>
-          )}
-
-          {tab === 1 && (
-            <Box>
-              {!totpSetup?.setupVerifyTotp ? (
-                <>
-                  <Typography variant="body2" color="text.secondary" textAlign="center" mb={2}>
-                    Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.)
-                  </Typography>
-                  <Button fullWidth variant="contained" size="large" onClick={handleSetupTotp} disabled={setupLoading} sx={{ mb: 2, minHeight: 48 }}>
-                    {setupLoading ? "Setting up..." : "Show QR Code"}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Box textAlign="center" mb={2}>
-                    <Box
-                      component="img"
-                      src={qrImageUrl(totpSetup.setupVerifyTotp.uri, 200)}
-                      alt="QR Code"
-                      sx={{ width: { xs: 180, sm: 200 }, height: { xs: 180, sm: 200 }, maxWidth: "100%" }}
-                    />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" textAlign="center" mb={1}>
-                    Or enter this key manually:
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    value={totpSetup.setupVerifyTotp.secret}
-                    slotProps={{ input: { readOnly: true } }}
-                    sx={{ mb: 2, "& input": { textAlign: "center", fontFamily: "monospace", fontSize: { xs: "0.9rem", sm: "1.1rem" }, letterSpacing: 2 } }}
-                  />
-                  <Box component="form" onSubmit={handleVerify}>
-                    <TextField
-                      fullWidth
-                      label="6-digit code from app"
-                      value={code}
-                      onChange={(e) => setCode(e.target.value)}
-                      required
-                      inputProps={{ maxLength: 6, inputMode: "numeric" }}
-                      sx={{ mb: 3 }}
-                    />
-                    <Button fullWidth type="submit" variant="contained" size="large" disabled={loading} sx={{ minHeight: 48 }}>
-                      {loading ? "Verifying..." : "Verify"}
-                    </Button>
-                  </Box>
-                </>
-              )}
-            </Box>
-          )}
+          {/* Tabs + Authenticator tab content removed for now */}
         </CardContent>
       </Card>
     </Box>
