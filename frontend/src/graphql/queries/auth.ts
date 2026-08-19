@@ -10,6 +10,7 @@ export const ME = gql`
       lastName
       status
       kycLevel
+      role
       is2faEnabled
       isVerified
       createdAt

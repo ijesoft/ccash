@@ -18,19 +18,22 @@ import BalanceCard from "../components/BalanceCard";
 import TransactionList from "../components/TransactionList";
 import { useTransactions } from "../hooks/useTransactions";
 
-const actions = [
+const allActions = [
   { label: "Send", path: "/send", icon: <SendIcon />, color: "#0f6ecd", bg: "#e3f0fc" },
   { label: "Cash In", path: "/cash-in", icon: <CallReceivedIcon />, color: "#00b894", bg: "#e0faf3" },
   { label: "Cash Out", path: "/cash-out", icon: <CallMadeIcon />, color: "#e74c3c", bg: "#fde8e8" },
   { label: "QR Pay", path: "/qr-payment", icon: <QrCodeIcon />, color: "#6c5ce7", bg: "#eee8ff" },
 ];
 
+const ADMIN_ONLY_PATHS = ["/cash-in", "/cash-out"];
+
 export default function Dashboard() {
   const { wallet, loading } = useWallet();
   const { transactions, loading: txLoading } = useTransactions(5, 0);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
+  const actions = isAdmin ? allActions : allActions.filter((a) => !ADMIN_ONLY_PATHS.includes(a.path));
   const greetingName = user?.email?.split("@")[0] ?? "there";
 
   if (loading) {
@@ -38,8 +41,8 @@ export default function Dashboard() {
       <Box>
         <Skeleton variant="text" width={200} height={36} sx={{ mb: 2 }} />
         <Skeleton variant="rounded" height={140} sx={{ mb: 3, borderRadius: 3 }} />
-        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1.5, mb: 3 }}>
-          {[0, 1, 2, 3].map((i) => (
+        <Box sx={{ display: "grid", gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))`, gap: 1.5, mb: 3 }}>
+          {Array.from({ length: actions.length }).map((_, i) => (
             <Skeleton key={i} variant="rounded" height={88} sx={{ borderRadius: 3 }} />
           ))}
         </Box>
@@ -85,7 +88,7 @@ export default function Dashboard() {
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+            gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))`,
             gap: { xs: 1, sm: 1.5 },
             mb: { xs: 2.5, sm: 3 },
           }}
@@ -166,8 +169,8 @@ export default function Dashboard() {
               <Typography variant="body2" color="text.secondary">
                 No recent transactions
               </Typography>
-              <Button variant="outlined" size="small" sx={{ mt: 2 }} onClick={() => navigate("/cash-in")}>
-                Cash in to get started
+              <Button variant="outlined" size="small" sx={{ mt: 2 }} onClick={() => navigate(isAdmin ? "/cash-in" : "/send")}>
+                {isAdmin ? "Cash in to get started" : "Send money to get started"}
               </Button>
             </Box>
           )}

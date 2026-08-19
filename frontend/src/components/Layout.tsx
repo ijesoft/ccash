@@ -54,7 +54,10 @@ const secondaryNav = [
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
+  const visibleSecondaryNav = isAdmin ? secondaryNav : secondaryNav.filter(
+    (item) => item.path !== "/cash-in" && item.path !== "/cash-out",
+  );
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -129,7 +132,7 @@ export default function Layout() {
 
         <Box sx={{ borderTop: 1, borderColor: "divider", mx: 2, my: 1.5 }} />
 
-        {secondaryNav.map((item) => (
+        {visibleSecondaryNav.map((item) => (
           <ListItem key={item.path} disablePadding>
             <ListItemButton
               selected={currentPath === item.path}

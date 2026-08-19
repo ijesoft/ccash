@@ -8,6 +8,7 @@ interface AuthContextType {
   user: User | null;
   accessToken: string | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   login: (email: string, password: string, otpCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
@@ -69,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     accessToken,
     isAuthenticated: !!user && !!accessToken,
+    isAdmin: user?.role === "ADMIN",
     login,
     logout,
     refreshSession,
