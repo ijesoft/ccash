@@ -15,7 +15,7 @@ Every task's requirements implicitly include this section.
 - **Test runner on this machine:** there is NO local `backend/.venv` and the host Python is 3.14 (project targets 3.13). All pytest/alembic commands run in a one-off container from the existing backend image with the repo mounted. Run from `/home/joeysabusido/ccash/backend`:
 
   ```bash
-  docker run --rm --network ccash_backend_net \
+  docker run --rm --network ccash_ccash-net \
     -v "$PWD":/app \
     -e DATABASE_URL="postgresql+asyncpg://ccash:ccash_secret_2024@postgres:5432/ccash_test" \
     -e REDIS_URL="redis://redis:6379/0" \
@@ -138,7 +138,7 @@ And add `role=UserRole.ADMIN` to the admin user constructor (after `is_verified=
 Run (from `/home/joeysabusido/ccash/backend`):
 
 ```bash
-docker run --rm --network ccash_backend_net \
+docker run --rm --network ccash_ccash-net \
   -v "$PWD":/app \
   -e DATABASE_URL="postgresql+asyncpg://ccash:ccash_secret_2024@postgres:5432/ccash_test" \
   -e REDIS_URL="redis://redis:6379/0" \
@@ -416,18 +416,14 @@ In `backend/app/domains/users/graphql.py`, add to the imports:
 from app.graphql.middleware import require_admin
 ```
 
-Replace the inline check in `approve_kyc` (lines 74-78) with:
-
-```python
-        require_admin(info.context)
-```
-
-i.e. the method body starts:
+In `approve_kyc` (lines 74-78), KEEP `context = info.context` — the method body still uses
+`context.user_id` in the service call — and replace only the inline check:
 
 ```python
     @strawberry.mutation
     async def approve_kyc(self, info: Info, document_id: str) -> bool:
-        require_admin(info.context)
+        context = info.context
+        require_admin(context)
 
         service = await get_kyc_service(info)
 ```
@@ -443,7 +439,8 @@ Do the same in `reject_kyc` (lines 86-90): replace
 with
 
 ```python
-        require_admin(info.context)
+        context = info.context
+        require_admin(context)
 ```
 
 (Both methods keep their existing `service = await get_kyc_service(info)` line and body unchanged.)
@@ -911,23 +908,32 @@ cd /home/joeysabusido/ccash/backend
 
 # Scratch DB built by Alembic
 docker exec ccash-postgres createdb -U ccash ccash_parity_alembic
-docker run --rm --network ccash_backend_net \
+docker run --rm --network ccash_ccash-net \
   -v "$PWD":/app \
   -e DATABASE_URL="postgresql+asyncpg://ccash:ccash_secret_2024@postgres:5432/ccash_parity_alembic" \
   -e REDIS_URL="redis://redis:6379/0" \
-  -e RABBITMQ_URL="amqp://ccash:ccash_secret_2024@rabbitmq:5432/" \
+  -e RABBITMQ_URL="amqp://ccash:ccash_secret_2024@rabbitmq:5672/" \
   -e JWT_SECRET_KEY="parity-check" \
   ccash-backend python -m alembic -c migrations/alembic.ini upgrade head
 
 # Scratch DB built by create_tables()
 docker exec ccash-postgres createdb -U ccash ccash_parity_createall
-docker run --rm --network ccash_backend_net \
+docker run --rm --network ccash_ccash-net \
   -v "$PWD":/app \
   -e DATABASE_URL="postgresql+asyncpg://ccash:ccash_secret_2024@postgres:5432/ccash_parity_createall" \
   -e REDIS_URL="redis://redis:6379/0" \
   -e RABBITMQ_URL="amqp://ccash:ccash_secret_2024@rabbitmq:5672/" \
   -e JWT_SECRET_KEY="parity-check" \
-  ccash-backend python -c "import asyncio; from app.database import create_tables, close_db; asyncio.run((lambda: _run())()) if False else asyncio.run(_main()); async def _main(): await create_tables(); await close_db()"
+  ccash-backend python -c "
+import asyncio
+# create_tables() only sees models that have been imported — register all of them:
+import app.core.audit, app.domains.auth.models, app.domains.users.models
+import app.domains.wallets.models, app.domains.notifications.models, app.domains.transactions.models
+from app.database import create_tables, close_db
+asyncio.run(create_tables())
+asyncio.run(close_db())
+print('create_all done')
+"
 
 # Diff normalized schemas — expect EMPTY output
 dump() { docker exec ccash-postgres psql -U ccash -d "$1" -Atc "SELECT table_name || '.' || column_name || ' ' || data_type FROM information_schema.columns WHERE table_schema = 'public' ORDER BY 1"; }
@@ -944,7 +950,7 @@ Expected: `upgrade head` completes; the `diff` prints nothing (schemas in sync).
 
 ```bash
 cd /home/joeysabusido/ccash/backend
-docker run --rm --network ccash_backend_net \
+docker run --rm --network ccash_ccash-net \
   -v "$PWD":/app \
   -e DATABASE_URL="postgresql+asyncpg://ccash:ccash_secret_2024@postgres:5432/ccash" \
   -e REDIS_URL="redis://redis:6379/0" \
@@ -1002,7 +1008,7 @@ curl -s http://localhost/api/graphql -X POST -H 'Content-Type: application/json'
 # expect: data.cashIn.id
 
 # 4. Admin can promote + demote alice (round trip ends at USER)
-ALICE_ID=$(echo "$ALICE" | jq -r '.data.login.user... ' )  # fetch via me query instead:
+# First get alice's id as alice herself:
 curl -s http://localhost/api/graphql -X POST -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $A_TOKEN" -d '{"query":"{ me { id role } }"}'
 # then, as admin:
