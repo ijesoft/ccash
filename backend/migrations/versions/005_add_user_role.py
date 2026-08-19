@@ -21,6 +21,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Postgres enum types are only auto-created when defined inside a CREATE
+    # TABLE. Adding an enum column to an existing table requires creating the
+    # type first, so do it explicitly (guarded for idempotency).
+    op.execute(
+        "DO $$ BEGIN "
+        "IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'userrole') THEN "
+        "CREATE TYPE userrole AS ENUM ('USER', 'ADMIN'); "
+        "END IF; END $$;"
+    )
     op.add_column(
         "users",
         sa.Column(
@@ -37,3 +46,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_column("users", "role")
+    op.execute("DROP TYPE IF EXISTS userrole")
