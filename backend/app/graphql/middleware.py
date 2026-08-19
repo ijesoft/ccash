@@ -30,3 +30,13 @@ async def get_context(request: Request) -> AuthContext:
 
 def login_required(permissions: list[str] | None = None):
     return PermissionExtension(permissions=permissions or [])
+
+
+def require_admin(context: AuthContext) -> None:
+    """Raise for any context that is not an authenticated admin.
+
+    Single home for the admin check; every domain imports this instead of
+    inlining it, so the guard cannot drift between resolvers.
+    """
+    if not context.user_id or "admin" not in context.scopes:
+        raise Exception("Not authorized")

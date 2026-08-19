@@ -6,6 +6,7 @@ from strawberry.types import Info
 from app.database import async_session_factory
 from app.domains.admin.service import AdminService
 from app.domains.auth.graphql import UserType
+from app.graphql.middleware import require_admin
 
 
 @strawberry.type
@@ -19,11 +20,6 @@ class PlatformStats:
 async def get_admin_service(info: Info) -> AdminService:
     session = async_session_factory()
     return AdminService(session)
-
-
-def require_admin(context):
-    if not context.user_id or "admin" not in context.scopes:
-        raise Exception("Not authorized")
 
 
 @strawberry.type

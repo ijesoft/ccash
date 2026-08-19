@@ -72,3 +72,29 @@ async def test_load_user_or_raise_rejects_malformed_id(session):
     service = AuthService(session, None)
     with pytest.raises(AuthenticationError):
         await service._load_user_or_raise("not-a-uuid")
+
+
+def test_require_admin_rejects_anonymous():
+    from app.graphql.middleware import AuthContext, require_admin
+
+    with pytest.raises(Exception, match="Not authorized"):
+        require_admin(AuthContext())
+
+
+def test_require_admin_rejects_user_without_scope():
+    from app.graphql.middleware import AuthContext, require_admin
+
+    ctx = AuthContext()
+    ctx.user_id = uuid.uuid4()
+    ctx.scopes = ["wallet:read", "wallet:write"]
+    with pytest.raises(Exception, match="Not authorized"):
+        require_admin(ctx)
+
+
+def test_require_admin_allows_admin():
+    from app.graphql.middleware import AuthContext, require_admin
+
+    ctx = AuthContext()
+    ctx.user_id = uuid.uuid4()
+    ctx.scopes = ["wallet:read", "wallet:write", "admin"]
+    require_admin(ctx)  # must not raise
