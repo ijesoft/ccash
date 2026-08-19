@@ -3,7 +3,9 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.auth.models import User
+from app.core.audit import AuditLog
+from app.core.errors import NotFoundError, ValidationError
+from app.domains.auth.models import User, UserRole
 from app.domains.auth.repository import UserRepository
 from app.domains.transactions.models import Transaction, TransactionStatus
 from app.domains.wallets.models import Wallet
@@ -57,4 +59,43 @@ class AdminService:
         if user:
             user.status = "ACTIVE"
             await self.user_repo.update(user)
+        return user
+
+    async def update_user_role(
+        self, user_id: uuid.UUID, new_role: UserRole, actor_id: uuid.UUID
+    ) -> User:
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User not found")
+
+        # Lockout prevention: never allow the organization's last admin to be
+        # demoted. SUSPENDED admins still count — they can be reactivated.
+        if user.role == UserRole.ADMIN and new_role != UserRole.ADMIN:
+            other_admins = (
+                await self.session.execute(
+                    select(func.count(User.id)).where(
+                        User.role == UserRole.ADMIN,
+                        User.deleted_at.is_(None),
+                        User.id != user_id,
+                    )
+                )
+            ).scalar() or 0
+            if other_admins == 0:
+                raise ValidationError("Cannot demote the last admin")
+
+        old_role = user.role.value
+        user.role = new_role
+        user.updated_by = actor_id
+        self.session.add(
+            AuditLog(
+                user_id=actor_id,
+                action="role.change",
+                resource_type="user",
+                resource_id=str(user_id),
+                old_values={"role": old_role},
+                new_values={"role": new_role.value},
+            )
+        )
+        await self.user_repo.update(user)
+        await self.session.commit()
         return user

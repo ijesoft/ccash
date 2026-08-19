@@ -98,3 +98,92 @@ def test_require_admin_allows_admin():
     ctx.user_id = uuid.uuid4()
     ctx.scopes = ["wallet:read", "wallet:write", "admin"]
     require_admin(ctx)  # must not raise
+
+
+async def test_update_user_role_promotes_and_audits(session, make_account):
+    from sqlalchemy import select
+
+    from app.core.audit import AuditLog
+    from app.domains.admin.service import AdminService
+
+    admin, _wallet = await make_account()
+    await promote(session, admin)
+    target, _wallet2 = await make_account()
+
+    service = AdminService(session)
+    updated = await service.update_user_role(target.id, UserRole.ADMIN, actor_id=admin.id)
+
+    assert updated.role == UserRole.ADMIN
+    assert updated.updated_by == admin.id
+
+    row = (
+        await session.execute(select(AuditLog).where(AuditLog.resource_id == str(target.id)))
+    ).scalar_one()
+    assert row.user_id == admin.id
+    assert row.action == "role.change"
+    assert row.old_values == {"role": "USER"}
+    assert row.new_values == {"role": "ADMIN"}
+
+
+async def test_update_user_role_demotes_when_other_admin_exists(session, make_account):
+    from app.domains.admin.service import AdminService
+
+    admin, _wallet = await make_account()
+    await promote(session, admin)
+    target, _wallet2 = await make_account()
+    await promote(session, target)
+
+    service = AdminService(session)
+    updated = await service.update_user_role(target.id, UserRole.USER, actor_id=admin.id)
+    assert updated.role == UserRole.USER
+
+
+async def test_update_user_role_blocks_last_admin_demotion(session, make_account):
+    from sqlalchemy import select
+
+    from app.core.audit import AuditLog
+    from app.core.errors import ValidationError
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import User
+
+    admin, _wallet = await make_account()
+    await promote(session, admin)
+
+    service = AdminService(session)
+    with pytest.raises(ValidationError):
+        await service.update_user_role(admin.id, UserRole.USER, actor_id=admin.id)
+
+    # Role unchanged and no audit row written.
+    result = await session.execute(select(User).where(User.id == admin.id))
+    assert result.scalar_one().role == UserRole.ADMIN
+    rows = (
+        await session.execute(select(AuditLog).where(AuditLog.resource_id == str(admin.id)))
+    ).scalars().all()
+    assert rows == []
+
+
+async def test_update_user_role_suspended_admin_still_counts(session, make_account):
+    from app.domains.admin.service import AdminService
+
+    admin, _wallet = await make_account()
+    await promote(session, admin)
+    other, _wallet2 = await make_account()
+    await promote(session, other)
+    other.status = "SUSPENDED"  # matches existing suspend_user convention
+    await session.commit()
+
+    service = AdminService(session)
+    updated = await service.update_user_role(admin.id, UserRole.USER, actor_id=other.id)
+    assert updated.role == UserRole.USER
+
+
+async def test_update_user_role_unknown_user_raises(session, make_account):
+    from app.core.errors import NotFoundError
+    from app.domains.admin.service import AdminService
+
+    admin, _wallet = await make_account()
+    await promote(session, admin)
+
+    service = AdminService(session)
+    with pytest.raises(NotFoundError):
+        await service.update_user_role(uuid.uuid4(), UserRole.ADMIN, actor_id=admin.id)

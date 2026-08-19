@@ -1,12 +1,21 @@
+import enum
 import uuid
 
 import strawberry
 from strawberry.types import Info
 
+from app.core.errors import NotFoundError, ValidationError
 from app.database import async_session_factory
 from app.domains.admin.service import AdminService
 from app.domains.auth.graphql import UserType
+from app.domains.auth.models import UserRole
 from app.graphql.middleware import require_admin
+
+
+@strawberry.enum
+class UserRoleEnum(str, enum.Enum):
+    USER = "USER"
+    ADMIN = "ADMIN"
 
 
 @strawberry.type
@@ -64,5 +73,21 @@ class AdminMutations:
         try:
             user = await service.activate_user(uuid.UUID(user_id))
             return UserType.from_model(user) if user else None
+        finally:
+            await service.session.close()
+
+    @strawberry.mutation
+    async def update_user_role(
+        self, info: Info, user_id: str, role: UserRoleEnum
+    ) -> UserType | None:
+        require_admin(info.context)
+        service = await get_admin_service(info)
+        try:
+            user = await service.update_user_role(
+                uuid.UUID(user_id), UserRole(role.value), info.context.user_id
+            )
+            return UserType.from_model(user) if user else None
+        except (NotFoundError, ValidationError) as e:
+            raise Exception(str(e))
         finally:
             await service.session.close()
