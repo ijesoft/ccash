@@ -24,3 +24,33 @@ export const GET_ADMIN_MEMBERS = gql`
     }
   }
 `;
+
+export const ACTIVATE_USER = gql`
+  mutation ActivateUser($userId: String!) {
+    activateUser(userId: $userId) {
+      id
+      email
+      status
+    }
+  }
+`;
+
+export const SUSPEND_USER = gql`
+  mutation SuspendUser($userId: String!) {
+    suspendUser(userId: $userId) {
+      id
+      email
+      status
+    }
+  }
+`;
+
+export const UPDATE_USER_ROLE = gql`
+  mutation UpdateUserRole($userId: String!, $role: UserRoleEnum!) {
+    updateUserRole(userId: $userId, role: $role) {
+      id
+      email
+      role
+    }
+  }
+`;

@@ -3,41 +3,63 @@ services:
     image: postgres:17-alpine
     container_name: ccash-postgres
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:5433:5432"
     environment:
-      POSTGRES_USER: ccash
-      POSTGRES_PASSWORD: ccash_secret_2024
-      POSTGRES_DB: ccash
+      POSTGRES_USER: ${POSTGRES_USER:-ccash}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-ccash}
     volumes:
       - ccash-postgres-data:/var/lib/postgresql/data
     networks:
       ccash-net:
         ipv4_address: 172.28.0.2
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ccash"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ccash}"]
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
   redis:
     image: redis:7-alpine
     container_name: ccash-redis
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:6380:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    volumes:
+      - ccash-redis-data:/data
     networks:
       ccash-net:
         ipv4_address: 172.28.0.4
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: ccash-rabbitmq
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:5673:5672"
+      - "127.0.0.1:15672:15672"  # Management UI
     environment:
-      RABBITMQ_DEFAULT_USER: ccash
-      RABBITMQ_DEFAULT_PASS: ccash_secret_2024
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ccash}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    volumes:
+      - ccash-rabbitmq-data:/var/lib/rabbitmq
     networks:
       ccash-net:
         ipv4_address: 172.28.0.3
@@ -46,9 +68,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
 
-  # Captures every outgoing email so registration/login OTPs are viewable
-  # without a real SMTP provider. SMTP on 1025, web UI on 8025.
   mailpit:
     image: axllent/mailpit:latest
     container_name: ccash-mailpit
@@ -64,11 +89,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
 
 networks:
-  # Addresses are pinned because backend/.env reaches these services by IP.
-  # Without a declared subnet, Docker reassigns addresses on recreate and the
-  # backend silently loses its database.
   ccash-net:
     driver: bridge
     ipam:
@@ -78,3 +105,5 @@ networks:
 
 volumes:
   ccash-postgres-data:
+  ccash-redis-data:
+  ccash-rabbitmq-data:

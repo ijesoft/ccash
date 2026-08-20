@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
-import { useMutation } from "@apollo/client";
+import { useApolloClient, useMutation } from "@apollo/client";
 import { LOGIN, LOGOUT, REFRESH_TOKEN } from "../graphql/mutations/auth";
 import type { User } from "../types";
 
@@ -22,12 +22,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return stored ? JSON.parse(stored) : null;
   });
   const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem("accessToken"));
+  const client = useApolloClient();
 
   const [loginMutation] = useMutation(LOGIN);
   const [logoutMutation] = useMutation(LOGOUT);
   const [refreshMutation] = useMutation(REFRESH_TOKEN);
 
   const login = useCallback(async (email: string, password: string, otpCode?: string) => {
+    await client.resetStore();
     const { data } = await loginMutation({ variables: { email, password, otpCode } });
     if (data?.login) {
       setAccessToken(data.login.accessToken);
@@ -36,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("refreshToken", data.login.refreshToken);
       localStorage.setItem("user", JSON.stringify(data.login.user));
     }
-  }, [loginMutation]);
+  }, [loginMutation, client]);
 
   const logout = useCallback(async () => {
     const refreshToken = localStorage.getItem("refreshToken");
@@ -48,7 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
-  }, [logoutMutation]);
+    await client.resetStore();
+  }, [logoutMutation, client]);
 
   const refreshSession = useCallback(async (): Promise<boolean> => {
     const refreshToken = localStorage.getItem("refreshToken");

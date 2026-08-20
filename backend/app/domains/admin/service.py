@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import AuditLog
 from app.core.errors import NotFoundError, ValidationError
-from app.domains.auth.models import User, UserRole
+from app.domains.auth.models import User, UserRole, UserStatus
 from app.domains.auth.repository import UserRepository
 from app.domains.transactions.models import Transaction, TransactionStatus
 from app.domains.wallets.models import Wallet
@@ -66,15 +66,17 @@ class AdminService:
     async def suspend_user(self, user_id: uuid.UUID) -> User | None:
         user = await self.user_repo.get_by_id(user_id)
         if user:
-            user.status = "SUSPENDED"
+            user.status = UserStatus.SUSPENDED
             await self.user_repo.update(user)
+            await self.session.commit()
         return user
 
     async def activate_user(self, user_id: uuid.UUID) -> User | None:
         user = await self.user_repo.get_by_id(user_id)
         if user:
-            user.status = "ACTIVE"
+            user.status = UserStatus.ACTIVE
             await self.user_repo.update(user)
+            await self.session.commit()
         return user
 
     async def update_user_role(

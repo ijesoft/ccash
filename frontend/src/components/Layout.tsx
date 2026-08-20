@@ -31,6 +31,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import LogoutIcon from "@mui/icons-material/Logout";
 import CallReceivedIcon from "@mui/icons-material/CallReceived";
 import CallMadeIcon from "@mui/icons-material/CallMade";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { useQuery } from "@apollo/client";
 import { UNREAD_COUNT } from "../graphql/queries/wallet";
 import { useAuth } from "../context/AuthContext";
@@ -48,6 +49,7 @@ const primaryNav = [
 const secondaryNav = [
   { label: "Cash In", icon: <CallReceivedIcon />, path: "/cash-in" },
   { label: "Cash Out", icon: <CallMadeIcon />, path: "/cash-out" },
+  { label: "Admin", icon: <AdminPanelSettingsIcon />, path: "/admin" },
   { label: "Notifications", icon: <NotificationsNoneIcon />, path: "/notifications" },
   { label: "Profile", icon: <PersonIcon />, path: "/profile" },
 ];
@@ -56,7 +58,7 @@ export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, isAdmin, logout } = useAuth();
   const visibleSecondaryNav = isAdmin ? secondaryNav : secondaryNav.filter(
-    (item) => item.path !== "/cash-in" && item.path !== "/cash-out",
+    (item) => item.path !== "/cash-in" && item.path !== "/cash-out" && item.path !== "/admin",
   );
   const navigate = useNavigate();
   const location = useLocation();
