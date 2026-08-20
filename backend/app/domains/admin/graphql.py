@@ -26,6 +26,17 @@ class PlatformStats:
     transaction_volume_cents: int
 
 
+@strawberry.type
+class AdminMemberType:
+    id: str
+    email: str
+    role: str
+    status: str
+    wallet_balance_cents: int
+    wallet_status: str
+    created_at: str
+
+
 async def get_admin_service(info: Info) -> AdminService:
     session = async_session_factory()
     return AdminService(session)
@@ -44,12 +55,12 @@ class AdminQueries:
             await service.session.close()
 
     @strawberry.field
-    async def admin_users(self, info: Info, limit: int = 20, offset: int = 0) -> list[UserType]:
+    async def admin_users(self, info: Info, limit: int = 20, offset: int = 0) -> list[AdminMemberType]:
         require_admin(info.context)
         service = await get_admin_service(info)
         try:
-            users, _ = await service.list_users(limit, offset)
-            return [UserType.from_model(u) for u in users]
+            members, _ = await service.list_users(limit, offset)
+            return [AdminMemberType(**m) for m in members]
         finally:
             await service.session.close()
 
