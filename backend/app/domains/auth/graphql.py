@@ -19,6 +19,7 @@ class UserType:
     last_name: str | None
     status: str
     kyc_level: str
+    role: str
     is_2fa_enabled: bool
     is_verified: bool
     created_at: str
@@ -33,6 +34,7 @@ class UserType:
             last_name=user.last_name,
             status=user.status.value,
             kyc_level=user.kyc_level.value,
+            role=user.role.value,
             is_2fa_enabled=user.is_2fa_enabled,
             is_verified=user.is_verified,
             created_at=user.created_at.isoformat() if user.created_at else "",
@@ -125,7 +127,7 @@ class AuthMutations:
             return AuthPayload(
                 access_token=access,
                 refresh_token=new_refresh,
-                user=UserType(id="", email="", phone="", status="", kyc_level="", is_2fa_enabled=False, is_verified=False, created_at=""),
+                user=UserType(id="", email="", phone="", status="", kyc_level="", role="", is_2fa_enabled=False, is_verified=False, created_at=""),
             )
         except AuthenticationError as e:
             raise Exception(str(e))

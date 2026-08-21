@@ -1,11 +1,21 @@
+import enum
 import uuid
 
 import strawberry
 from strawberry.types import Info
 
+from app.core.errors import NotFoundError, ValidationError
 from app.database import async_session_factory
 from app.domains.admin.service import AdminService
 from app.domains.auth.graphql import UserType
+from app.domains.auth.models import UserRole
+from app.graphql.middleware import require_admin
+
+
+@strawberry.enum
+class UserRoleEnum(str, enum.Enum):
+    USER = "USER"
+    ADMIN = "ADMIN"
 
 
 @strawberry.type
@@ -16,14 +26,20 @@ class PlatformStats:
     transaction_volume_cents: int
 
 
+@strawberry.type
+class AdminMemberType:
+    id: str
+    email: str
+    role: str
+    status: str
+    wallet_balance_cents: int
+    wallet_status: str
+    created_at: str
+
+
 async def get_admin_service(info: Info) -> AdminService:
     session = async_session_factory()
     return AdminService(session)
-
-
-def require_admin(context):
-    if not context.user_id or "admin" not in context.scopes:
-        raise Exception("Not authorized")
 
 
 @strawberry.type
@@ -39,12 +55,12 @@ class AdminQueries:
             await service.session.close()
 
     @strawberry.field
-    async def admin_users(self, info: Info, limit: int = 20, offset: int = 0) -> list[UserType]:
+    async def admin_users(self, info: Info, limit: int = 20, offset: int = 0) -> list[AdminMemberType]:
         require_admin(info.context)
         service = await get_admin_service(info)
         try:
-            users, _ = await service.list_users(limit, offset)
-            return [UserType.from_model(u) for u in users]
+            members, _ = await service.list_users(limit, offset)
+            return [AdminMemberType(**m) for m in members]
         finally:
             await service.session.close()
 
@@ -68,5 +84,21 @@ class AdminMutations:
         try:
             user = await service.activate_user(uuid.UUID(user_id))
             return UserType.from_model(user) if user else None
+        finally:
+            await service.session.close()
+
+    @strawberry.mutation
+    async def update_user_role(
+        self, info: Info, user_id: str, role: UserRoleEnum
+    ) -> UserType | None:
+        require_admin(info.context)
+        service = await get_admin_service(info)
+        try:
+            user = await service.update_user_role(
+                uuid.UUID(user_id), UserRole(role.value), info.context.user_id
+            )
+            return UserType.from_model(user) if user else None
+        except (NotFoundError, ValidationError) as e:
+            raise Exception(str(e))
         finally:
             await service.session.close()

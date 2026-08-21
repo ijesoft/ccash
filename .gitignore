@@ -12,6 +12,7 @@ logs/
 
 # Environment
 backend/.env
+.env
 
 # Graphify
 graphify-out/

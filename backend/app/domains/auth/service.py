@@ -15,10 +15,17 @@ from app.core.security import (
     verify_password,
     verify_totp,
 )
-from app.domains.auth.models import User, UserStatus
+from app.domains.auth.models import User, UserRole, UserStatus
 from app.domains.auth.repository import UserRepository
 from app.domains.wallets.repository import WalletRepository
 from app.tasks.notifications import send_email_notification
+
+
+def _scopes_for(user: User) -> list[str]:
+    scopes = ["wallet:read", "wallet:write"]
+    if user.role == UserRole.ADMIN:
+        scopes.append("admin")
+    return scopes
 
 
 class AuthService:
@@ -142,7 +149,7 @@ class AuthService:
                 # Consume the OTP so it cannot be reused
                 await self.redis.delete(f"login_otp:{email}")
 
-        access_token = create_access_token(str(user.id), scopes=["wallet:read", "wallet:write"])
+        access_token = create_access_token(str(user.id), scopes=_scopes_for(user))
         refresh_token, token_id = create_refresh_token(str(user.id))
 
         await self.redis.setex(f"refresh:{token_id}", settings.refresh_token_expire_days * 86400, str(user.id))
@@ -161,17 +168,29 @@ class AuthService:
         token_id = payload.get("token_id")
         user_id = payload.get("sub")
 
+        user = await self._load_user_or_raise(user_id)
+
         stored = await self.redis.get(f"refresh:{token_id}")
         if not stored:
             raise AuthenticationError("Refresh token expired or revoked")
 
         await self.redis.delete(f"refresh:{token_id}")
 
-        new_access = create_access_token(user_id, scopes=["wallet:read", "wallet:write"])
+        new_access = create_access_token(user_id, scopes=_scopes_for(user))
         new_refresh, new_token_id = create_refresh_token(user_id)
         await self.redis.setex(f"refresh:{new_token_id}", settings.refresh_token_expire_days * 86400, user_id)
 
         return new_access, new_refresh
+
+    async def _load_user_or_raise(self, user_id: str) -> User:
+        try:
+            uid = uuid.UUID(user_id)
+        except (ValueError, TypeError):
+            raise AuthenticationError("Invalid refresh token")
+        user = await self.repo.get_by_id(uid)
+        if not user:
+            raise AuthenticationError("Invalid refresh token")
+        return user
 
     async def enable_2fa(self, user_id: uuid.UUID, secret: str, code: str) -> bool:
         if not verify_totp(secret, code):

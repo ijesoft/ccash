@@ -63,7 +63,7 @@ role: UserRole = Field(default=UserRole.USER, sa_type=Enum(UserRole))
 
 - **Default deny:** registration (`AuthService.register`) creates users with no role
   argument → column default `USER`.
-- **Migration 003** (new file in `backend/migrations/versions/`):
+- **Migration 005** (new file `backend/migrations/versions/005_add_user_role.py`; current head is `004`):
   1. `op.add_column("users", sa.Column("role", sa.Enum("USER", "ADMIN", name="userrole"), nullable=False, server_default="USER"))`
   2. Data step: `UPDATE users SET role = 'ADMIN' WHERE email = 'admin@ccash.ph' AND deleted_at IS NULL`
 - **Seed** (`backend/app/seed.py`): admin user constructed with `role=UserRole.ADMIN`;

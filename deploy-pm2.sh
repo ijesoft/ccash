@@ -1,34 +1,53 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
-echo "=== CCash PM2 Deployment ==="
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$DIR"
 
-# Create logs directory
+echo "========================================="
+echo "   🚀 Starting CCash Full Stack"
+echo "========================================="
+
+# 1. Start Docker Infrastructure (Postgres, Redis, RabbitMQ, Mailpit)
+echo "📦 1. Starting infrastructure containers..."
+docker compose -f docker-compose.infra.yml up -d
+
+# 2. Setup logs directory
 mkdir -p logs
 
-# Install backend dependencies
-echo "Installing backend dependencies..."
-cd backend
-pip install -r requirements.txt --upgrade
-cd ..
+# 3. Backend setup & virtual environment
+echo "🐍 2. Setting up backend & database..."
+cd "$DIR/backend"
+if [ ! -d ".venv" ]; then
+  python3 -m venv .venv
+fi
+./.venv/bin/pip install -q -r requirements.txt
 
-# Build frontend
-echo "Building frontend..."
-cd frontend
-npm ci --omit=dev || npm install
+# Run migrations and seed data
+./.venv/bin/python -m alembic -c migrations/alembic.ini upgrade head
+./.venv/bin/python -m app.seed || true
+cd "$DIR"
+
+# 4. Frontend build
+echo "⚛️  3. Building frontend..."
+cd "$DIR/frontend"
+npm install --silent
 npm run build
-cd ..
+cd "$DIR"
 
-# Start with PM2
-echo "Starting services with PM2..."
-pm2 start ecosystem.config.js || pm2 reload ecosystem.config.js
-
-# Save PM2 process list
+# 5. Start/Restart services via PM2
+echo "⚡ 4. Starting PM2 processes (backend, celery, frontend)..."
+pm2 start ecosystem.config.js || pm2 restart ecosystem.config.js
 pm2 save
 
 echo ""
-echo "=== Deployment complete ==="
-echo "Frontend: http://localhost:8830"
-echo "Backend:  http://localhost:8831/graphql"
+echo "========================================="
+echo "   ✅ CCash is UP and RUNNING!"
+echo "========================================="
+echo " 🌐 Frontend:  http://localhost:8830"
+echo " 🔗 GraphQL:   http://localhost:8830/api/graphql"
+echo " 📧 Mailpit:   http://localhost:8025"
+echo "========================================="
 echo ""
 pm2 status
+

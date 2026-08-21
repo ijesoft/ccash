@@ -5,6 +5,7 @@ import { AuthProvider } from "./context/AuthContext";
 import client from "./graphql/client";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import VerifyOtp from "./pages/VerifyOtp";
@@ -36,8 +37,8 @@ export default function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/send" element={<SendMoney />} />
-                <Route path="/cash-in" element={<CashIn />} />
-                <Route path="/cash-out" element={<CashOut />} />
+                <Route path="/cash-in" element={<AdminRoute><CashIn /></AdminRoute>} />
+                <Route path="/cash-out" element={<AdminRoute><CashOut /></AdminRoute>} />
                 <Route path="/qr-payment" element={<QrPayment />} />
                 <Route path="/transactions" element={<TransactionsPage />} />
                 <Route path="/profile" element={<Profile />} />

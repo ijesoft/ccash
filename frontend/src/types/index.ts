@@ -6,6 +6,7 @@ export interface User {
   lastName: string | null;
   status: string;
   kycLevel: string;
+  role: string;
   is2faEnabled: boolean;
   isVerified: boolean;
   createdAt: string;

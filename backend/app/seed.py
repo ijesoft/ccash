@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
 from app.database import async_session_factory, create_tables
-from app.domains.auth.models import User, UserStatus
+from app.domains.auth.models import User, UserRole, UserStatus
 from app.domains.transactions.models import Transaction, TransactionStatus, TransactionType
 from app.domains.wallets.models import Wallet, WalletStatus
 
@@ -23,6 +23,7 @@ async def seed():
             password_hash=hash_password("Admin123!"),
             status=UserStatus.ACTIVE,
             is_verified=True,
+            role=UserRole.ADMIN,
         )
         user1 = User(
             id=uuid.uuid4(),

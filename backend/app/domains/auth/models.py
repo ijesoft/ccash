@@ -18,6 +18,11 @@ class KycLevel(str, enum.Enum):
     FULL = "FULL"
 
 
+class UserRole(str, enum.Enum):
+    USER = "USER"
+    ADMIN = "ADMIN"
+
+
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
@@ -29,6 +34,7 @@ class User(SQLModel, table=True):
     password_hash: str = Field(max_length=255)
     status: UserStatus = Field(default=UserStatus.PENDING, sa_type=Enum(UserStatus))
     kyc_level: KycLevel = Field(default=KycLevel.NONE, sa_type=Enum(KycLevel))
+    role: UserRole = Field(default=UserRole.USER, sa_type=Enum(UserRole))
     device_id: str | None = Field(default=None, max_length=255)
     totp_secret: str | None = Field(default=None, max_length=255)
     is_2fa_enabled: bool = Field(default=False)
