@@ -24,7 +24,10 @@ graphify-out/
 .DS_Store
 
 # Celery beat state
-backend/celerybeat-schedule
+backend/celerybeat-schedule*
+
+# Superpowers
+.superpowers/
 
 # tsc emit into src (build output belongs in dist/)
 frontend/src/**/*.js
