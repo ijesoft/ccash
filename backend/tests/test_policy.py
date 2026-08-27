@@ -48,12 +48,30 @@ def test_references_do_not_repeat():
     assert len({generate_reference() for _ in range(1_000)}) == 1_000
 
 
+from app.core.masking import mask_mobile, normalize_philippine_mobile
+
+
+@pytest.mark.parametrize(
+    "mobile,expected",
+    [
+        ("09180000003", "09180000003"),
+        ("+639180000003", "09180000003"),
+        ("639180000003", "09180000003"),
+        ("9180000003", "09180000003"),
+        ("0918-000-0003", "09180000003"),
+        ("", ""),
+        (None, ""),
+    ],
+)
+def test_normalize_philippine_mobile(mobile, expected):
+    assert normalize_philippine_mobile(mobile) == expected
+
+
 @pytest.mark.parametrize(
     "mobile,expected",
     [
         ("09180000003", "0918••••003"),
-        # Non-digits are stripped, so an E.164 number masks from its country code.
-        ("+63 918 000 0003", "6391•••••003"),
+        ("+63 918 000 0003", "0918••••003"),
         ("0918000", "•••••••"),
         ("", ""),
         (None, ""),

@@ -25,3 +25,15 @@ export function formatDate(isoString: string): string {
     minute: "2-digit",
   });
 }
+
+export function cleanPhilippineMobile(mobile: string): string {
+  if (!mobile) return "";
+  const digits = mobile.replace(/\D/g, "");
+  if (digits.startsWith("639") && digits.length === 12) {
+    return "0" + digits.slice(2);
+  }
+  if (digits.startsWith("9") && digits.length === 10) {
+    return "0" + digits;
+  }
+  return digits;
+}

@@ -38,6 +38,7 @@ export default function SendMoney() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [mobile, setMobile] = useState("");
+  const [mobileError, setMobileError] = useState("");
   const [recipient, setRecipient] = useState<{ walletId: string; name: string; maskedMobile: string } | null>(null);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -59,28 +60,78 @@ export default function SendMoney() {
     setPin("");
   };
 
+  // Best-practice: strict 11-digit numeric-only check, then DB existence check.
+  // No silent cleaning - if raw input contains letters/symbols, reject immediately.
+  const validateMobileStrict = (raw: string): string | null => {
+    const trimmed = raw.trim();
+    if (!trimmed) return "Mobile number is required";
+    if (/\D/.test(trimmed)) {
+      return "Mobile number must contain digits only (no letters, spaces, or symbols)";
+    }
+    if (trimmed.length !== 11) {
+      return "Mobile number must be exactly 11 digits (e.g. 09171234567)";
+    }
+    if (!/^\d{11}$/.test(trimmed)) {
+      return "Mobile number must be exactly 11 digits";
+    }
+    return null;
+  };
+
   const handleResolveMobile = async () => {
     setError("");
-    if (!mobile || mobile.length < 10) {
-      setError("Enter a valid mobile number");
+    setMobileError("");
+    const raw = mobile.trim();
+
+    const validationError = validateMobileStrict(raw);
+    if (validationError) {
+      setMobileError(validationError);
+      setError(validationError);
       return;
     }
+
+    // At this point raw is guaranteed 11 digits numeric-only -> use as canonical
+    const canonical = raw;
+
     try {
-      const { data } = await resolveRecipient({ variables: { mobile } });
+      const { data } = await resolveRecipient({ variables: { mobile: canonical } });
       if (data?.resolveRecipient) {
         setRecipient(data.resolveRecipient);
+        setMobile(canonical);
         setStep(1);
       } else {
-        setError("No account found for that number");
+        const msg = "No account found for that number - please check the mobile number";
+        setMobileError(msg);
+        setError(msg);
       }
     } catch (err: any) {
-      setError(err.message || "Failed to look up recipient");
+      const msg = err.message || "Failed to look up recipient";
+      // Surface backend validation (e.g. 11-digit rule) as field error
+      if (msg.toLowerCase().includes("mobile") || msg.toLowerCase().includes("digit")) {
+        setMobileError(msg);
+      }
+      setError(msg);
     }
   };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Defense-in-depth: re-validate mobile at send time (user could bypass step 0 via devtools)
+    const mobileErr = validateMobileStrict(mobile);
+    if (mobileErr) {
+      setMobileError(mobileErr);
+      setError(mobileErr);
+      setStep(0);
+      return;
+    }
+    if (!recipient) {
+      const msg = "Recipient not verified - please re-enter the 11-digit mobile number and verify it exists";
+      setError(msg);
+      setMobileError(msg);
+      setStep(0);
+      return;
+    }
 
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
@@ -92,14 +143,15 @@ export default function SendMoney() {
       return;
     }
 
-    const recipientLabel = recipient?.name || recipient?.maskedMobile || mobile;
+    const canonical = mobile.trim();
+    const recipientLabel = recipient?.name || recipient?.maskedMobile || canonical;
     const sentNote = note;
 
     try {
       const { data } = await sendMoneyMut({
         variables: {
           input: {
-            receiverMobile: mobile,
+            receiverMobile: canonical,
             amountCents: amountToCents(amountNum),
             idempotencyKey: crypto.randomUUID(),
             description: note || undefined,
@@ -179,10 +231,22 @@ export default function SendMoney() {
                   fullWidth
                   label="Mobile number"
                   value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
+                  onChange={(e) => {
+                    setMobile(e.target.value);
+                    if (mobileError) setMobileError("");
+                    if (error) setError("");
+                  }}
+                  onBlur={() => {
+                    if (mobile) {
+                      const err = validateMobileStrict(mobile);
+                      if (err) setMobileError(err);
+                    }
+                  }}
                   required
-                  inputProps={{ maxLength: 11, inputMode: "tel" }}
-                  placeholder="09181234567"
+                  error={!!mobileError}
+                  helperText={mobileError || "Exactly 11 digits (e.g. 09171234567) — digits only, no letters or symbols"}
+                  inputProps={{ maxLength: 11, inputMode: "numeric", pattern: "[0-9]*" }}
+                  placeholder="09171234567"
                   sx={{ mb: 3 }}
                 />
                 <Button fullWidth type="submit" variant="contained" size="large" disabled={resolving} sx={{ borderRadius: 2, py: 1.4 }}>

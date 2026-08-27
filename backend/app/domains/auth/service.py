@@ -35,16 +35,26 @@ class AuthService:
         self.redis = redis
 
     async def register(self, email: str, phone: str, password: str, first_name: str | None = None, last_name: str | None = None) -> User:
+        import re
+
+        # Strict 11-digit numeric check - no letters/symbols allowed
+        if not re.fullmatch(r"\d{11}", phone):
+            raise ValidationError("Phone must be exactly 11 digits (numbers only, no letters)")
+
+        from app.core.masking import normalize_philippine_mobile
+
+        normalized_phone = normalize_philippine_mobile(phone) or phone
+
         existing = await self.repo.get_by_email(email)
         if existing:
             raise ValidationError("Email already registered")
 
-        existing = await self.repo.get_by_phone(phone)
+        existing = await self.repo.get_by_phone(normalized_phone)
         if existing:
             raise ValidationError("Phone already registered")
 
         password_hash = hash_password(password)
-        user = await self.repo.create(email, phone, password_hash, first_name, last_name)
+        user = await self.repo.create(email, normalized_phone, password_hash, first_name, last_name)
         await self.session.commit()
 
         otp = generate_otp()

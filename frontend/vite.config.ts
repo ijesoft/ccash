@@ -31,5 +31,16 @@ export default defineConfig({
     headers: {
       "Permissions-Policy": permissionPolicy,
     },
+    proxy: {
+      "/api": {
+        target: "http://localhost:8831",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+      "/ws": {
+        target: "ws://localhost:8831",
+        ws: true,
+      },
+    },
   },
 });

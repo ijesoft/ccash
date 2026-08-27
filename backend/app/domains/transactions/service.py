@@ -49,6 +49,16 @@ class TransactionService:
         receiver_mobile: str | None = None,
         pin: str | None = None,
     ) -> TransactionView:
+        import re as _re
+
+        # Best-practice: never trust client - strict server-side mobile validation
+        # 1) digits-only 2) exactly 11 digits 3) existence checked below
+        if receiver_mobile is not None:
+            if _re.search(r"\D", receiver_mobile):
+                raise ValidationError("Mobile number must contain digits only (no letters, spaces, or symbols)")
+            if not _re.fullmatch(r"\d{11}", receiver_mobile):
+                raise ValidationError("Mobile number must be exactly 11 digits (e.g. 09171234567)")
+
         validate_amount(amount_cents)
 
         if pin is not None:
@@ -146,30 +156,49 @@ class TransactionService:
         sender_user_id: uuid.UUID,
         payload: str,
         idempotency_key: str,
+        amount_cents: int | None = None,
         description: str | None = None,
         pin: str | None = None,
     ) -> TransactionView:
-        """Process a QR payment by parsing a QR payload (JSON: {to, amount}).
+        """Process a QR payment by parsing a QR payload (JSON or standard QR string).
 
-        Reuses the transfer path so the same validation, locking, and
-        notification plumbing applies.
+        Supports both dynamic QR (amount pre-filled) and static QR (amount supplied
+        by the user), reusing the transfer path for validation, locking, and pushes.
         """
         import json as _json
 
+        to = None
+        payload_amount: int | None = None
+        payload_desc: str | None = None
+
+        raw = payload.strip()
         try:
-            data = _json.loads(payload)
-        except _json.JSONDecodeError as e:
-            raise ValidationError(f"Invalid QR payload: {e}")
+            data = _json.loads(raw)
+            if isinstance(data, dict):
+                to = data.get("to") or data.get("receiver") or data.get("wallet_id") or data.get("mobile")
+                val = data.get("amount")
+                if isinstance(val, int):
+                    payload_amount = val
+                elif isinstance(val, float):
+                    payload_amount = round(val * 100)
+                payload_desc = data.get("description") or data.get("note")
+        except (_json.JSONDecodeError, TypeError):
+            # Not JSON: raw payload might be a mobile number, wallet UUID, or plain identifier
+            to = raw
 
-        to = data.get("to")
-        amount_cents = data.get("amount")
-        if not to or amount_cents is None:
-            raise ValidationError("QR payload must contain 'to' and 'amount'")
+        if not to:
+            raise ValidationError("Invalid QR payload: missing recipient")
 
-        if not isinstance(amount_cents, int):
-            raise ValidationError("Amount must be a whole number of centavos")
+        # Use explicitly passed amount if provided (for static QR), else use payload amount
+        effective_amount = amount_cents if amount_cents is not None else payload_amount
+        if effective_amount is None or effective_amount <= 0:
+            raise ValidationError("Please enter an amount to pay")
 
-        validate_amount(amount_cents)
+        validate_amount(effective_amount)
+        amount_cents = effective_amount
+
+        if not description and payload_desc:
+            description = payload_desc
 
         if pin is not None:
             sender_wallet_pre = await self.wallet_repo.get_by_user_id(sender_user_id)
@@ -192,6 +221,13 @@ class TransactionService:
             if not _receiver_wallet:
                 raise NotFoundError("Recipient wallet not found")
         except (ValueError, AttributeError):
+            # Validate mobile format if 'to' is not a UUID
+            import re as _re2
+
+            if _re2.search(r"\D", to):
+                raise ValidationError("Mobile number must contain digits only (no letters, spaces, or symbols)")
+            if not _re2.fullmatch(r"\d{11}", to):
+                raise ValidationError("Mobile number must be exactly 11 digits (e.g. 09171234567)")
             user = await self._find_user_by_mobile(to)
             if not user:
                 raise NotFoundError("Recipient not found")
