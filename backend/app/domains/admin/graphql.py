@@ -6,6 +6,7 @@ from strawberry.types import Info
 
 from app.core.errors import NotFoundError, ValidationError
 from app.database import async_session_factory
+from app.domains.admin.branding_service import BASE_DIR, read_branding
 from app.domains.admin.service import AdminService
 from app.domains.auth.graphql import UserType
 from app.domains.auth.models import UserRole
@@ -37,6 +38,13 @@ class AdminMemberType:
     created_at: str
 
 
+@strawberry.type
+class BrandingType:
+    logo_url: str
+    version: int
+    updated_at: str
+
+
 async def get_admin_service(info: Info) -> AdminService:
     session = async_session_factory()
     return AdminService(session)
@@ -63,6 +71,13 @@ class AdminQueries:
             return [AdminMemberType(**m) for m in members]
         finally:
             await service.session.close()
+
+    @strawberry.field
+    async def branding(self, info: Info) -> BrandingType:
+        # Public read: every client needs the logo URL. No session held, so no
+        # session.close() needed (unlike the DB-backed fields above).
+        data = read_branding(base_dir=BASE_DIR)
+        return BrandingType(**data)
 
 
 @strawberry.type

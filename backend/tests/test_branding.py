@@ -158,3 +158,28 @@ def test_upload_roundtrip_and_reset(tmp_path, monkeypatch):
 
     reset = client.delete("/admin/branding/logo", headers=headers)
     assert reset.status_code == 200
+
+
+async def test_branding_query_reads_manifest(tmp_path, monkeypatch):
+    import app.domains.admin.branding_service as bs
+    import app.domains.admin.graphql as admin_gql
+    from app.domains.admin.branding_service import (
+        generate_variants,
+        load_square_image,
+        save_branding,
+    )
+
+    monkeypatch.setattr(bs, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(admin_gql, "BASE_DIR", tmp_path)
+
+    class FakeInfo:
+        context = None
+
+    empty = await admin_gql.AdminQueries().branding(FakeInfo())  # type: ignore
+    assert empty.logo_url == "" and empty.version == 0
+
+    img = load_square_image(make_png())
+    save_branding(generate_variants(img), actor_id="a1", base_dir=tmp_path)
+    full = await admin_gql.AdminQueries().branding(FakeInfo())  # type: ignore
+    assert full.logo_url.startswith("/api/static/branding/logo-header.png?v=")
+    assert full.version > 0
