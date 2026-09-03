@@ -34,6 +34,7 @@ import CallMadeIcon from "@mui/icons-material/CallMade";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { useQuery } from "@apollo/client";
 import { UNREAD_COUNT } from "../graphql/queries/wallet";
+import { GET_BRANDING, type BrandingData } from "../graphql/queries/branding";
 import { useAuth } from "../context/AuthContext";
 
 const DRAWER_WIDTH = 260;
@@ -66,6 +67,8 @@ export default function Layout() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { data: unreadData } = useQuery<{ unreadCount: number }>(UNREAD_COUNT, { pollInterval: 20000 });
   const unreadCount = unreadData?.unreadCount ?? 0;
+  const { data: brandingData } = useQuery<BrandingData>(GET_BRANDING);
+  const logoUrl = brandingData?.branding?.logoUrl || "";
 
   const currentPath = location.pathname;
   const initials = user?.email?.charAt(0).toUpperCase() ?? "U";
@@ -97,7 +100,7 @@ export default function Layout() {
             fontSize: "0.9rem",
           }}
         >
-          C
+          {logoUrl ? <img src={logoUrl} alt="CCash logo" style={{ width: 24, height: 24, objectFit: "contain" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : "C"}
         </Box>
         <Typography
           variant="h6"
