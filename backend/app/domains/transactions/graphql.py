@@ -215,16 +215,28 @@ class TransactionQueries:
 
     @strawberry.field
     async def my_qr_code(self, info: Info) -> QrCodeType:
+        import json as _json
         user_id = require_user(info)
 
         from app.domains.wallets.service import WalletService
+        from app.domains.auth.repository import UserRepository
 
         service = await get_tx_service(info)
         wallet_service = WalletService(service.session)
+        user_repo = UserRepository(service.session)
         try:
             wallet = await wallet_service.get_or_create_wallet(user_id)
-            payload = f'{{"to":"{wallet.id}","amount":0}}'
-            return QrCodeType(payload=payload)
+            user = await user_repo.get_by_id(user_id)
+            name = f"{user.first_name or ''} {user.last_name or ''}".strip() if user else ""
+            phone = user.phone if user else ""
+            payload_data = {
+                "to": phone or str(wallet.id),
+                "name": name,
+                "wallet_id": str(wallet.id),
+                "type": "CCASH_PAY",
+                "amount": 0,
+            }
+            return QrCodeType(payload=_json.dumps(payload_data))
         finally:
             await service.session.close()
 
@@ -285,12 +297,27 @@ class TransactionMutations:
             await service.session.close()
 
     @strawberry.mutation
-    async def scan_qr_payment(self, info: Info, payload: str, idempotency_key: str, pin: str | None = None) -> TransactionType:
+    async def scan_qr_payment(
+        self,
+        info: Info,
+        payload: str,
+        idempotency_key: str,
+        amount_cents: int | None = None,
+        pin: str | None = None,
+        description: str | None = None,
+    ) -> TransactionType:
         user_id = require_user(info)
 
         service = await get_tx_service(info)
         try:
-            view = await service.scan_qr_payment(user_id, payload, idempotency_key, pin=pin)
+            view = await service.scan_qr_payment(
+                user_id,
+                payload,
+                idempotency_key,
+                amount_cents=amount_cents,
+                description=description,
+                pin=pin,
+            )
             return TransactionType.from_view(view)
         except TRANSACTION_ERRORS as e:
             raise Exception(str(e))

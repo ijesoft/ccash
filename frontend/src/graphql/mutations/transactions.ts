@@ -45,3 +45,33 @@ export const CASH_OUT = gql`
     }
   }
 `;
+
+export const SCAN_QR_PAYMENT = gql`
+  mutation ScanQrPayment(
+    $payload: String!
+    $idempotencyKey: String!
+    $amountCents: Int
+    $pin: String
+    $description: String
+  ) {
+    scanQrPayment(
+      payload: $payload
+      idempotencyKey: $idempotencyKey
+      amountCents: $amountCents
+      pin: $pin
+      description: $description
+    ) {
+      id
+      type
+      status
+      direction
+      counterparty { walletId name maskedMobile }
+      amount { cents }
+      fee { cents }
+      reference
+      description
+      createdAt
+    }
+  }
+`;
+

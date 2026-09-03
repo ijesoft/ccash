@@ -92,9 +92,18 @@ class WalletQueries:
 
     @strawberry.field
     async def resolve_recipient(self, info: Info, mobile: str) -> RecipientType | None:
+        import re
+
         context: AuthContext = info.context
         if not context.user_id:
             raise Exception("Not authenticated")
+
+        # Best-practice: strict validation before DB lookup - prevents enumeration via malformed inputs
+        # 1) digits-only 2) exactly 11 digits
+        if re.search(r"\D", mobile):
+            raise Exception("Mobile number must contain digits only (no letters, spaces, or symbols)")
+        if not re.fullmatch(r"\d{11}", mobile):
+            raise Exception("Mobile number must be exactly 11 digits (e.g. 09171234567)")
 
         session = async_session_factory()
         repo = UserRepository(session)

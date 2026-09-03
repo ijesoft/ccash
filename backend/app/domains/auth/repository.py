@@ -19,7 +19,15 @@ class UserRepository:
         return result.scalar_one_or_none()
 
     async def get_by_phone(self, phone: str) -> User | None:
-        result = await self.session.execute(select(User).where(User.phone == phone, User.deleted_at.is_(None)))
+        from app.core.masking import normalize_philippine_mobile
+
+        norm = normalize_philippine_mobile(phone)
+        result = await self.session.execute(
+            select(User).where(
+                (User.phone == phone) | (User.phone == norm),
+                User.deleted_at.is_(None),
+            )
+        )
         return result.scalar_one_or_none()
 
     async def create(self, email: str, phone: str, password_hash: str, first_name: str | None = None, last_name: str | None = None) -> User:

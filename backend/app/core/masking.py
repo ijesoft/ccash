@@ -10,14 +10,38 @@ _VISIBLE_PREFIX = 4
 _VISIBLE_SUFFIX = 3
 
 
+def normalize_philippine_mobile(mobile: str | None) -> str:
+    """Normalize Philippine mobile numbers into canonical 11-digit 09XXXXXXXXX format.
+
+    Handles:
+    - '09180000003' -> '09180000003'
+    - '+639180000003' -> '09180000003'
+    - '639180000003' -> '09180000003'
+    - '9180000003' -> '09180000003'
+    - '0918-000-0003' -> '09180000003'
+    """
+    if not mobile:
+        return ""
+    digits = "".join(char for char in mobile if char.isdigit())
+    if digits.startswith("639") and len(digits) == 12:
+        return "0" + digits[2:]
+    if digits.startswith("9") and len(digits) == 10:
+        return "0" + digits
+    return digits
+
+
 def mask_mobile(mobile: str | None) -> str:
     """'09180000003' -> '0918••••003'. Short or missing numbers mask entirely."""
     if not mobile:
         return ""
 
-    digits = "".join(char for char in mobile if char.isdigit())
+    digits = normalize_philippine_mobile(mobile)
+    if not digits:
+        digits = "".join(char for char in mobile if char.isdigit())
+
     if len(digits) <= _VISIBLE_PREFIX + _VISIBLE_SUFFIX:
         return MASK_CHAR * len(digits)
 
     hidden = len(digits) - _VISIBLE_PREFIX - _VISIBLE_SUFFIX
     return f"{digits[:_VISIBLE_PREFIX]}{MASK_CHAR * hidden}{digits[-_VISIBLE_SUFFIX:]}"
+

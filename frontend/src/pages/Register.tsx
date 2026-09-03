@@ -9,15 +9,42 @@ import BrandMark from "../components/BrandMark";
 export default function Register() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [registerMutation, { loading }] = useMutation(REGISTER);
   const navigate = useNavigate();
 
+  const validatePhone = (value: string): string | null => {
+    if (!/^\d+$/.test(value)) {
+      return "Phone must contain digits only (no letters or symbols)";
+    }
+    if (value.length !== 11) {
+      return "Phone must be exactly 11 digits";
+    }
+    return null;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // strip non-digits instantly so letters/symbols never persist
+    const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 11);
+    setPhone(digitsOnly);
+    if (phoneError) setPhoneError("");
+    if (error) setError("");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setPhoneError("");
+
+    const phoneValidationError = validatePhone(phone);
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError);
+      setError(phoneValidationError);
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
@@ -83,11 +110,17 @@ export default function Register() {
               fullWidth
               label="Phone"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={handlePhoneChange}
+              onBlur={() => {
+                const err = phone ? validatePhone(phone) : null;
+                if (err) setPhoneError(err);
+              }}
               required
               margin="normal"
               placeholder="09171234567"
-              inputProps={{ inputMode: "tel" }}
+              helperText={phoneError || "Exactly 11 digits (numbers only)"}
+              error={!!phoneError}
+              inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 11 }}
             />
             <TextField
               fullWidth

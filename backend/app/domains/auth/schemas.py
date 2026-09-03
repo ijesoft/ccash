@@ -3,7 +3,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 class RegisterInput(BaseModel):
     email: str = Field(min_length=5, max_length=255)
-    phone: str = Field(min_length=10, max_length=20)
+    phone: str = Field(min_length=11, max_length=11, pattern=r"^\d{11}$")
     password: str = Field(min_length=8, max_length=128)
 
 
