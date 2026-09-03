@@ -91,7 +91,8 @@ export default function Layout() {
           sx={{
             width: 36,
             height: 36,
-            borderRadius: 2,
+            borderRadius: "50%",
+            overflow: "hidden",
             background: "linear-gradient(135deg, #0f6ecd 0%, #084585 100%)",
             display: "flex",
             alignItems: "center",
@@ -102,7 +103,7 @@ export default function Layout() {
             fontSize: "0.9rem",
           }}
         >
-          {logoUrl && !logoError ? <img src={logoUrl} key={logoUrl} alt="CCash logo" style={{ width: 24, height: 24, objectFit: "contain" }} onError={() => setLogoError(true)} /> : "C"}
+          {logoUrl && !logoError ? <img src={logoUrl} key={logoUrl} alt="CCash logo" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} onError={() => setLogoError(true)} /> : "C"}
         </Box>
         <Typography
           variant="h6"
