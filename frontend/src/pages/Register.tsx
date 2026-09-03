@@ -4,6 +4,7 @@ import { Box, Button, Card, CardContent, TextField, Typography, Alert, Link } fr
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import { useMutation } from "@apollo/client";
 import { REGISTER } from "../graphql/mutations/auth";
+import BrandMark from "../components/BrandMark";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -53,22 +54,7 @@ export default function Register() {
       >
         <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
           <Box sx={{ textAlign: "center", mb: 3 }}>
-            <Box
-              sx={{
-                width: 56,
-                height: 56,
-                borderRadius: 2.5,
-                background: "linear-gradient(135deg, #0f6ecd 0%, #084585 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                mx: "auto",
-                mb: 1.5,
-                boxShadow: "0 8px 20px rgba(15,110,205,0.35)",
-              }}
-            >
-              <PersonAddIcon sx={{ fontSize: 30, color: "white" }} />
-            </Box>
+            <BrandMark icon={<PersonAddIcon sx={{ fontSize: 30, color: "white" }} />} />
             <Typography
               fontWeight={700}
               sx={{ fontFamily: '"League Spartan", sans-serif', color: "primary.main", fontSize: { xs: "1.75rem", sm: "2rem" }, letterSpacing: "-0.03em" }}

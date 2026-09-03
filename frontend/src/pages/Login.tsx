@@ -5,6 +5,7 @@ import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import { useMutation } from "@apollo/client";
 import { useAuth } from "../context/AuthContext";
 import { SEND_LOGIN_OTP } from "../graphql/mutations/auth";
+import BrandMark from "../components/BrandMark";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -71,22 +72,7 @@ export default function Login() {
       >
         <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
           <Box sx={{ textAlign: "center", mb: 3 }}>
-            <Box
-              sx={{
-                width: 56,
-                height: 56,
-                borderRadius: 2.5,
-                background: "linear-gradient(135deg, #0f6ecd 0%, #084585 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                mx: "auto",
-                mb: 1.5,
-                boxShadow: "0 8px 20px rgba(15,110,205,0.35)",
-              }}
-            >
-              <AccountBalanceWalletIcon sx={{ fontSize: 30, color: "white" }} />
-            </Box>
+            <BrandMark icon={<AccountBalanceWalletIcon sx={{ fontSize: 30, color: "white" }} />} />
             <Typography
               fontWeight={700}
               sx={{ fontFamily: '"League Spartan", sans-serif', color: "primary.main", fontSize: { xs: "1.75rem", sm: "2rem" }, letterSpacing: "-0.03em" }}
