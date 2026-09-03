@@ -111,6 +111,32 @@ def test_reset_without_backup_clears_manifest_for_fallback(tmp_path):
     assert (tmp_path / "manifest.json").exists() is False
 
 
+def test_transparent_png_flattens_to_white(tmp_path):
+    from app.domains.admin.branding_service import generate_variants, load_square_image
+
+    buf = io.BytesIO()
+    Image.new("RGBA", (400, 400), (0, 0, 0, 0)).save(buf, format="PNG")
+    img = load_square_image(buf.getvalue())
+    variants = generate_variants(img)
+    for name, im in variants.items():
+        assert im.mode == "RGB", name
+    corner = variants["icon-512.png"].getpixel((0, 0))
+    assert corner == (255, 255, 255), corner
+
+
+def test_save_branding_version_monotonic(tmp_path):
+    from app.domains.admin.branding_service import (
+        generate_variants,
+        load_square_image,
+        save_branding,
+    )
+
+    img = load_square_image(make_png())
+    v1 = save_branding(generate_variants(img), actor_id="a1", base_dir=tmp_path)["version"]
+    v2 = save_branding(generate_variants(img), actor_id="a1", base_dir=tmp_path)["version"]
+    assert v2 > v1
+
+
 def test_read_defaults_when_no_manifest(tmp_path):
     from app.domains.admin.branding_service import read_branding
 

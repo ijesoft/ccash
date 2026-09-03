@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   AppBar,
@@ -69,6 +69,8 @@ export default function Layout() {
   const unreadCount = unreadData?.unreadCount ?? 0;
   const { data: brandingData } = useQuery<BrandingData>(GET_BRANDING);
   const logoUrl = brandingData?.branding?.logoUrl || "";
+  const [logoError, setLogoError] = useState(false);
+  useEffect(() => setLogoError(false), [logoUrl]);
 
   const currentPath = location.pathname;
   const initials = user?.email?.charAt(0).toUpperCase() ?? "U";
@@ -100,7 +102,7 @@ export default function Layout() {
             fontSize: "0.9rem",
           }}
         >
-          {logoUrl ? <img src={logoUrl} alt="CCash logo" style={{ width: 24, height: 24, objectFit: "contain" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : "C"}
+          {logoUrl && !logoError ? <img src={logoUrl} key={logoUrl} alt="CCash logo" style={{ width: 24, height: 24, objectFit: "contain" }} onError={() => setLogoError(true)} /> : "C"}
         </Box>
         <Typography
           variant="h6"

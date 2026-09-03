@@ -66,6 +66,15 @@ def load_square_image(content: bytes) -> Image.Image:
     return img.crop((left, top, left + side, top + side))
 
 
+def _flatten_to_white(im: Image.Image) -> Image.Image:
+    if im.mode not in ("RGBA", "LA", "PA"):
+        return im.convert("RGB") if im.mode != "RGB" else im
+    rgba = im.convert("RGBA")
+    bg = Image.new("RGB", rgba.size, (255, 255, 255))
+    bg.paste(rgba, mask=rgba.split()[3])
+    return bg
+
+
 def generate_variants(img: Image.Image) -> dict[str, Image.Image]:
     variants = {name: img.resize(size, Image.LANCZOS) for name, size in SIZES.items()}
     maskable = Image.new("RGBA", (512, 512), (255, 255, 255, 255))
@@ -74,7 +83,7 @@ def generate_variants(img: Image.Image) -> dict[str, Image.Image]:
     variants["icon-maskable-512.png"] = maskable.convert("RGB")
     rgb_variants = {}
     for name, im in variants.items():
-        rgb_variants[name] = im.convert("RGB") if im.mode == "RGBA" else im
+        rgb_variants[name] = _flatten_to_white(im)
     return rgb_variants
 
 
@@ -92,6 +101,11 @@ def save_branding(variants: dict[str, Image.Image], actor_id: str, base_dir: Pat
             shutil.copy2(p, backup / p.name)
 
     version = int(time.time())
+    try:
+        prior = int(json.loads(_manifest_path(base_dir).read_text())["version"])
+        version = max(version, prior + 1)
+    except Exception:
+        pass
     staging = base_dir / f".staging-{uuid.uuid4().hex}"
     staging.mkdir(parents=True)
     for name, im in variants.items():
