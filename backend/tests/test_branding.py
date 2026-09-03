@@ -91,6 +91,26 @@ def test_reset_restores_backup(tmp_path):
     assert read_branding(base_dir=tmp_path)["version"] == out["version"]
 
 
+def test_reset_without_backup_clears_manifest_for_fallback(tmp_path):
+    from app.domains.admin.branding_service import (
+        generate_variants,
+        load_square_image,
+        read_branding,
+        reset_branding,
+        save_branding,
+    )
+
+    img = load_square_image(make_png())
+    save_branding(generate_variants(img), actor_id="a1", base_dir=tmp_path)
+    assert (tmp_path / ".backup").exists() is False
+
+    out = reset_branding(base_dir=tmp_path)
+    assert out == {"logo_url": "", "version": 0, "updated_at": ""}
+    assert read_branding(base_dir=tmp_path) == {"logo_url": "", "version": 0, "updated_at": ""}
+    assert list(tmp_path.glob("*.png")) == []
+    assert (tmp_path / "manifest.json").exists() is False
+
+
 def test_read_defaults_when_no_manifest(tmp_path):
     from app.domains.admin.branding_service import read_branding
 

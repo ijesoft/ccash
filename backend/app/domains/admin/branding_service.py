@@ -127,6 +127,8 @@ def reset_branding(base_dir: Path = BASE_DIR) -> dict:
     else:
         for p in base_dir.glob("*.png"):
             p.unlink()
+        _manifest_path(base_dir).unlink(missing_ok=True)
+        return read_branding(base_dir)
     version = int(time.time()) + 1  # strictly newer than any save in the same second
     manifest = {"version": version, "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "updated_by": "reset"}
     _manifest_path(base_dir).write_text(json.dumps(manifest))
