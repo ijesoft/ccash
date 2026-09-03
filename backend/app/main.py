@@ -1,10 +1,13 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
 from strawberry.fastapi import GraphQLRouter
 
+from app.api.branding import router as branding_router
 from app.config import settings
 from app.core.redis import close_redis, get_redis
 from app.core.security import decode_token
@@ -46,6 +49,14 @@ app.add_middleware(RateLimitMiddleware)
 
 graphql_router = GraphQLRouter(schema, context_getter=get_context)
 app.include_router(graphql_router, prefix="/graphql")
+
+# backend/app/main.py -> backend/ == same dir the branding service resolves
+# (backend/static/branding). Nginx strips the /api prefix when proxying, so
+# /api/static/branding/* reaches this mount.
+BRANDING_DIR = Path(__file__).resolve().parent.parent / "static" / "branding"
+BRANDING_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static/branding", StaticFiles(directory=str(BRANDING_DIR)), name="branding")
+app.include_router(branding_router, prefix="/admin/branding")
 
 
 @app.websocket("/ws")

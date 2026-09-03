@@ -95,3 +95,66 @@ def test_read_defaults_when_no_manifest(tmp_path):
     from app.domains.admin.branding_service import read_branding
 
     assert read_branding(base_dir=tmp_path) == {"logo_url": "", "version": 0, "updated_at": ""}
+
+
+def _branding_test_app(tmp_path, monkeypatch):
+    import app.domains.admin.branding_service as bs
+
+    monkeypatch.setattr(bs, "BASE_DIR", tmp_path)
+    import app.api.branding as branding_api
+
+    monkeypatch.setattr(branding_api, "BASE_DIR", tmp_path)
+    from fastapi import FastAPI
+
+    test_app = FastAPI()
+    test_app.include_router(branding_api.router, prefix="/admin/branding")
+    return test_app
+
+
+def _token(scopes):
+    from app.core.security import create_access_token
+
+    return create_access_token(str(uuid.uuid4()), scopes=scopes)
+
+
+def test_upload_requires_admin(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    test_app = _branding_test_app(tmp_path, monkeypatch)
+    client = TestClient(test_app, raise_server_exceptions=False)
+
+    assert client.post("/admin/branding/logo").status_code == 401
+    user_token = _token(["wallet:read", "wallet:write"])
+    res = client.post(
+        "/admin/branding/logo",
+        headers={"Authorization": f"Bearer {user_token}"},
+        files={"file": ("logo.png", make_png(), "image/png")},
+    )
+    assert res.status_code == 403
+
+
+def test_upload_roundtrip_and_reset(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    test_app = _branding_test_app(tmp_path, monkeypatch)
+    client = TestClient(test_app, raise_server_exceptions=False)
+    admin_token = _token(["wallet:read", "wallet:write", "admin"])
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    res = client.post(
+        "/admin/branding/logo",
+        headers=headers,
+        files={"file": ("logo.png", make_png(), "image/png")},
+    )
+    assert res.status_code == 200
+    assert res.json()["logo_url"].startswith("/api/static/branding/logo-header.png?v=")
+    assert (tmp_path / "icon-512.png").exists()
+
+    bad = client.post(
+        "/admin/branding/logo", headers=headers, files={"file": ("x.gif", b"GIF89a", "image/gif")}
+    )
+    assert bad.status_code == 400
+    assert bad.json()["detail"]["code"] == "unsupported_type"
+
+    reset = client.delete("/admin/branding/logo", headers=headers)
+    assert reset.status_code == 200
