@@ -385,7 +385,7 @@ def test_upload_roundtrip_and_reset(tmp_path, monkeypatch):
         "/admin/branding/logo", headers=headers, files={"file": ("x.gif", b"GIF89a", "image/gif")}
     )
     assert bad.status_code == 400
-    assert bad.json()["code"] == "unsupported_type"
+    assert bad.json()["detail"]["code"] == "unsupported_type"
 
     reset = client.delete("/admin/branding/logo", headers=headers)
     assert reset.status_code == 200
@@ -451,8 +451,7 @@ async def upload_logo(file: UploadFile = File(...), actor_id: uuid.UUID = Depend
         img = load_square_image(content)
         variants = generate_variants(img)
     except BrandingError as e:
-        raise HTTPException(status_code=400, detail=str(e), headers={"X-Error-Code": e.code})
-    # Keep {"code"} shape stable for the frontend: catch and re-raise as JSON body.
+        raise HTTPException(status_code=400, detail={"code": e.code, "message": str(e)})
     return save_branding(variants, actor_id=str(actor_id), base_dir=BASE_DIR)
 
 
