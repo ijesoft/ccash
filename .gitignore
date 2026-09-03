@@ -26,6 +26,9 @@ graphify-out/
 # Celery beat state
 backend/celerybeat-schedule*
 
+# Runtime-generated branding assets (admin uploads; regenerated on demand)
+backend/static/branding/
+
 # Superpowers
 .superpowers/
 
