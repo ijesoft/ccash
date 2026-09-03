@@ -29,6 +29,7 @@ import {
   UPDATE_USER_ROLE,
 } from "../graphql/queries/admin";
 import { formatMoney } from "../utils/format";
+import BrandingSection from "../components/BrandingSection";
 
 export default function AdminDashboard() {
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
@@ -176,6 +177,7 @@ export default function AdminDashboard() {
   return (
     <Box>
       <Typography variant="h5" fontWeight="bold" mb={3}>Admin Dashboard</Typography>
+      <BrandingSection />
 
       <Grid container spacing={3} mb={3}>
         <Grid xs={12} sm={6} md={3}>
