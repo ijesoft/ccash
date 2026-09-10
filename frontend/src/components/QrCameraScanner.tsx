@@ -1,6 +1,15 @@
-import { useEffect, useRef, useState } from "react";
-import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Stack,
+  Typography,
+} from "@mui/material";
 import CameraswitchIcon from "@mui/icons-material/Cameraswitch";
+import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 import VideocamOffIcon from "@mui/icons-material/VideocamOff";
 import QrScanner from "qr-scanner";
 import qrScannerWorkerPath from "qr-scanner/qr-scanner-worker.min.js?url";
@@ -15,19 +24,27 @@ interface Props {
 
 export default function QrCameraScanner({ active, onScan }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scannerRef = useRef<QrScanner | null>(null);
   const lastScanRef = useRef("");
-  const { state, request } = useCameraPermission();
+  const { state } = useCameraPermission();
   const [starting, setStarting] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [decoding, setDecoding] = useState(false);
   const [error, setError] = useState("");
   const [hasCamera, setHasCamera] = useState<boolean | null>(null);
 
+  const cameraBlocked = state === "insecure" || state === "unsupported" || state === "denied";
+
   useEffect(() => {
     let cancelled = false;
-    QrScanner.hasCamera().then((ok) => {
-      if (!cancelled) setHasCamera(ok);
-    });
+    QrScanner.hasCamera()
+      .then((ok) => {
+        if (!cancelled) setHasCamera(ok);
+      })
+      .catch(() => {
+        if (!cancelled) setHasCamera(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -47,27 +64,53 @@ export default function QrCameraScanner({ active, onScan }: Props) {
     };
   }, [active]);
 
+  const emitScan = (data: string) => {
+    const payload = data.trim();
+    if (!payload || payload === lastScanRef.current) return;
+    lastScanRef.current = payload;
+    onScan(payload);
+    window.setTimeout(() => {
+      if (lastScanRef.current === payload) lastScanRef.current = "";
+    }, 2500);
+  };
+
   const startCamera = async () => {
     setError("");
+
+    if (!window.isSecureContext) {
+      setError(
+        "Camera needs HTTPS or localhost. This page is on plain HTTP, so browsers block the camera. Use “Upload QR image” below, or open CCash on https://… / http://localhost:8830.",
+      );
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError("Camera is not supported in this browser. Use “Upload QR image” instead.");
+      return;
+    }
+    if (state === "denied") {
+      setError(
+        "Camera permission is blocked. Allow camera for this site in browser settings, then try again — or upload a QR image.",
+      );
+      return;
+    }
+
     setStarting(true);
     try {
-      if (state === "prompt" || state === "unknown") {
-        await request();
+      const video = videoRef.current;
+      if (!video) {
+        throw new Error("Camera preview is not ready yet. Please try again.");
       }
-      if (!videoRef.current) return;
+
+      // Keep the element paintable while starting. display:none often breaks getUserMedia.
+      video.style.display = "block";
+      video.style.opacity = "0";
 
       if (!scannerRef.current) {
         scannerRef.current = new QrScanner(
-          videoRef.current,
+          video,
           (result) => {
             const data = typeof result === "string" ? result : result.data;
-            if (!data || data === lastScanRef.current) return;
-            lastScanRef.current = data;
-            onScan(data);
-            // Allow rescan of the same code after a short cooldown.
-            window.setTimeout(() => {
-              if (lastScanRef.current === data) lastScanRef.current = "";
-            }, 2500);
+            if (data) emitScan(data);
           },
           {
             returnDetailedScanResult: true,
@@ -80,19 +123,29 @@ export default function QrCameraScanner({ active, onScan }: Props) {
       }
 
       await scannerRef.current.start();
+      video.style.opacity = "1";
       setScanning(true);
-    } catch (err: any) {
-      const message = String(err?.message || err || "");
+    } catch (err: unknown) {
+      const message = String((err as { message?: string })?.message || err || "");
+      scannerRef.current?.stop();
+      if (videoRef.current) {
+        videoRef.current.style.display = "none";
+        videoRef.current.style.opacity = "1";
+      }
       if (/NotAllowedError|Permission denied|PermissionDismissed/i.test(message)) {
-        setError("Camera permission was denied. Enable camera access for CCash in your browser or system settings, then try again.");
+        setError(
+          "Camera permission was denied. Enable camera access for CCash, or upload a QR image instead.",
+        );
       } else if (/NotFoundError|DevicesNotFound/i.test(message)) {
-        setError("No camera was found on this device.");
+        setError("No camera was found on this device. Upload a QR image instead.");
       } else if (/NotReadableError|TrackStartError/i.test(message)) {
         setError("Camera is already in use by another app. Close it and try again.");
       } else if (!window.isSecureContext) {
-        setError("Camera access requires HTTPS (or localhost). Open CCash over a secure connection to scan QR codes.");
+        setError(
+          "Camera access requires HTTPS (or localhost). Use “Upload QR image” on this HTTP page.",
+        );
       } else {
-        setError(message || "Unable to start the camera.");
+        setError(message || "Unable to start the camera. Try uploading a QR image.");
       }
       setScanning(false);
     } finally {
@@ -102,28 +155,72 @@ export default function QrCameraScanner({ active, onScan }: Props) {
 
   const stopCamera = () => {
     scannerRef.current?.stop();
+    if (videoRef.current) {
+      videoRef.current.style.display = "none";
+    }
     setScanning(false);
   };
 
-  if (hasCamera === false) {
-    return (
-      <Alert severity="info" sx={{ borderRadius: 2, mb: 2 }}>
-        No camera detected. You can still paste a QR payload below.
-      </Alert>
-    );
-  }
+  const handleUploadClick = () => {
+    setError("");
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setDecoding(true);
+    setError("");
+    try {
+      const data = await QrScanner.scanImage(file, {
+        returnDetailedScanResult: true,
+      });
+      const payload = typeof data === "string" ? data : data.data;
+      if (!payload?.trim()) {
+        throw new Error("No QR code found in that image.");
+      }
+      stopCamera();
+      emitScan(payload);
+    } catch (err: unknown) {
+      const message = String((err as { message?: string })?.message || err || "");
+      if (/No QR code found/i.test(message)) {
+        setError("No QR code found in that image. Try a clearer photo of the CCash QR.");
+      } else {
+        setError(message || "Could not read that image. Try another photo of the QR code.");
+      }
+    } finally {
+      setDecoding(false);
+    }
+  };
 
   return (
     <Box sx={{ mb: 2 }}>
       {state === "insecure" && (
         <Alert severity="warning" sx={{ borderRadius: 2, mb: 2 }}>
-          Camera requires a secure context (HTTPS or localhost). Native install/prompt and camera scanning will not work over plain HTTP on a LAN host.
+          This page is not a secure context (plain HTTP on a LAN host). Browsers block the camera
+          here. Use <strong>Upload QR image</strong> — take a photo of the QR, then pick it — or
+          open the app via <code>https://</code> / <code>localhost</code> for live scanning.
         </Alert>
       )}
 
       {state === "denied" && (
         <Alert severity="error" sx={{ borderRadius: 2, mb: 2 }}>
-          Camera permission is blocked. On iPhone: Settings → Safari → Camera. On Android Chrome: Site settings → Camera → Allow.
+          Camera permission is blocked. On iPhone: Settings → Safari → Camera. On Android Chrome:
+          Site settings → Camera → Allow. Or upload a QR image below.
+        </Alert>
+      )}
+
+      {state === "unsupported" && (
+        <Alert severity="info" sx={{ borderRadius: 2, mb: 2 }}>
+          Live camera is not available in this browser. Upload a QR image instead.
+        </Alert>
+      )}
+
+      {hasCamera === false && state !== "insecure" && (
+        <Alert severity="info" sx={{ borderRadius: 2, mb: 2 }}>
+          No camera detected. You can upload a QR image or paste the payload below.
         </Alert>
       )}
 
@@ -132,6 +229,15 @@ export default function QrCameraScanner({ active, onScan }: Props) {
           {error}
         </Alert>
       )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.png,.jpg,.jpeg,.webp,.gif"
+        capture="environment"
+        hidden
+        onChange={handleFileChange}
+      />
 
       <Box
         sx={{
@@ -155,6 +261,7 @@ export default function QrCameraScanner({ active, onScan }: Props) {
             height: "100%",
             objectFit: "cover",
             display: scanning ? "block" : "none",
+            backgroundColor: "#0b1220",
           }}
         />
 
@@ -178,17 +285,50 @@ export default function QrCameraScanner({ active, onScan }: Props) {
               Scan a CCash QR code
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.8 }}>
-              We only use your camera to read the QR payload. Nothing is recorded.
+              {cameraBlocked
+                ? "Live camera is unavailable on this connection. Upload a photo of the QR code instead."
+                : "We only use your camera to read the QR payload. Nothing is recorded."}
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={starting ? <CircularProgress size={16} color="inherit" /> : <CameraswitchIcon />}
-              onClick={startCamera}
-              disabled={starting || state === "insecure" || state === "unsupported"}
-              sx={{ mt: 1, minHeight: 48 }}
-            >
-              {starting ? "Starting camera..." : "Allow camera & scan"}
-            </Button>
+
+            <Stack spacing={1.25} sx={{ width: "100%", maxWidth: 280, mt: 1 }}>
+              {cameraBlocked ? (
+                <Button
+                  variant="contained"
+                  startIcon={decoding ? <CircularProgress size={16} color="inherit" /> : <UploadFileIcon />}
+                  onClick={handleUploadClick}
+                  disabled={decoding}
+                  sx={{ minHeight: 48 }}
+                >
+                  {decoding ? "Reading QR..." : "Upload QR image"}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="contained"
+                    startIcon={starting ? <CircularProgress size={16} color="inherit" /> : <CameraswitchIcon />}
+                    onClick={startCamera}
+                    disabled={starting || decoding}
+                    sx={{ minHeight: 48 }}
+                  >
+                    {starting ? "Starting camera..." : "Allow camera & scan"}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={decoding ? <CircularProgress size={16} color="inherit" /> : <PhotoCameraIcon />}
+                    onClick={handleUploadClick}
+                    disabled={decoding || starting}
+                    sx={{
+                      minHeight: 44,
+                      color: "white",
+                      borderColor: "rgba(255,255,255,0.45)",
+                      "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.08)" },
+                    }}
+                  >
+                    {decoding ? "Reading QR..." : "Upload QR image"}
+                  </Button>
+                </>
+              )}
+            </Stack>
           </Box>
         )}
 
@@ -210,9 +350,25 @@ export default function QrCameraScanner({ active, onScan }: Props) {
             <Typography variant="caption" sx={{ color: "white" }}>
               Point at a QR code
             </Typography>
-            <Button size="small" variant="outlined" onClick={stopCamera} sx={{ color: "white", borderColor: "rgba(255,255,255,0.5)" }}>
-              Stop
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={handleUploadClick}
+                disabled={decoding}
+                sx={{ color: "white", borderColor: "rgba(255,255,255,0.5)" }}
+              >
+                Upload
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={stopCamera}
+                sx={{ color: "white", borderColor: "rgba(255,255,255,0.5)" }}
+              >
+                Stop
+              </Button>
+            </Stack>
           </Box>
         )}
       </Box>
