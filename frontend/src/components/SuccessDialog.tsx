@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -15,7 +15,14 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import CheckIcon from "@mui/icons-material/Check";
+import ShareIcon from "@mui/icons-material/Share";
+import DownloadIcon from "@mui/icons-material/Download";
 import { formatMoney } from "../utils/format";
+import {
+  downloadReceipt,
+  shareReceipt,
+  type ReceiptShareData,
+} from "../utils/receiptShare";
 
 export interface ReceiptRow {
   label: string;
@@ -54,6 +61,21 @@ export default function SuccessDialog({
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState<"share" | "download" | null>(null);
+  const [actionMsg, setActionMsg] = useState("");
+
+  const amountLabel = (signPrefix ?? "") + formatMoney(amountCents);
+
+  const shareData = useMemo<ReceiptShareData>(
+    () => ({
+      title,
+      subtitle,
+      amountLabel,
+      rows,
+      reference,
+    }),
+    [title, subtitle, amountLabel, rows, reference],
+  );
 
   const handleCopy = async () => {
     if (!reference) return;
@@ -75,6 +97,38 @@ export default function SuccessDialog({
       setTimeout(() => setCopied(false), 1800);
     } catch {
       setCopied(false);
+    }
+  };
+
+  const handleShare = async () => {
+    setBusy("share");
+    setActionMsg("");
+    try {
+      const result = await shareReceipt(shareData);
+      if (result === "shared") {
+        setActionMsg("Opened share sheet — pick Messages, Email, or another app.");
+      } else if (result === "text") {
+        setActionMsg("Shared as text. Receipt image also downloaded for proof.");
+      } else {
+        setActionMsg("Share is unavailable here. Receipt image downloaded instead.");
+      }
+    } catch (err) {
+      setActionMsg(String((err as Error)?.message || "Could not share receipt."));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleDownload = async () => {
+    setBusy("download");
+    setActionMsg("");
+    try {
+      await downloadReceipt(shareData);
+      setActionMsg("Receipt image saved. Check your Downloads folder.");
+    } catch (err) {
+      setActionMsg(String((err as Error)?.message || "Could not download receipt."));
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -161,8 +215,7 @@ export default function SuccessDialog({
             wordBreak: "break-word",
           }}
         >
-          {signPrefix}
-          {formatMoney(amountCents)}
+          {amountLabel}
         </Typography>
       </Box>
 
@@ -209,7 +262,36 @@ export default function SuccessDialog({
           )}
         </Stack>
 
-        <Stack spacing={1.25} sx={{ mt: 3.5 }}>
+        {actionMsg && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2, textAlign: "center" }}>
+            {actionMsg}
+          </Typography>
+        )}
+
+        <Stack direction="row" spacing={1.25} sx={{ mt: 3 }}>
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<ShareIcon />}
+            onClick={handleShare}
+            disabled={busy !== null}
+            sx={{ minHeight: 44, borderRadius: 2 }}
+          >
+            {busy === "share" ? "Sharing..." : "Share"}
+          </Button>
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownload}
+            disabled={busy !== null}
+            sx={{ minHeight: 44, borderRadius: 2 }}
+          >
+            {busy === "download" ? "Saving..." : "Download"}
+          </Button>
+        </Stack>
+
+        <Stack spacing={1.25} sx={{ mt: 1.5 }}>
           <Button
             fullWidth
             variant="contained"
