@@ -19,6 +19,7 @@ import TransactionsPage from "./pages/Transactions";
 import Profile from "./pages/Profile";
 import NotificationsPage from "./pages/Notifications";
 import AdminDashboard from "./pages/AdminDashboard";
+import WalletBalances from "./pages/WalletBalances";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ export default function App() {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/wallet-balances" element={<AdminRoute><WalletBalances /></AdminRoute>} />
               </Route>
             </Routes>
             <PwaInstallPrompt />

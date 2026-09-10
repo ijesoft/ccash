@@ -8,7 +8,7 @@ from app.core.errors import NotFoundError, ValidationError
 from app.domains.auth.models import User, UserRole, UserStatus
 from app.domains.auth.repository import UserRepository
 from app.domains.transactions.models import Transaction, TransactionStatus
-from app.domains.wallets.models import Wallet
+from app.domains.wallets.models import Wallet, WalletStatus
 
 
 class AdminService:
@@ -31,11 +31,20 @@ class AdminService:
         )
         volume = volume_result.scalar() or 0
 
+        balance_result = await self.session.execute(
+            select(func.coalesce(func.sum(Wallet.balance_cents), 0)).where(
+                Wallet.status == WalletStatus.ACTIVE,
+                Wallet.deleted_at.is_(None),
+            )
+        )
+        total_balance = balance_result.scalar() or 0
+
         return {
             "total_users": user_count,
             "active_wallets": wallet_count,
             "total_transactions": tx_count,
             "transaction_volume_cents": volume,
+            "total_wallet_balance_cents": total_balance,
         }
 
     async def list_users(self, limit: int = 20, offset: int = 0) -> tuple[list[dict], int]:

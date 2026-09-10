@@ -7,6 +7,7 @@ export const GET_ADMIN_STATS = gql`
       activeWallets
       totalTransactions
       transactionVolumeCents
+      totalWalletBalanceCents
     }
   }
 `;
@@ -20,6 +21,22 @@ export const GET_ADMIN_MEMBERS = gql`
       status
       walletBalanceCents
       walletStatus
+      createdAt
+    }
+  }
+`;
+
+export const GET_ADMIN_USER_TRANSACTIONS = gql`
+  query AdminUserTransactions($userId: String!, $limit: Int, $offset: Int) {
+    adminUserTransactions(userId: $userId, limit: $limit, offset: $offset) {
+      id
+      type
+      status
+      direction
+      counterparty { name maskedMobile }
+      amount { cents }
+      reference
+      description
       createdAt
     }
   }

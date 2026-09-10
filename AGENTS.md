@@ -41,7 +41,7 @@ pm2 logs ccash-backend --lines 50
 ## Before every demo
 
 ```bash
-cd backend && ./.venv/bin/python -m pytest        # 51 tests
+cd backend && ./.venv/bin/python -m pytest        # 88 tests
 ./backend/.venv/bin/python scripts/verify_realtime.py   # live WebSocket push
 ```
 
@@ -68,7 +68,8 @@ backend/app/
     transactions/  # Send money, cash in/out (idempotent)
     users/         # KYC document upload
     notifications/ # Real-time notifications via WebSocket
-    admin/         # Admin user management
+    admin/         # Admin user management, platformStats (+totalWalletBalanceCents),
+    #                adminUserTransactions (admin view of one user's history)
   graphql/         # Root schema (aggregates all domain types via class inheritance), middleware, scalars
   core/            # Config, security (JWT, Argon2id, pyotp), custom errors
   tasks/           # Celery task definitions (email, daily limit reset)
@@ -109,6 +110,9 @@ Each domain follows: `models.py` → `repository.py` → `service.py` → `graph
 - **Password hashing:** Argon2id via `argon2-cffi`.
 - **GraphQL enums in Strawberry** must inherit from `enum.Enum` (or `str, enum.Enum`), not be plain classes.
 - **`metadata` is a reserved attribute name** in SQLAlchemy/SQLModel. Use `data`, `tx_metadata`, or similar instead.
+- **Admin views of user data get dedicated `admin*` resolvers** (e.g. `adminUserTransactions`)
+  that reuse the domain view builders with the target user's wallet as viewer — never
+  bypass the ownership checks in the user-facing resolvers.
 
 ## Frontend
 
@@ -117,6 +121,13 @@ Each domain follows: `models.py` → `repository.py` → `service.py` → `graph
 - Tokens + user stored in localStorage: `accessToken`, `refreshToken`, `user`.
 - GraphQL operations in `src/graphql/mutations/` and `src/graphql/queries/`.
 - Strict TypeScript: `noUnusedLocals`, `noUnusedParameters` enforced.
+- Fresh checkout needs `cd frontend && npm install` before the first build (`deploy-pm2.sh` does this).
+- Admin-only **Total Wallet Balances** sidebar card (`Layout.tsx`): sum of ACTIVE, non-deleted
+  wallet balances via `platformStats.totalWalletBalanceCents`; clickable → `/wallet-balances`.
+- `/wallet-balances` page (`WalletBalances.tsx`, behind `AdminRoute`): total card + per-user
+  balances table (`adminUsers`); clicking a name opens a dialog with that user's history via
+  `adminUserTransactions(userId)`, rendered with the same per-viewer direction/counterparty
+  semantics as the Transactions page. Admin Dashboard itself is unchanged.
 
 ## Infrastructure quirks
 
@@ -128,6 +139,13 @@ Each domain follows: `models.py` → `repository.py` → `service.py` → `graph
 - **Infra IPs are pinned** in `docker-compose.infra.yml` (172.28.0.2 postgres, .3 rabbitmq, .4 redis,
   .5 mailpit) because `backend/.env` addresses them by IP. Without a declared subnet Docker
   reassigns addresses on recreate and the backend silently loses its database.
+- **Dev-host port remap (local diff, not upstream):** `lending_postgres`/`lending_redis` already
+  occupy host ports 5433/6380 on this machine, so `docker-compose.infra.yml` maps ccash postgres →
+  `127.0.0.1:5434` and redis → `127.0.0.1:6381`, with `backend/.env` `DATABASE_URL`/`REDIS_URL`
+  updated to match. Container IPs (172.28.0.x) are unchanged. A fresh clone uses 5433/6380 —
+  do not revert this unless the lending stack is stopped. Root `.env` also gained the required
+  `REDIS_PASSWORD` (infra compose interpolates it; backend `REDIS_URL` carries it as
+  `redis://:<password>@...`).
 - **A Celery worker must be running.** Without `pm2 ccash-celery`, every
   `send_email_notification.delay()` queues to RabbitMQ with no consumer and registration/login OTP
   emails are never delivered.
@@ -141,9 +159,9 @@ Each domain follows: `models.py` → `repository.py` → `service.py` → `graph
 | Check logs | `pm2 logs ccash-backend --lines 50` (files in `logs/`, PM2 appends `-<id>`) |
 | Restart backend | `pm2 restart ccash-backend` |
 | Rebuild frontend | `cd frontend && npm run build && pm2 restart ccash-frontend` |
-| Redis CLI | `docker exec ccash-redis redis-cli <cmd>` |
+| Redis CLI | `docker exec ccash-redis redis-cli -a "$REDIS_PASSWORD" <cmd>` (redis requires auth since the `.env` fix) |
 | Access PostgreSQL | `docker exec -it ccash-postgres psql -U ccash -d ccash` |
-| Watch pushes | `docker exec ccash-redis redis-cli subscribe ccash:ws:push` |
+| Watch pushes | `docker exec ccash-redis redis-cli -a "$REDIS_PASSWORD" subscribe ccash:ws:push` |
 
 ## Test users (seeded)
 
@@ -158,7 +176,7 @@ Wallet balances: Admin = ₱100,000 | Alice = ₱5,000 | Bob = ₱2,500.
 ## Testing
 
 ```bash
-cd backend && ./.venv/bin/python -m pytest              # 51 tests
+cd backend && ./.venv/bin/python -m pytest              # 88 tests
 ./.venv/bin/python -m pytest --cov=app                  # with coverage
 ```
 

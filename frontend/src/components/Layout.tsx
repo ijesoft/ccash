@@ -35,6 +35,8 @@ import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { useQuery } from "@apollo/client";
 import { UNREAD_COUNT } from "../graphql/queries/wallet";
 import { GET_BRANDING, type BrandingData } from "../graphql/queries/branding";
+import { GET_ADMIN_STATS } from "../graphql/queries/admin";
+import { formatMoney } from "../utils/format";
 import { useAuth } from "../context/AuthContext";
 
 const DRAWER_WIDTH = 260;
@@ -67,6 +69,8 @@ export default function Layout() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { data: unreadData } = useQuery<{ unreadCount: number }>(UNREAD_COUNT, { pollInterval: 20000 });
   const unreadCount = unreadData?.unreadCount ?? 0;
+  const { data: statsData } = useQuery(GET_ADMIN_STATS, { skip: !isAdmin, pollInterval: 20000 });
+  const totalWalletBalanceCents = statsData?.platformStats?.totalWalletBalanceCents as number | undefined;
   const { data: brandingData } = useQuery<BrandingData>(GET_BRANDING);
   const logoUrl = brandingData?.branding?.logoUrl || "";
   const [logoError, setLogoError] = useState(false);
@@ -171,6 +175,35 @@ export default function Layout() {
           </ListItem>
         ))}
       </List>
+
+      {isAdmin && (
+        <Box sx={{ px: 2, pb: 1 }}>
+          <Box
+            role="button"
+            tabIndex={0}
+            title="View per-user balances"
+            onClick={() => handleNavigate("/wallet-balances")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") handleNavigate("/wallet-balances");
+            }}
+            sx={{
+              borderRadius: 2,
+              p: 1.5,
+              bgcolor: "primary.light",
+              color: "primary.dark",
+              cursor: "pointer",
+              "&:hover": { bgcolor: "primary.main", color: "white" },
+            }}
+          >
+            <Typography variant="caption" fontWeight={600} sx={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Total Wallet Balances
+            </Typography>
+            <Typography variant="h6" fontWeight={700} sx={{ fontFamily: '"League Spartan", sans-serif' }}>
+              {totalWalletBalanceCents == null ? "--" : formatMoney(totalWalletBalanceCents)}
+            </Typography>
+          </Box>
+        </Box>
+      )}
 
       <Box sx={{ borderTop: 1, borderColor: "divider", p: 1, pb: { xs: 2, md: 1 } }}>
         <ListItem disablePadding>

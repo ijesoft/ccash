@@ -10,6 +10,8 @@ from app.domains.admin.branding_service import BASE_DIR, read_branding
 from app.domains.admin.service import AdminService
 from app.domains.auth.graphql import UserType
 from app.domains.auth.models import UserRole
+from app.domains.transactions.graphql import TransactionType
+from app.domains.transactions.service import TransactionService
 from app.graphql.middleware import require_admin
 
 
@@ -25,6 +27,7 @@ class PlatformStats:
     active_wallets: int
     total_transactions: int
     transaction_volume_cents: int
+    total_wallet_balance_cents: int
 
 
 @strawberry.type
@@ -71,6 +74,20 @@ class AdminQueries:
             return [AdminMemberType(**m) for m in members]
         finally:
             await service.session.close()
+
+    @strawberry.field
+    async def admin_user_transactions(
+        self, info: Info, user_id: str, limit: int = 20, offset: int = 0
+    ) -> list[TransactionType]:
+        """Admin view of one user's history, from that user's perspective."""
+        require_admin(info.context)
+        session = async_session_factory()
+        try:
+            service = TransactionService(session)
+            views, _ = await service.list_transactions(uuid.UUID(user_id), limit=limit, offset=offset)
+            return [TransactionType.from_view(v) for v in views]
+        finally:
+            await session.close()
 
     @strawberry.field
     async def branding(self, info: Info) -> BrandingType:
