@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -83,6 +83,10 @@ export default function QrPayment() {
   const [receipt, setReceipt] = useState<Transaction | null>(null);
   const [scannedHint, setScannedHint] = useState("");
   const [qrImageUrl, setQrImageUrl] = useState("");
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const amountRef = useRef<HTMLInputElement | null>(null);
+  const pinRef = useRef<HTMLInputElement | null>(null);
+  const payFormRef = useRef<HTMLFormElement | null>(null);
 
   const { data: qrData } = useQuery(MY_QR_CODE);
   const [resolveRecipient] = useLazyQuery(RESOLVE_RECIPIENT);
@@ -193,9 +197,22 @@ export default function QrPayment() {
 
   const handleCameraScan = (payload: string) => {
     setScanPayload(payload);
-    setScannedHint("QR code detected! Please verify amount and enter MPIN.");
+    setAwaitingConfirm(true);
+    setScannedHint("QR detected. Enter amount and MPIN, then tap Pay to complete the transfer.");
     setError("");
-    void parseAndInspectPayload(payload);
+    void parseAndInspectPayload(payload).then(() => {
+      // Defer focus until after React paints the filled fields.
+      window.setTimeout(() => {
+        payFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const amountEl = amountRef.current;
+        const pinEl = pinRef.current;
+        if (amountEl && !amountEl.disabled && !amountEl.value) {
+          amountEl.focus();
+        } else if (pinEl) {
+          pinEl.focus();
+        }
+      }, 150);
+    });
   };
 
   const handlePay = async (e: React.FormEvent) => {
@@ -238,6 +255,7 @@ export default function QrPayment() {
         setRecipientInfo(null);
         setIsDynamicAmount(false);
         setScannedHint("");
+        setAwaitingConfirm(false);
       } else {
         setError("QR payment did not complete. Please try again.");
       }
@@ -288,6 +306,7 @@ export default function QrPayment() {
           setActiveTab(v);
           setError("");
           setScannedHint("");
+          setAwaitingConfirm(false);
         }}
         sx={{
           mb: 3,
@@ -386,7 +405,7 @@ export default function QrPayment() {
               </Typography>
             </Divider>
 
-            <Box component="form" onSubmit={handlePay}>
+            <Box component="form" ref={payFormRef} onSubmit={handlePay}>
               <TextField
                 fullWidth
                 label="QR Payload or Recipient Mobile"
@@ -429,6 +448,12 @@ export default function QrPayment() {
                 </Box>
               )}
 
+              {awaitingConfirm && (
+                <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+                  Scanning only fills the recipient. Transfer happens when you tap <strong>Pay</strong>.
+                </Alert>
+              )}
+
               <TextField
                 fullWidth
                 label="Amount (PHP)"
@@ -437,6 +462,7 @@ export default function QrPayment() {
                 onChange={(e) => setAmount(e.target.value)}
                 required
                 disabled={isDynamicAmount}
+                inputRef={amountRef}
                 sx={{ mb: 1.5 }}
                 inputProps={{ min: 1, step: 0.01, inputMode: "decimal" }}
                 helperText={isDynamicAmount ? "Amount is pre-set by the merchant/sender QR code" : undefined}
@@ -473,6 +499,7 @@ export default function QrPayment() {
                 onChange={(e) => setPin(e.target.value)}
                 required
                 type="password"
+                inputRef={pinRef}
                 inputProps={{ maxLength: 6, inputMode: "numeric" }}
                 placeholder="Enter 4 or 6-digit MPIN"
                 helperText="Required. Set your MPIN under Wallet if you have not yet."
@@ -480,7 +507,9 @@ export default function QrPayment() {
               />
 
               <Button fullWidth type="submit" variant="contained" size="large" disabled={loading} sx={{ minHeight: 48, borderRadius: 2 }}>
-                {loading ? "Processing Payment..." : `Pay ${amount ? `₱${parseFloat(amount || "0").toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ""}`}
+                {loading
+                  ? "Processing Payment..."
+                  : `Pay ${amount ? `₱${parseFloat(amount || "0").toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ""} now`}
               </Button>
             </Box>
           </CardContent>
