@@ -229,13 +229,16 @@ class TransactionQueries:
             user = await user_repo.get_by_id(user_id)
             name = f"{user.first_name or ''} {user.last_name or ''}".strip() if user else ""
             phone = user.phone if user else ""
+            # Static receive QR: omit amount so payer must enter pesos.
+            # wallet_id is the stable recipient key; phone is display/fallback.
             payload_data = {
-                "to": phone or str(wallet.id),
-                "name": name,
-                "wallet_id": str(wallet.id),
+                "v": 1,
                 "type": "CCASH_PAY",
-                "amount": 0,
+                "wallet_id": str(wallet.id),
+                "to": phone or str(wallet.id),
+                "name": name or None,
             }
+            payload_data = {k: v for k, v in payload_data.items() if v is not None}
             return QrCodeType(payload=_json.dumps(payload_data))
         finally:
             await service.session.close()

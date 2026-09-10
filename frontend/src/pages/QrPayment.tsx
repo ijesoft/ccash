@@ -49,6 +49,25 @@ const RESOLVE_RECIPIENT = gql`
 
 const QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
 
+type RecipientInfo = { name: string; target: string; walletId?: string };
+
+function parseQrAmountPesos(data: Record<string, unknown>): number {
+  if (typeof data.amount_cents === "number" && data.amount_cents > 0) {
+    return data.amount_cents / 100;
+  }
+  if (typeof data.amountCents === "number" && data.amountCents > 0) {
+    return data.amountCents / 100;
+  }
+  if (typeof data.amount === "number" && data.amount > 0) {
+    return data.amount;
+  }
+  if (typeof data.amount === "string" && data.amount.trim()) {
+    const n = parseFloat(data.amount);
+    if (!isNaN(n) && n > 0) return n;
+  }
+  return 0;
+}
+
 export default function QrPayment() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -58,7 +77,7 @@ export default function QrPayment() {
   const [isDynamicAmount, setIsDynamicAmount] = useState(false);
   const [note, setNote] = useState("");
   const [pin, setPin] = useState("");
-  const [recipientInfo, setRecipientInfo] = useState<{ name: string; target: string } | null>(null);
+  const [recipientInfo, setRecipientInfo] = useState<RecipientInfo | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [receipt, setReceipt] = useState<Transaction | null>(null);
@@ -96,6 +115,7 @@ export default function QrPayment() {
     }
 
     let to = "";
+    let walletId = "";
     let parsedAmount = 0;
     let parsedNote = "";
     let displayName = "";
@@ -103,12 +123,11 @@ export default function QrPayment() {
     try {
       const data = JSON.parse(raw);
       if (typeof data === "object" && data !== null) {
-        to = data.to || data.receiver || data.wallet_id || data.mobile || "";
-        displayName = data.name || "";
-        if (typeof data.amount === "number" && data.amount > 0) {
-          parsedAmount = data.amount;
-        }
-        parsedNote = data.description || data.note || "";
+        walletId = String(data.wallet_id || data.walletId || "");
+        to = String(data.to || data.receiver || data.mobile || walletId || "");
+        displayName = String(data.name || "");
+        parsedAmount = parseQrAmountPesos(data);
+        parsedNote = String(data.description || data.note || "");
       }
     } catch {
       to = raw;
@@ -125,6 +144,15 @@ export default function QrPayment() {
       setNote(parsedNote);
     }
 
+    if (walletId && displayName) {
+      setRecipientInfo({
+        name: displayName,
+        target: to && to !== walletId ? to : `Wallet ${walletId.slice(0, 8)}…`,
+        walletId,
+      });
+      return;
+    }
+
     const cleanedMobile = cleanPhilippineMobile(to);
     if (cleanedMobile && cleanedMobile.length >= 10) {
       try {
@@ -133,18 +161,24 @@ export default function QrPayment() {
           setRecipientInfo({
             name: data.resolveRecipient.name || displayName || "CCash User",
             target: data.resolveRecipient.maskedMobile || cleanedMobile,
+            walletId: data.resolveRecipient.walletId || walletId || undefined,
           });
           return;
         }
       } catch {
-        // fallback
+        // fallback below
       }
     }
 
-    if (to) {
+    if (walletId || to) {
       setRecipientInfo({
         name: displayName || "Merchant / User",
-        target: to.length > 20 ? `${to.slice(0, 8)}...${to.slice(-6)}` : to,
+        target: walletId
+          ? `Wallet ${walletId.slice(0, 8)}…`
+          : to.length > 20
+            ? `${to.slice(0, 8)}...${to.slice(-6)}`
+            : to,
+        walletId: walletId || undefined,
       });
     } else {
       setRecipientInfo(null);
@@ -197,14 +231,25 @@ export default function QrPayment() {
 
       if (data?.scanQrPayment) {
         setReceipt(data.scanQrPayment);
+        setScanPayload("");
+        setAmount("");
+        setNote("");
+        setPin("");
+        setRecipientInfo(null);
+        setIsDynamicAmount(false);
+        setScannedHint("");
+      } else {
+        setError("QR payment did not complete. Please try again.");
       }
-      setScanPayload("");
-      setAmount("");
-      setNote("");
-      setPin("");
-      setRecipientInfo(null);
     } catch (err: any) {
-      setError(err.message || "QR payment failed");
+      const msg = err.message || "QR payment failed";
+      if (msg.toLowerCase().includes("mpin not set") || msg.toLowerCase().includes("pin not set")) {
+        setError("MPIN not set. Open Wallet and set your MPIN, then try again.");
+      } else if (msg.toLowerCase().includes("too many requests")) {
+        setError("Too many requests. Wait a few seconds and try again.");
+      } else {
+        setError(msg);
+      }
     }
   };
 
@@ -380,7 +425,7 @@ export default function QrPayment() {
                       {recipientInfo.target}
                     </Typography>
                   </Box>
-                  <Chip label="Verified" size="small" color="success" variant="outlined" />
+                  <Chip label="Ready" size="small" color="success" variant="outlined" />
                 </Box>
               )}
 
@@ -430,6 +475,7 @@ export default function QrPayment() {
                 type="password"
                 inputProps={{ maxLength: 6, inputMode: "numeric" }}
                 placeholder="Enter 4 or 6-digit MPIN"
+                helperText="Required. Set your MPIN under Wallet if you have not yet."
                 sx={{ mb: 3 }}
               />
 
@@ -469,4 +515,3 @@ export default function QrPayment() {
     </Box>
   );
 }
-

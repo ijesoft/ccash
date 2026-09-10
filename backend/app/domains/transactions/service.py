@@ -42,28 +42,36 @@ class TransactionService:
     async def send_money(
         self,
         sender_user_id: uuid.UUID,
-        receiver_wallet_id: uuid.UUID,
+        receiver_wallet_id: uuid.UUID | None,
         amount_cents: int,
         idempotency_key: str,
         description: str | None = None,
         receiver_mobile: str | None = None,
         pin: str | None = None,
+        transaction_type: TransactionType = TransactionType.SEND,
     ) -> TransactionView:
         import re as _re
 
-        # Best-practice: never trust client - strict server-side mobile validation
-        # 1) digits-only 2) exactly 11 digits 3) existence checked below
+        from app.core.masking import normalize_philippine_mobile
+
+        # Best-practice: never trust client - normalize then enforce 11-digit form.
         if receiver_mobile is not None:
-            if _re.search(r"\D", receiver_mobile):
-                raise ValidationError("Mobile number must contain digits only (no letters, spaces, or symbols)")
-            if not _re.fullmatch(r"\d{11}", receiver_mobile):
+            normalized = normalize_philippine_mobile(receiver_mobile)
+            if not normalized or not _re.fullmatch(r"\d{11}", normalized):
                 raise ValidationError("Mobile number must be exactly 11 digits (e.g. 09171234567)")
+            receiver_mobile = normalized
 
         validate_amount(amount_cents)
 
         if pin is not None:
             sender_wallet_pre = await self.wallet_repo.get_by_user_id(sender_user_id)
-            if sender_wallet_pre and not await self.wallet_repo.verify_pin_for_user(sender_wallet_pre.id, pin):
+            if not sender_wallet_pre:
+                raise NotFoundError("Sender wallet not found")
+            if not sender_wallet_pre.pin_hash:
+                raise ValidationError(
+                    "MPIN not set. Please set your MPIN in Wallet settings first."
+                )
+            if not await self.wallet_repo.verify_pin_for_user(sender_wallet_pre.id, pin):
                 raise ValidationError("Invalid PIN")
 
         existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
@@ -109,10 +117,14 @@ class TransactionService:
         fee_cents = 0
         net_amount = amount_cents - fee_cents
 
+        if transaction_type not in (TransactionType.SEND, TransactionType.QR_PAYMENT):
+            raise ValidationError("Unsupported transfer type")
+
+        is_qr = transaction_type is TransactionType.QR_PAYMENT
         tx = Transaction(
             idempotency_key=idempotency_key,
             reference=generate_reference(),
-            type=TransactionType.SEND,
+            type=transaction_type,
             status=TransactionStatus.SUCCESS,
             sender_wallet_id=sender_wallet.id,
             receiver_wallet_id=receiver_wallet.id,
@@ -133,16 +145,16 @@ class TransactionService:
         )
         await self._queue_notification(
             receiver_wallet.user_id,
-            NotificationType.TRANSFER_RECEIVED,
-            "Money received",
+            NotificationType.QR_PAYMENT if is_qr else NotificationType.TRANSFER_RECEIVED,
+            "QR payment received" if is_qr else "Money received",
             f"You received {format_php(net_amount)} from "
             f"{self._label_for(owners.get(sender_wallet.id))}.",
             tx,
         )
         await self._queue_notification(
             sender_wallet.user_id,
-            NotificationType.SENT,
-            "Money sent",
+            NotificationType.QR_PAYMENT if is_qr else NotificationType.SENT,
+            "QR payment sent" if is_qr else "Money sent",
             f"You sent {format_php(amount_cents)} to "
             f"{self._label_for(owners.get(receiver_wallet.id))}.",
             tx,
@@ -160,145 +172,114 @@ class TransactionService:
         description: str | None = None,
         pin: str | None = None,
     ) -> TransactionView:
-        """Process a QR payment by parsing a QR payload (JSON or standard QR string).
+        """Pay via QR by parsing payload, then reusing the transfer path.
 
-        Supports both dynamic QR (amount pre-filled) and static QR (amount supplied
-        by the user), reusing the transfer path for validation, locking, and pushes.
+        Payload contract (CCASH_PAY):
+        - wallet_id: preferred stable recipient UUID
+        - to / mobile / receiver: phone or wallet UUID fallback
+        - amount_cents: dynamic amount in cents (preferred)
+        - amount: pesos (major units). 0 / omitted = static QR (payer enters amount)
         """
-        import json as _json
+        receiver_wallet_id, receiver_mobile, payload_amount_cents, payload_desc = (
+            self._parse_qr_payload(payload)
+        )
 
-        to = None
-        payload_amount: int | None = None
-        payload_desc: str | None = None
-
-        raw = payload.strip()
-        try:
-            data = _json.loads(raw)
-            if isinstance(data, dict):
-                to = data.get("to") or data.get("receiver") or data.get("wallet_id") or data.get("mobile")
-                val = data.get("amount")
-                if isinstance(val, int):
-                    payload_amount = val
-                elif isinstance(val, float):
-                    payload_amount = round(val * 100)
-                payload_desc = data.get("description") or data.get("note")
-        except (_json.JSONDecodeError, TypeError):
-            # Not JSON: raw payload might be a mobile number, wallet UUID, or plain identifier
-            to = raw
-
-        if not to:
-            raise ValidationError("Invalid QR payload: missing recipient")
-
-        # Use explicitly passed amount if provided (for static QR), else use payload amount
-        effective_amount = amount_cents if amount_cents is not None else payload_amount
+        effective_amount = amount_cents if amount_cents is not None else payload_amount_cents
         if effective_amount is None or effective_amount <= 0:
             raise ValidationError("Please enter an amount to pay")
-
-        validate_amount(effective_amount)
-        amount_cents = effective_amount
 
         if not description and payload_desc:
             description = payload_desc
 
-        if pin is not None:
-            sender_wallet_pre = await self.wallet_repo.get_by_user_id(sender_user_id)
-            if sender_wallet_pre and not await self.wallet_repo.verify_pin_for_user(sender_wallet_pre.id, pin):
-                raise ValidationError("Invalid PIN")
+        if pin is None or not str(pin).strip():
+            raise ValidationError("MPIN is required for QR payments")
 
-        existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
-        if existing:
-            return await self._view_for_user(existing, sender_user_id)
-
-        sender_wallet = await self.wallet_repo.get_by_user_id(sender_user_id)
-        if not sender_wallet:
-            raise NotFoundError("Sender wallet not found")
-
-        # Resolve recipient: if 'to' looks like a UUID, use it as wallet_id;
-        # otherwise treat it as a mobile number.
-        try:
-            resolved_receiver_wallet_id = uuid.UUID(to)
-            _receiver_wallet = await self.wallet_repo.get_by_id(resolved_receiver_wallet_id)
-            if not _receiver_wallet:
-                raise NotFoundError("Recipient wallet not found")
-        except (ValueError, AttributeError):
-            # Validate mobile format if 'to' is not a UUID
-            import re as _re2
-
-            if _re2.search(r"\D", to):
-                raise ValidationError("Mobile number must contain digits only (no letters, spaces, or symbols)")
-            if not _re2.fullmatch(r"\d{11}", to):
-                raise ValidationError("Mobile number must be exactly 11 digits (e.g. 09171234567)")
-            user = await self._find_user_by_mobile(to)
-            if not user:
-                raise NotFoundError("Recipient not found")
-            _receiver_wallet = await self.wallet_repo.get_by_user_id(user.id)
-            if not _receiver_wallet:
-                _receiver_wallet = await self.wallet_repo.create(user.id)
-            resolved_receiver_wallet_id = _receiver_wallet.id
-
-        if sender_wallet.id == resolved_receiver_wallet_id:
-            raise ValidationError("Cannot send money to your own wallet")
-
-        sender_wallet, receiver_wallet = await self._lock_pair(sender_wallet.id, resolved_receiver_wallet_id)
-        if not sender_wallet:
-            raise NotFoundError("Sender wallet not found")
-        if not receiver_wallet:
-            raise NotFoundError("Receiver wallet not found")
-        if sender_wallet.status != WalletStatus.ACTIVE:
-            raise WalletNotActiveError("Sender wallet is not active")
-        if receiver_wallet.status != WalletStatus.ACTIVE:
-            raise WalletNotActiveError("Receiver wallet is not active")
-        if sender_wallet.balance_cents < amount_cents:
-            raise InsufficientFundsError("Insufficient balance")
-
-        daily_remaining = sender_wallet.daily_send_limit_cents - sender_wallet.daily_send_used_cents
-        if daily_remaining < amount_cents:
-            raise DailyLimitExceededError("Daily send limit exceeded")
-
-        fee_cents = 0
-        net_amount = amount_cents - fee_cents
-
-        tx = Transaction(
-            idempotency_key=idempotency_key,
-            reference=generate_reference(),
-            type=TransactionType.SEND,
-            status=TransactionStatus.SUCCESS,
-            sender_wallet_id=sender_wallet.id,
-            receiver_wallet_id=receiver_wallet.id,
-            amount_cents=amount_cents,
-            fee_cents=fee_cents,
-            net_amount_cents=net_amount,
+        return await self.send_money(
+            sender_user_id,
+            receiver_wallet_id,
+            effective_amount,
+            idempotency_key,
             description=description,
-            created_by=sender_user_id,
-        )
-        await self.tx_repo.create(tx)
-
-        await self.wallet_repo.update_balance(sender_wallet.id, -amount_cents)
-        await self.wallet_repo.update_balance(receiver_wallet.id, net_amount)
-        await self.wallet_repo.update_daily_usage(sender_wallet.id, amount_cents)
-
-        owners = await self.wallet_repo.get_owners_by_wallet_ids(
-            [sender_wallet.id, receiver_wallet.id]
-        )
-        await self._queue_notification(
-            receiver_wallet.user_id,
-            NotificationType.TRANSFER_RECEIVED,
-            "Money received",
-            f"You received {format_php(net_amount)} from "
-            f"{self._label_for(owners.get(sender_wallet.id))}.",
-            tx,
-        )
-        await self._queue_notification(
-            sender_wallet.user_id,
-            NotificationType.SENT,
-            "Money sent",
-            f"You sent {format_php(amount_cents)} to "
-            f"{self._label_for(owners.get(receiver_wallet.id))}.",
-            tx,
+            receiver_mobile=receiver_mobile,
+            pin=pin,
+            transaction_type=TransactionType.QR_PAYMENT,
         )
 
-        winner = await self._commit(idempotency_key)
-        return await self._view_for_user(winner or tx, sender_user_id)
+    def _parse_qr_payload(
+        self, payload: str
+    ) -> tuple[uuid.UUID | None, str | None, int | None, str | None]:
+        import json as _json
+
+        from app.core.masking import normalize_philippine_mobile
+
+        raw = (payload or "").strip()
+        if not raw:
+            raise ValidationError("Invalid QR payload: missing recipient")
+
+        data: dict | None = None
+        try:
+            parsed = _json.loads(raw)
+            if isinstance(parsed, dict):
+                data = parsed
+        except (_json.JSONDecodeError, TypeError):
+            data = None
+
+        receiver_wallet_id: uuid.UUID | None = None
+        receiver_mobile: str | None = None
+        payload_amount_cents: int | None = None
+        payload_desc: str | None = None
+
+        if data is None:
+            try:
+                receiver_wallet_id = uuid.UUID(raw)
+            except (ValueError, AttributeError, TypeError):
+                receiver_mobile = normalize_philippine_mobile(raw) or raw
+            return receiver_wallet_id, receiver_mobile, None, None
+
+        for key in ("wallet_id", "walletId", "to", "receiver", "mobile"):
+            value = data.get(key)
+            if value is None or value == "":
+                continue
+            text_value = str(value).strip()
+            if not text_value:
+                continue
+            if receiver_wallet_id is None:
+                try:
+                    receiver_wallet_id = uuid.UUID(text_value)
+                    continue
+                except (ValueError, AttributeError, TypeError):
+                    pass
+            if receiver_mobile is None:
+                normalized = normalize_philippine_mobile(text_value)
+                if normalized:
+                    receiver_mobile = normalized
+
+        if receiver_wallet_id is None and receiver_mobile is None:
+            raise ValidationError("Invalid QR payload: missing recipient")
+
+        if "amount_cents" in data and data.get("amount_cents") is not None:
+            try:
+                cents = int(data.get("amount_cents"))
+            except (TypeError, ValueError):
+                raise ValidationError("Invalid QR amount_cents") from None
+            if cents > 0:
+                payload_amount_cents = cents
+        elif "amount" in data and data.get("amount") is not None:
+            val = data.get("amount")
+            try:
+                if isinstance(val, bool):
+                    raise ValueError
+                pesos = float(val)
+            except (TypeError, ValueError):
+                raise ValidationError("Invalid QR amount") from None
+            if pesos > 0:
+                payload_amount_cents = round(pesos * 100)
+
+        payload_desc = data.get("description") or data.get("note")
+        if payload_desc is not None:
+            payload_desc = str(payload_desc).strip() or None
+
+        return receiver_wallet_id, receiver_mobile, payload_amount_cents, payload_desc
 
     async def cash_in(
         self,
