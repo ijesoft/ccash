@@ -38,10 +38,16 @@ class NotificationService:
         return await self.repo.list_by_user(user_id, limit, offset)
 
     async def mark_read(self, notif_id: uuid.UUID, user_id: uuid.UUID) -> bool:
-        return await self.repo.mark_read(notif_id, user_id)
+        ok = await self.repo.mark_read(notif_id, user_id)
+        if ok:
+            await self.session.commit()
+        return ok
 
     async def mark_all_read(self, user_id: uuid.UUID) -> int:
-        return await self.repo.mark_all_read(user_id)
+        count = await self.repo.mark_all_read(user_id)
+        if count:
+            await self.session.commit()
+        return count
 
     async def count_unread(self, user_id: uuid.UUID) -> int:
         return await self.repo.count_unread(user_id)
