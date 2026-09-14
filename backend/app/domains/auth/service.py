@@ -1,3 +1,4 @@
+import time
 import uuid
 
 from redis.asyncio import Redis
@@ -163,6 +164,7 @@ class AuthService:
         refresh_token, token_id = create_refresh_token(str(user.id))
 
         await self.redis.setex(f"refresh:{token_id}", settings.refresh_token_expire_days * 86400, str(user.id))
+        await self._stamp_activity(token_id, str(user.id))
 
         return access_token, refresh_token, user
 
@@ -184,13 +186,54 @@ class AuthService:
         if not stored:
             raise AuthenticationError("Refresh token expired or revoked")
 
-        await self.redis.delete(f"refresh:{token_id}")
+        await self._check_idle(token_id, user_id)
+
+        await self.redis.delete(f"refresh:{token_id}", self._activity_key(token_id))
 
         new_access = create_access_token(user_id, scopes=_scopes_for(user))
         new_refresh, new_token_id = create_refresh_token(user_id)
         await self.redis.setex(f"refresh:{new_token_id}", settings.refresh_token_expire_days * 86400, user_id)
+        await self._stamp_activity(new_token_id, user_id)
 
         return new_access, new_refresh
+
+    async def touch(self, user_id: str) -> bool:
+        await self._check_idle(None, user_id)
+        await self.redis.setex(
+            self._user_activity_key(user_id),
+            settings.refresh_token_expire_days * 86400,
+            str(int(time.time())),
+        )
+        return True
+
+    def _activity_key(self, token_id: str) -> str:
+        return f"activity:{token_id}"
+
+    def _user_activity_key(self, user_id: str) -> str:
+        return f"activity:user:{user_id}"
+
+    async def _stamp_activity(self, token_id: str, user_id: str) -> None:
+        now = str(int(time.time()))
+        ttl = settings.refresh_token_expire_days * 86400
+        await self.redis.setex(self._activity_key(token_id), ttl, now)
+        await self.redis.setex(self._user_activity_key(user_id), ttl, now)
+
+    async def _check_idle(self, token_id: str | None, user_id: str) -> None:
+        raw = await self.redis.get(self._user_activity_key(user_id))
+        if raw is None:
+            raw = await self.redis.get(self._activity_key(token_id)) if token_id else None
+        if raw is None:
+            return
+        try:
+            idle_seconds = int(time.time()) - int(raw)
+        except (ValueError, TypeError):
+            return
+        if idle_seconds > settings.inactivity_timeout_minutes * 60:
+            keys = [self._user_activity_key(user_id)]
+            if token_id:
+                keys += [f"refresh:{token_id}", self._activity_key(token_id)]
+            await self.redis.delete(*keys)
+            raise AuthenticationError("Session expired due to inactivity")
 
     async def _load_user_or_raise(self, user_id: str) -> User:
         try:
@@ -221,6 +264,10 @@ class AuthService:
         try:
             payload = decode_token(refresh_token)
             token_id = payload.get("token_id")
-            await self.redis.delete(f"refresh:{token_id}")
+            user_id = payload.get("sub")
+            keys = [f"refresh:{token_id}", f"activity:{token_id}"]
+            if user_id:
+                keys.append(f"activity:user:{user_id}")
+            await self.redis.delete(*keys)
         except Exception:
             pass

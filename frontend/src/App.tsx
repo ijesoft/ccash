@@ -21,6 +21,7 @@ import NotificationsPage from "./pages/Notifications";
 import AdminDashboard from "./pages/AdminDashboard";
 import WalletBalances from "./pages/WalletBalances";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
+import SessionGuard from "./components/SessionGuard";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ export default function App() {
               </Route>
             </Routes>
             <PwaInstallPrompt />
+            <SessionGuard />
           </BrowserRouter>
         </AuthProvider>
       </QueryClientProvider>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link as RouterLink } from "react-router-dom";
+import { useNavigate, Link as RouterLink, useSearchParams } from "react-router-dom";
 import { Box, Button, Card, CardContent, TextField, Typography, Alert, Link } from "@mui/material";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import { useMutation } from "@apollo/client";
@@ -18,6 +18,8 @@ export default function Login() {
   const { login } = useAuth();
   const [sendLoginOtp] = useMutation(SEND_LOGIN_OTP);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sessionExpired = searchParams.get("reason") === "session-expired";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +86,11 @@ export default function Login() {
             </Typography>
           </Box>
 
+          {sessionExpired && !error && (
+            <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+              Session expired due to inactivity. Please sign in again.
+            </Alert>
+          )}
           {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
           {otpSent && <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>Verification code sent to your email</Alert>}
 

@@ -12,6 +12,7 @@ interface AuthContextType {
   login: (email: string, password: string, otpCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
+  ensureFreshToken: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -69,6 +70,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   }, [refreshMutation]);
 
+  const ensureFreshToken = useCallback(async (): Promise<boolean> => {
+    return refreshSession();
+  }, [refreshSession]);
+
   const value = useMemo(() => ({
     user,
     accessToken,
@@ -77,7 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     refreshSession,
-  }), [user, accessToken, login, logout, refreshSession]);
+    ensureFreshToken,
+  }), [user, accessToken, login, logout, refreshSession, ensureFreshToken]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

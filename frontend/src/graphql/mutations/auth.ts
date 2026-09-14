@@ -62,6 +62,12 @@ export const LOGOUT = gql`
   }
 `;
 
+export const TOUCH_SESSION = gql`
+  mutation TouchSession {
+    touchSession
+  }
+`;
+
 export const SEND_LOGIN_OTP = gql`
   mutation SendLoginOtp($email: String!) {
     sendLoginOtp(email: $email)
