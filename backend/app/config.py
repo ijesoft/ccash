@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    inactivity_timeout_minutes: int = 5
 
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
