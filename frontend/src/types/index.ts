@@ -2,7 +2,9 @@ export interface User {
   id: string;
   email: string;
   phone: string;
+  idNo: string | null;
   firstName: string | null;
+  middleName: string | null;
   lastName: string | null;
   status: string;
   kycLevel: string;
@@ -10,6 +12,16 @@ export interface User {
   is2faEnabled: boolean;
   isVerified: boolean;
   createdAt: string;
+}
+
+export interface MerchantProfile {
+  merchantIdNo: string;
+  companyName: string;
+  contactPerson: string;
+  mobileNo: string;
+  landline: string | null;
+  address: string;
+  tin: string;
 }
 
 export interface Money {

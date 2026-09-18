@@ -1,11 +1,36 @@
 import { gql } from "@apollo/client";
 
 export const REGISTER = gql`
-  mutation Register($email: String!, $phone: String!, $password: String!) {
-    register(email: $email, phone: $phone, password: $password) {
+  mutation Register(
+    $email: String!
+    $phone: String!
+    $password: String!
+    $idNo: String!
+    $firstName: String!
+    $lastName: String!
+    $middleName: String
+  ) {
+    register(
+      email: $email
+      phone: $phone
+      password: $password
+      idNo: $idNo
+      firstName: $firstName
+      lastName: $lastName
+      middleName: $middleName
+    ) {
       id
       email
       status
+    }
+  }
+`;
+
+export const REGISTER_MERCHANT = gql`
+  mutation RegisterMerchant($input: RegisterMerchantInput!) {
+    registerMerchant(input: $input) {
+      merchantIdNo
+      companyName
     }
   }
 `;
@@ -28,13 +53,24 @@ export const SETUP_VERIFY_TOTP = gql`
 export const LOGIN = gql`
   mutation Login($email: String!, $password: String!, $otpCode: String) {
     login(email: $email, password: $password, otpCode: $otpCode) {
+      email
+      hasExistingId
+    }
+  }
+`;
+
+export const COMPLETE_LOGIN = gql`
+  mutation CompleteLogin($email: String!, $idNo: String!) {
+    completeLogin(email: $email, idNo: $idNo) {
       accessToken
       refreshToken
       user {
         id
         email
         phone
+        idNo
         firstName
+        middleName
         lastName
         status
         kycLevel

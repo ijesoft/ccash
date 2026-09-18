@@ -6,9 +6,9 @@ streams to disk via python-multipart. Auth mirrors require_admin semantics.
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from app.core.security import decode_token
+from app.core.rest_auth import require_admin_token
 from app.domains.admin.branding_service import (
     BASE_DIR,
     BrandingError,
@@ -21,21 +21,6 @@ from app.domains.admin.branding_service import (
 )
 
 router = APIRouter()
-
-
-async def require_admin_token(request: Request) -> uuid.UUID:
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        payload = decode_token(auth[7:])
-        user_id = uuid.UUID(payload.get("sub"))
-        scopes = payload.get("scopes", [])
-    except Exception:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    if "admin" not in scopes:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    return user_id
 
 
 @router.post("/logo")

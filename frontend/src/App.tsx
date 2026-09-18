@@ -8,6 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import MerchantRegister from "./pages/MerchantRegister";
 import VerifyOtp from "./pages/VerifyOtp";
 import Dashboard from "./pages/Dashboard";
 import WalletPage from "./pages/Wallet";
@@ -20,6 +21,7 @@ import Profile from "./pages/Profile";
 import NotificationsPage from "./pages/Notifications";
 import AdminDashboard from "./pages/AdminDashboard";
 import WalletBalances from "./pages/WalletBalances";
+import AccountDetail from "./pages/AccountDetail";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 
 const queryClient = new QueryClient();
@@ -33,6 +35,7 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/register-merchant" element={<MerchantRegister />} />
               <Route path="/verify-otp" element={<VerifyOtp />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/" element={<Dashboard />} />
@@ -44,7 +47,8 @@ export default function App() {
                 <Route path="/transactions" element={<TransactionsPage />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="/admin/accounts/:id" element={<AdminRoute><AccountDetail /></AdminRoute>} />
                 <Route path="/wallet-balances" element={<AdminRoute><WalletBalances /></AdminRoute>} />
               </Route>
             </Routes>

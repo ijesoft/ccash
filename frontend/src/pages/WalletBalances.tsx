@@ -25,6 +25,7 @@ import {
   GET_ADMIN_USER_TRANSACTIONS,
 } from "../graphql/queries/admin";
 import { formatMoney } from "../utils/format";
+import AccountExportMenu from "../components/AccountExportMenu";
 
 interface MemberRow {
   id: string;
@@ -159,7 +160,10 @@ export default function WalletBalances() {
       </Box>
 
       <Dialog open={Boolean(selected)} onClose={() => setSelected(null)} fullWidth maxWidth="sm">
-        <DialogTitle>{selected?.email ?? ""}</DialogTitle>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+          {selected?.email ?? ""}
+          {selected && <AccountExportMenu accountId={selected.id} accountLabel={selected.email} />}
+        </DialogTitle>
         <DialogContent dividers>
           {txLoading && (
             <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>

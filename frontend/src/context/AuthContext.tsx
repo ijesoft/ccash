@@ -1,15 +1,25 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 import { useApolloClient, useMutation } from "@apollo/client";
-import { LOGIN, LOGOUT, REFRESH_TOKEN } from "../graphql/mutations/auth";
+import { COMPLETE_LOGIN, LOGIN, LOGOUT, REFRESH_TOKEN } from "../graphql/mutations/auth";
 import type { User } from "../types";
+
+interface LoginChallenge {
+  email: string;
+  hasExistingId: boolean;
+}
 
 interface AuthContextType {
   user: User | null;
   accessToken: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  login: (email: string, password: string, otpCode?: string) => Promise<void>;
+  /** Step 1: password (+2FA). Does not authenticate on its own — returns a
+   * challenge; call completeLogin with the account's ID No. to finish. */
+  login: (email: string, password: string, otpCode?: string) => Promise<LoginChallenge>;
+  /** Step 2: confirms (or, first time, sets) the account's ID No. and
+   * actually establishes the session. */
+  completeLogin: (email: string, idNo: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
 }
@@ -25,20 +35,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const client = useApolloClient();
 
   const [loginMutation] = useMutation(LOGIN);
+  const [completeLoginMutation] = useMutation(COMPLETE_LOGIN);
   const [logoutMutation] = useMutation(LOGOUT);
   const [refreshMutation] = useMutation(REFRESH_TOKEN);
 
-  const login = useCallback(async (email: string, password: string, otpCode?: string) => {
-    await client.resetStore();
+  const login = useCallback(async (email: string, password: string, otpCode?: string): Promise<LoginChallenge> => {
     const { data } = await loginMutation({ variables: { email, password, otpCode } });
-    if (data?.login) {
-      setAccessToken(data.login.accessToken);
-      setUser(data.login.user);
-      localStorage.setItem("accessToken", data.login.accessToken);
-      localStorage.setItem("refreshToken", data.login.refreshToken);
-      localStorage.setItem("user", JSON.stringify(data.login.user));
+    if (!data?.login) {
+      throw new Error("Login failed");
     }
-  }, [loginMutation, client]);
+    return data.login;
+  }, [loginMutation]);
+
+  const completeLogin = useCallback(async (email: string, idNo: string) => {
+    await client.resetStore();
+    const { data } = await completeLoginMutation({ variables: { email, idNo } });
+    if (data?.completeLogin) {
+      setAccessToken(data.completeLogin.accessToken);
+      setUser(data.completeLogin.user);
+      localStorage.setItem("accessToken", data.completeLogin.accessToken);
+      localStorage.setItem("refreshToken", data.completeLogin.refreshToken);
+      localStorage.setItem("user", JSON.stringify(data.completeLogin.user));
+    }
+  }, [completeLoginMutation, client]);
 
   const logout = useCallback(async () => {
     const refreshToken = localStorage.getItem("refreshToken");
@@ -75,9 +94,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user && !!accessToken,
     isAdmin: user?.role === "ADMIN",
     login,
+    completeLogin,
     logout,
     refreshSession,
-  }), [user, accessToken, login, logout, refreshSession]);
+  }), [user, accessToken, login, completeLogin, logout, refreshSession]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

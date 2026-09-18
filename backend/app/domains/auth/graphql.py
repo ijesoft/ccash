@@ -15,7 +15,9 @@ class UserType:
     id: str
     email: str
     phone: str
+    id_no: str | None
     first_name: str | None
+    middle_name: str | None
     last_name: str | None
     status: str
     kyc_level: str
@@ -30,7 +32,9 @@ class UserType:
             id=str(user.id),
             email=user.email,
             phone=user.phone,
+            id_no=user.id_no,
             first_name=user.first_name,
+            middle_name=user.middle_name,
             last_name=user.last_name,
             status=user.status.value,
             kyc_level=user.kyc_level.value,
@@ -49,6 +53,17 @@ class AuthPayload:
 
 
 @strawberry.type
+class LoginChallenge:
+    """Password (+2FA) succeeded; login is not complete until completeLogin
+    confirms the account's ID No. `has_existing_id` tells the client whether
+    to prompt "enter your ID No." or "set your ID No." (first login since
+    this account gained the requirement)."""
+
+    email: str
+    has_existing_id: bool
+
+
+@strawberry.type
 class TwoFactorSetup:
     secret: str
     uri: str
@@ -63,10 +78,22 @@ async def get_auth_service(info: Info) -> AuthService:
 @strawberry.type
 class AuthMutations:
     @strawberry.mutation
-    async def register(self, info: Info, email: str, phone: str, password: str) -> UserType:
+    async def register(
+        self,
+        info: Info,
+        email: str,
+        phone: str,
+        password: str,
+        id_no: str,
+        first_name: str,
+        last_name: str,
+        middle_name: str | None = None,
+    ) -> UserType:
         service = await get_auth_service(info)
         try:
-            user = await service.register(email, phone, password)
+            user = await service.register(
+                email, phone, password, id_no, first_name, last_name, middle_name
+            )
             return UserType.from_model(user)
         except ValidationError as e:
             raise Exception(str(e))
@@ -105,16 +132,27 @@ class AuthMutations:
             await service.session.close()
 
     @strawberry.mutation
-    async def login(self, info: Info, email: str, password: str, otp_code: str | None = None) -> AuthPayload:
+    async def login(self, info: Info, email: str, password: str, otp_code: str | None = None) -> LoginChallenge:
         service = await get_auth_service(info)
         try:
-            access_token, refresh_token, user = await service.login(email, password, otp_code)
+            challenge_email, has_existing_id = await service.login(email, password, otp_code)
+            return LoginChallenge(email=challenge_email, has_existing_id=has_existing_id)
+        except (AuthenticationError, ValidationError) as e:
+            raise Exception(str(e))
+        finally:
+            await service.session.close()
+
+    @strawberry.mutation
+    async def complete_login(self, info: Info, email: str, id_no: str) -> AuthPayload:
+        service = await get_auth_service(info)
+        try:
+            access_token, refresh_token, user = await service.complete_login(email, id_no)
             return AuthPayload(
                 access_token=access_token,
                 refresh_token=refresh_token,
                 user=UserType.from_model(user),
             )
-        except (AuthenticationError, ValidationError) as e:
+        except (AuthenticationError, ValidationError, NotFoundError) as e:
             raise Exception(str(e))
         finally:
             await service.session.close()

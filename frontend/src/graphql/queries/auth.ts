@@ -6,7 +6,9 @@ export const ME = gql`
       id
       email
       phone
+      idNo
       firstName
+      middleName
       lastName
       status
       kycLevel

@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
-import { Box, Button, Card, CardContent, TextField, Typography, Alert, Link } from "@mui/material";
+import { Box, Button, Card, CardContent, TextField, Typography, Alert, Link, Stack } from "@mui/material";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import { useMutation } from "@apollo/client";
 import { REGISTER } from "../graphql/mutations/auth";
 import BrandMark from "../components/BrandMark";
 
 export default function Register() {
+  const [idNo, setIdNo] = useState("");
+  const [idNoError, setIdNoError] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState("");
@@ -26,6 +31,16 @@ export default function Register() {
     return null;
   };
 
+  const validateIdNo = (value: string): string | null => {
+    if (!/^\d+$/.test(value)) {
+      return "ID No. must contain digits only (no letters or symbols)";
+    }
+    if (value.length !== 9) {
+      return "ID No. must be exactly 9 digits";
+    }
+    return null;
+  };
+
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // strip non-digits instantly so letters/symbols never persist
     const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 11);
@@ -34,15 +49,35 @@ export default function Register() {
     if (error) setError("");
   };
 
+  const handleIdNoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 9);
+    setIdNo(digitsOnly);
+    if (idNoError) setIdNoError("");
+    if (error) setError("");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setPhoneError("");
+    setIdNoError("");
+
+    const idNoValidationError = validateIdNo(idNo);
+    if (idNoValidationError) {
+      setIdNoError(idNoValidationError);
+      setError(idNoValidationError);
+      return;
+    }
 
     const phoneValidationError = validatePhone(phone);
     if (phoneValidationError) {
       setPhoneError(phoneValidationError);
       setError(phoneValidationError);
+      return;
+    }
+
+    if (!lastName.trim() || !firstName.trim()) {
+      setError("First name and last name are required");
       return;
     }
 
@@ -52,7 +87,17 @@ export default function Register() {
     }
 
     try {
-      await registerMutation({ variables: { email, phone, password } });
+      await registerMutation({
+        variables: {
+          email,
+          phone,
+          password,
+          idNo,
+          firstName,
+          lastName,
+          middleName: middleName || null,
+        },
+      });
       navigate(`/verify-otp?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setError(err.message || "Registration failed");
@@ -77,7 +122,7 @@ export default function Register() {
     >
       <Card
         className="animate-slide-up"
-        sx={{ maxWidth: 420, width: "100%", borderRadius: 4, boxShadow: "0 16px 40px rgba(15,110,205,0.12)" }}
+        sx={{ maxWidth: 460, width: "100%", borderRadius: 4, boxShadow: "0 16px 40px rgba(15,110,205,0.12)" }}
       >
         <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
           <Box sx={{ textAlign: "center", mb: 3 }}>
@@ -89,13 +134,60 @@ export default function Register() {
               CCash
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Create your account
+              Member Sign-Up
             </Typography>
           </Box>
 
           {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
 
           <Box component="form" onSubmit={handleSubmit}>
+            <TextField
+              fullWidth
+              label="ID No."
+              value={idNo}
+              onChange={handleIdNoChange}
+              onBlur={() => {
+                const err = idNo ? validateIdNo(idNo) : null;
+                if (err) setIdNoError(err);
+              }}
+              required
+              margin="normal"
+              placeholder="123456789"
+              helperText={idNoError || "Your 9-digit employee/member ID"}
+              error={!!idNoError}
+              inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 9 }}
+            />
+
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 0, sm: 1.5 }} sx={{ "& > *": { flex: 1 } }}>
+              <TextField
+                fullWidth
+                label="Last Name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+                margin="normal"
+                autoComplete="family-name"
+              />
+              <TextField
+                fullWidth
+                label="First Name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+                margin="normal"
+                autoComplete="given-name"
+              />
+            </Stack>
+            <TextField
+              fullWidth
+              label="Middle Name"
+              value={middleName}
+              onChange={(e) => setMiddleName(e.target.value)}
+              margin="normal"
+              helperText="Optional"
+              autoComplete="additional-name"
+            />
+
             <TextField
               fullWidth
               label="Email"
@@ -105,10 +197,11 @@ export default function Register() {
               required
               margin="normal"
               autoComplete="email"
+              helperText="Your transaction history can be sent here as a PDF"
             />
             <TextField
               fullWidth
-              label="Phone"
+              label="Mobile Number"
               value={phone}
               onChange={handlePhoneChange}
               onBlur={() => {
@@ -159,6 +252,11 @@ export default function Register() {
             <Link component={RouterLink} to="/login" underline="hover" fontWeight={500}>
               Already have an account? Sign in
             </Link>
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              <Link component={RouterLink} to="/register-merchant" underline="hover" fontWeight={500}>
+                Signing up as a Merchant instead?
+              </Link>
+            </Typography>
           </Box>
         </CardContent>
       </Card>

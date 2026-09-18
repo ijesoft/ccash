@@ -1,13 +1,60 @@
 import { useState } from "react";
-import { Box, Typography, Pagination, Select, MenuItem, FormControl, InputLabel, Paper } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Pagination,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Paper,
+  Button,
+  Stack,
+  Snackbar,
+  Alert,
+  CircularProgress,
+} from "@mui/material";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import TableChartIcon from "@mui/icons-material/TableChart";
+import EmailIcon from "@mui/icons-material/Email";
 import { useTransactions } from "../hooks/useTransactions";
 import TransactionList from "../components/TransactionList";
+import { downloadReport, emailReport } from "../utils/reportDownload";
 
 export default function TransactionsPage() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState("");
+  const [busy, setBusy] = useState<"pdf" | "xlsx" | "email" | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
+    open: false,
+    message: "",
+    severity: "success",
+  });
   const limit = 20;
   const { transactions, loading } = useTransactions(limit, (page - 1) * limit, filter || undefined);
+
+  const handleDownload = async (kind: "pdf" | "xlsx") => {
+    setBusy(kind);
+    try {
+      await downloadReport(`/api/reports/transactions.${kind}`, `ccash-transactions.${kind}`);
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.message || "Download failed", severity: "error" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleEmail = async () => {
+    setBusy("email");
+    try {
+      const result = await emailReport("/api/reports/transactions/email");
+      setSnackbar({ open: true, message: `Transaction history is being sent to ${result.email}`, severity: "success" });
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.message || "Could not send email", severity: "error" });
+    } finally {
+      setBusy(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -27,21 +74,56 @@ export default function TransactionsPage() {
         Transaction History
       </Typography>
 
-      <FormControl size="small" sx={{ mb: 2, minWidth: { xs: "100%", sm: 160 } }}>
-        <InputLabel>Filter</InputLabel>
-        <Select
-          value={filter}
-          label="Filter"
-          onChange={(e) => { setFilter(e.target.value); setPage(1); }}
+      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", rowGap: 1 }}>
+        <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 160 } }}>
+          <InputLabel>Filter</InputLabel>
+          <Select
+            value={filter}
+            label="Filter"
+            onChange={(e) => { setFilter(e.target.value); setPage(1); }}
+            sx={{ borderRadius: 2 }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="CASH_IN">Cash In</MenuItem>
+            <MenuItem value="CASH_OUT">Cash Out</MenuItem>
+            <MenuItem value="SEND">Transfers</MenuItem>
+            <MenuItem value="QR_PAYMENT">QR Payment</MenuItem>
+          </Select>
+        </FormControl>
+
+        <Box sx={{ flexGrow: 1 }} />
+
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={busy === "pdf" ? <CircularProgress size={16} /> : <PictureAsPdfIcon />}
+          disabled={busy !== null}
+          onClick={() => handleDownload("pdf")}
           sx={{ borderRadius: 2 }}
         >
-          <MenuItem value="">All</MenuItem>
-          <MenuItem value="CASH_IN">Cash In</MenuItem>
-          <MenuItem value="CASH_OUT">Cash Out</MenuItem>
-          <MenuItem value="SEND">Transfers</MenuItem>
-          <MenuItem value="QR_PAYMENT">QR Payment</MenuItem>
-        </Select>
-      </FormControl>
+          PDF
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={busy === "xlsx" ? <CircularProgress size={16} /> : <TableChartIcon />}
+          disabled={busy !== null}
+          onClick={() => handleDownload("xlsx")}
+          sx={{ borderRadius: 2 }}
+        >
+          Excel
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={busy === "email" ? <CircularProgress size={16} /> : <EmailIcon />}
+          disabled={busy !== null}
+          onClick={handleEmail}
+          sx={{ borderRadius: 2 }}
+        >
+          Email me
+        </Button>
+      </Stack>
 
       {transactions ? (
         <Paper elevation={0} sx={{ borderRadius: 3, border: "1px solid", borderColor: "divider", overflow: "hidden" }}>
@@ -66,6 +148,17 @@ export default function TransactionsPage() {
           />
         </Box>
       )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert onClose={() => setSnackbar((s) => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

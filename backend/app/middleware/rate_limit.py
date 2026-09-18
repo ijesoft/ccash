@@ -31,8 +31,12 @@ _AUTH_OPERATIONS = frozenset(
     {
         "login",
         "Login",
+        "completeLogin",
+        "CompleteLogin",
         "register",
         "Register",
+        "registerMerchant",
+        "RegisterMerchant",
         "verifyOtp",
         "VerifyOtp",
         "sendLoginOtp",

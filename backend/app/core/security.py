@@ -62,3 +62,14 @@ def verify_totp(secret: str, code: str) -> bool:
 def generate_otp() -> str:
     import random
     return str(random.randint(100000, 999999))
+
+
+def generate_temp_password() -> str:
+    """Random initial password for an admin-created account (individual add or
+    batch upload). The member/merchant is expected to change it after their
+    first login."""
+    import secrets
+    import string
+
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(12))

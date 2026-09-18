@@ -19,7 +19,8 @@ class KycLevel(str, enum.Enum):
 
 
 class UserRole(str, enum.Enum):
-    USER = "USER"
+    MEMBER = "MEMBER"
+    MERCHANT = "MERCHANT"
     ADMIN = "ADMIN"
 
 
@@ -29,12 +30,16 @@ class User(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     email: str = Field(unique=True, index=True, max_length=255)
     phone: str = Field(unique=True, index=True, max_length=20)
+    # 9-digit member/employee ID (client-assigned). Merchants use
+    # merchant_profiles.merchant_id_no ("M" + 9 digits) instead.
+    id_no: str | None = Field(default=None, unique=True, index=True, max_length=9)
     first_name: str | None = Field(default=None, max_length=100)
+    middle_name: str | None = Field(default=None, max_length=100)
     last_name: str | None = Field(default=None, max_length=100)
     password_hash: str = Field(max_length=255)
     status: UserStatus = Field(default=UserStatus.PENDING, sa_type=Enum(UserStatus))
     kyc_level: KycLevel = Field(default=KycLevel.NONE, sa_type=Enum(KycLevel))
-    role: UserRole = Field(default=UserRole.USER, sa_type=Enum(UserRole))
+    role: UserRole = Field(default=UserRole.MEMBER, sa_type=Enum(UserRole))
     device_id: str | None = Field(default=None, max_length=255)
     totp_secret: str | None = Field(default=None, max_length=255)
     is_2fa_enabled: bool = Field(default=False)

@@ -70,6 +70,7 @@ export default function Profile() {
           <Stack spacing={1.5} divider={<Divider flexItem />}>
             <InfoRow label="Email" value={user?.email ?? "—"} />
             <InfoRow label="Phone" value={user?.phone ?? "—"} />
+            {user?.idNo && <InfoRow label="ID No. (required at login)" value={user.idNo} />}
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
               <Typography variant="body2" color="text.secondary">Status</Typography>
               <Chip label={user?.status} size="small" color={user?.status === "ACTIVE" ? "success" : "warning"} />

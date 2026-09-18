@@ -39,7 +39,7 @@ def test_scopes_for_regular_user_has_no_admin():
         email="rbac-user-unit@ccash.test",
         phone="09189990002",
         password_hash="x",
-    )  # column default USER
+    )  # column default MEMBER
     assert _scopes_for(user) == ["wallet:read", "wallet:write"]
 
 
@@ -121,7 +121,7 @@ async def test_update_user_role_promotes_and_audits(session, make_account):
     ).scalar_one()
     assert row.user_id == admin.id
     assert row.action == "role.change"
-    assert row.old_values == {"role": "USER"}
+    assert row.old_values == {"role": "MEMBER"}
     assert row.new_values == {"role": "ADMIN"}
 
 
@@ -134,8 +134,8 @@ async def test_update_user_role_demotes_when_other_admin_exists(session, make_ac
     await promote(session, target)
 
     service = AdminService(session)
-    updated = await service.update_user_role(target.id, UserRole.USER, actor_id=admin.id)
-    assert updated.role == UserRole.USER
+    updated = await service.update_user_role(target.id, UserRole.MEMBER, actor_id=admin.id)
+    assert updated.role == UserRole.MEMBER
 
 
 async def test_update_user_role_blocks_last_admin_demotion(session, make_account):
@@ -151,7 +151,7 @@ async def test_update_user_role_blocks_last_admin_demotion(session, make_account
 
     service = AdminService(session)
     with pytest.raises(ValidationError):
-        await service.update_user_role(admin.id, UserRole.USER, actor_id=admin.id)
+        await service.update_user_role(admin.id, UserRole.MEMBER, actor_id=admin.id)
 
     # Role unchanged and no audit row written.
     result = await session.execute(select(User).where(User.id == admin.id))
@@ -173,8 +173,8 @@ async def test_update_user_role_suspended_admin_still_counts(session, make_accou
     await session.commit()
 
     service = AdminService(session)
-    updated = await service.update_user_role(admin.id, UserRole.USER, actor_id=other.id)
-    assert updated.role == UserRole.USER
+    updated = await service.update_user_role(admin.id, UserRole.MEMBER, actor_id=other.id)
+    assert updated.role == UserRole.MEMBER
 
 
 async def test_update_user_role_unknown_user_raises(session, make_account):

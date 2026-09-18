@@ -7,7 +7,10 @@ from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
 from strawberry.fastapi import GraphQLRouter
 
+from app.api.admin_members import router as admin_members_router
 from app.api.branding import router as branding_router
+from app.api.reports import admin_router as admin_reports_router
+from app.api.reports import router as reports_router
 from app.config import settings
 from app.core.redis import close_redis, get_redis
 from app.core.security import decode_token
@@ -57,6 +60,9 @@ BRANDING_DIR = Path(__file__).resolve().parent.parent / "static" / "branding"
 BRANDING_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static/branding", StaticFiles(directory=str(BRANDING_DIR)), name="branding")
 app.include_router(branding_router, prefix="/admin/branding")
+app.include_router(reports_router, prefix="/reports")
+app.include_router(admin_reports_router, prefix="/admin/reports")
+app.include_router(admin_members_router, prefix="/admin")
 
 
 @app.websocket("/ws")

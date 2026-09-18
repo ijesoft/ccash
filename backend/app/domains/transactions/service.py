@@ -407,6 +407,17 @@ class TransactionService:
         txs = await self.tx_repo.get_statement(wallet.id, from_date, to_date)
         return await self._build_views(txs, wallet.id)
 
+    # Report generation (PDF/Excel export) wants the full history, unpaginated.
+    REPORT_ROW_LIMIT = 100_000
+
+    async def list_for_report(self, user_id: uuid.UUID) -> list[TransactionView]:
+        wallet = await self.wallet_repo.get_by_user_id(user_id)
+        if not wallet:
+            return []
+
+        items, _total = await self.tx_repo.list_by_wallet(wallet.id, limit=self.REPORT_ROW_LIMIT, offset=0)
+        return await self._build_views(items, wallet.id)
+
     # --------------------------------------------------------------- internals
 
     async def _lock_pair(

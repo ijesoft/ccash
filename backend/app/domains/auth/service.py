@@ -17,8 +17,14 @@ from app.core.security import (
 )
 from app.domains.auth.models import User, UserRole, UserStatus
 from app.domains.auth.repository import UserRepository
+from app.domains.merchants.repository import MerchantRepository
 from app.domains.wallets.repository import WalletRepository
 from app.tasks.notifications import send_email_notification
+
+# Password (+2FA) success does not issue tokens by itself; it only opens a
+# short window for the ID No. step to complete the login. See login()/
+# complete_login() below.
+_LOGIN_PENDING_TTL_SECONDS = 300
 
 
 def _scopes_for(user: User) -> list[str]:
@@ -31,15 +37,31 @@ def _scopes_for(user: User) -> list[str]:
 class AuthService:
     def __init__(self, session: AsyncSession, redis: Redis):
         self.repo = UserRepository(session)
+        self.merchant_repo = MerchantRepository(session)
         self.session = session
         self.redis = redis
 
-    async def register(self, email: str, phone: str, password: str, first_name: str | None = None, last_name: str | None = None) -> User:
+    async def register(
+        self,
+        email: str,
+        phone: str,
+        password: str,
+        id_no: str,
+        first_name: str,
+        last_name: str,
+        middle_name: str | None = None,
+    ) -> User:
         import re
 
         # Strict 11-digit numeric check - no letters/symbols allowed
         if not re.fullmatch(r"\d{11}", phone):
             raise ValidationError("Phone must be exactly 11 digits (numbers only, no letters)")
+
+        if not re.fullmatch(r"\d{9}", id_no):
+            raise ValidationError("ID No. must be exactly 9 digits (numbers only)")
+
+        if not first_name.strip() or not last_name.strip():
+            raise ValidationError("First name and last name are required")
 
         from app.core.masking import normalize_philippine_mobile
 
@@ -53,8 +75,20 @@ class AuthService:
         if existing:
             raise ValidationError("Phone already registered")
 
+        existing = await self.repo.get_by_id_no(id_no)
+        if existing:
+            raise ValidationError("ID No. already registered")
+
         password_hash = hash_password(password)
-        user = await self.repo.create(email, normalized_phone, password_hash, first_name, last_name)
+        user = await self.repo.create(
+            email,
+            normalized_phone,
+            password_hash,
+            first_name=first_name,
+            last_name=last_name,
+            id_no=id_no,
+            middle_name=middle_name,
+        )
         await self.session.commit()
 
         otp = generate_otp()
@@ -131,7 +165,18 @@ class AuthService:
 
         return True
 
-    async def login(self, email: str, password: str, otp_code: str | None = None) -> tuple[str, str, User]:
+    async def login(self, email: str, password: str, otp_code: str | None = None) -> tuple[str, bool]:
+        """Password (+2FA, if enabled) check only. Does **not** issue tokens.
+
+        A successful call opens a short window (see _LOGIN_PENDING_TTL_SECONDS)
+        during which complete_login() will accept the account's ID No. and
+        finish authentication. Splitting it this way means the ID No. gate
+        applies uniformly, regardless of whether 2FA is enabled.
+
+        Returns (email, has_existing_id) so the client knows whether to prompt
+        "enter your ID No." or "set your ID No." (first login since this
+        account predates the ID No. requirement).
+        """
         user = await self.repo.get_by_email(email)
 
         if not user:
@@ -158,6 +203,66 @@ class AuthService:
                     raise AuthenticationError("Invalid 2FA code")
                 # Consume the OTP so it cannot be reused
                 await self.redis.delete(f"login_otp:{email}")
+
+        has_existing_id = await self._expected_id_no(user) is not None
+
+        await self.redis.setex(f"login_pending:{email}", _LOGIN_PENDING_TTL_SECONDS, "1")
+
+        return email, has_existing_id
+
+    async def _expected_id_no(self, user: User) -> str | None:
+        """The ID No. this account must be confirmed with, or None if the
+        account predates the requirement and has not set one yet.
+
+        Merchants always have one (assigned at registration); Members/Admins
+        may not, for accounts created before this gate existed.
+        """
+        if user.role == UserRole.MERCHANT:
+            profile = await self.merchant_repo.get_by_user_id(user.id)
+            if not profile:
+                raise NotFoundError("Merchant profile not found")
+            return profile.merchant_id_no
+        return user.id_no or None
+
+    async def complete_login(self, email: str, id_no: str) -> tuple[str, str, User]:
+        """Second half of login(): confirms (or, for a legacy account with none
+        on file, sets) the account's ID No., then issues tokens.
+
+        Requires a pending marker from a just-completed login() call, so this
+        cannot be reached by knowing an ID No. alone — password (+2FA) must
+        have already succeeded for this email.
+        """
+        import re
+
+        user = await self.repo.get_by_email(email)
+        if not user:
+            raise AuthenticationError("Invalid credentials")
+
+        pending = await self.redis.get(f"login_pending:{email}")
+        if not pending:
+            raise AuthenticationError("Session expired, please sign in again")
+
+        if user.status != UserStatus.ACTIVE:
+            raise AuthenticationError("Account is not active")
+
+        id_no = (id_no or "").strip()
+        expected = await self._expected_id_no(user)
+
+        if expected is None:
+            # First login since this account gained the ID No. requirement:
+            # the member sets their own permanent ID No. here.
+            if not re.fullmatch(r"\d{9}", id_no):
+                raise ValidationError("ID No. must be exactly 9 digits (numbers only)")
+            existing = await self.repo.get_by_id_no(id_no)
+            if existing and existing.id != user.id:
+                raise ValidationError("ID No. already in use")
+            user.id_no = id_no
+            await self.repo.update(user)
+            await self.session.commit()
+        elif id_no != expected:
+            raise AuthenticationError("Invalid credentials")
+
+        await self.redis.delete(f"login_pending:{email}")
 
         access_token = create_access_token(str(user.id), scopes=_scopes_for(user))
         refresh_token, token_id = create_refresh_token(str(user.id))

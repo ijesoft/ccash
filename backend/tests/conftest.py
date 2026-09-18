@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 import asyncpg
 import pytest_asyncio
+import redis.asyncio as aioredis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -85,11 +86,29 @@ async def session() -> AsyncSession:
             await conn.execute(
                 text(
                     "TRUNCATE notifications, transactions, favorites, "
-                    "kyc_documents, audit_logs, wallets, users CASCADE"
+                    "kyc_documents, audit_logs, merchant_profiles, wallets, users CASCADE"
                 )
             )
     finally:
         await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def redis():
+    """A fresh Redis connection scoped to this test's event loop.
+
+    ``app.core.redis.get_redis()`` caches a single connection at module scope
+    for the app's lifetime, bound to whatever event loop created it. Reusing
+    that cached connection across tests breaks under pytest-asyncio's
+    function-scoped event loops ("attached to a different loop" / "Event
+    loop is closed"), so tests get their own connection instead — same
+    reasoning as the per-test engine above.
+    """
+    client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        yield client
+    finally:
+        await client.aclose()
 
 
 @pytest_asyncio.fixture
