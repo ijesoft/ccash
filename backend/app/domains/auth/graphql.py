@@ -1,9 +1,11 @@
+import uuid
+
 import strawberry
 from strawberry.types import Info
 
 from app.core.errors import AuthenticationError, NotFoundError, ValidationError
 from app.core.redis import get_redis
-from app.core.security import generate_totp_secret
+from app.core.security import decode_token, generate_totp_secret
 from app.database import async_session_factory
 from app.domains.auth.models import User, UserStatus
 from app.domains.auth.service import AuthService
@@ -162,10 +164,12 @@ class AuthMutations:
         service = await get_auth_service(info)
         try:
             access, new_refresh = await service.refresh_token(refresh_token)
+            user_id = decode_token(new_refresh).get("sub")
+            user = await service.repo.get_by_id(uuid.UUID(user_id))
             return AuthPayload(
                 access_token=access,
                 refresh_token=new_refresh,
-                user=UserType(id="", email="", phone="", status="", kyc_level="", role="", is_2fa_enabled=False, is_verified=False, created_at=""),
+                user=UserType.from_model(user) if user else UserType(id="", email="", phone="", first_name=None, last_name=None, status="", kyc_level="", role="", is_2fa_enabled=False, is_verified=False, created_at=""),
             )
         except AuthenticationError as e:
             raise Exception(str(e))
@@ -198,6 +202,19 @@ class AuthMutations:
         try:
             await service.logout(refresh_token)
             return True
+        finally:
+            await service.session.close()
+
+    @strawberry.mutation
+    async def touch_session(self, info: Info) -> bool:
+        context: AuthContext = info.context
+        if not context.user_id:
+            raise Exception("Not authenticated")
+        service = await get_auth_service(info)
+        try:
+            return await service.touch(str(context.user_id))
+        except AuthenticationError as e:
+            raise Exception(str(e))
         finally:
             await service.session.close()
 
