@@ -1,23 +1,39 @@
-import { useState } from "react";
-import { Box, Typography, Button, Stack, Snackbar, Alert, Chip } from "@mui/material";
+import { useEffect, useState } from "react";
+import { Box, Typography, Button, Stack, Snackbar, Alert, Chip, TextField, InputAdornment } from "@mui/material";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useQuery } from "@apollo/client";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import SearchIcon from "@mui/icons-material/Search";
 import { GET_MASTER_LIST } from "../graphql/queries/masterList";
 import MasterListAddDialog from "../components/MasterListAddDialog";
 import MasterListImportDialog from "../components/MasterListImportDialog";
 
 export default function MasterList() {
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPaginationModel((m) => ({ ...m, page: 0 }));
+    }, 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const { data, loading, refetch } = useQuery(GET_MASTER_LIST, {
-    variables: { limit: paginationModel.pageSize, offset: paginationModel.page * paginationModel.pageSize },
+    variables: {
+      limit: paginationModel.pageSize,
+      offset: paginationModel.page * paginationModel.pageSize,
+      q: debouncedSearch,
+    },
   });
-  const rows = data?.masterListEntries ?? [];
+  const rows = data?.masterListEntries.items ?? [];
+  const total = data?.masterListEntries.total ?? 0;
 
   const columns: GridColDef[] = [
     { field: "idNo", headerName: "9-Digit ID No.", width: 130 },
@@ -54,11 +70,29 @@ export default function MasterList() {
           </Button>
         </Stack>
       </Stack>
+      <Box mb={2}>
+        <TextField
+          size="small"
+          placeholder="Search ID, name, mobile, email…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ width: { xs: "100%", sm: 360 } }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
       <Box sx={{ height: 500, width: "100%" }}>
         <DataGrid
           rows={rows}
           columns={columns}
           loading={loading}
+          rowCount={total}
+          paginationMode="server"
           paginationModel={paginationModel}
           onPaginationModelChange={setPaginationModel}
           pageSizeOptions={[5, 10, 25]}

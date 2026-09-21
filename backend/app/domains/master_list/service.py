@@ -68,8 +68,8 @@ class MasterListService:
         await self.session.commit()
         return entry
 
-    async def list_entries(self, limit: int = 20, offset: int = 0):
-        return await self.repo.list_entries(limit, offset)
+    async def list_entries(self, limit: int = 20, offset: int = 0, q: str = ""):
+        return await self.repo.list_entries(limit, offset, q)
 
     async def update_entry(
         self,

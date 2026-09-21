@@ -66,17 +66,25 @@ class MasterListUpdateInput:
 
 
 @strawberry.type
+class MasterListPage:
+    items: list[MasterListType]
+    total: int
+
+
+@strawberry.type
 class MasterListQueries:
     @strawberry.field
     async def master_list_entries(
-        self, info: Info, limit: int = 20, offset: int = 0
-    ) -> list[MasterListType]:
+        self, info: Info, limit: int = 20, offset: int = 0, q: str = ""
+    ) -> MasterListPage:
         require_admin(info.context)
         session = async_session_factory()
         try:
             service = MasterListService(session)
-            entries, _ = await service.list_entries(limit, offset)
-            return [MasterListType.from_model(e) for e in entries]
+            entries, total = await service.list_entries(limit, offset, q)
+            return MasterListPage(
+                items=[MasterListType.from_model(e) for e in entries], total=total
+            )
         finally:
             await session.close()
 

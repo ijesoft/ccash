@@ -1,9 +1,13 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.master_list.models import MasterListEntry
+
+
+def _escape_like(term: str) -> str:
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 class MasterListRepository:
@@ -46,15 +50,31 @@ class MasterListRepository:
         )
         return result.scalars().first()
 
-    async def list_entries(self, limit: int = 20, offset: int = 0) -> tuple[list[MasterListEntry], int]:
+    async def list_entries(
+        self, limit: int = 20, offset: int = 0, q: str = ""
+    ) -> tuple[list[MasterListEntry], int]:
+        filters = [MasterListEntry.deleted_at.is_(None)]
+        term = (q or "").strip()
+        if term:
+            like = f"%{_escape_like(term)}%"
+            filters.append(
+                or_(
+                    MasterListEntry.id_no.ilike(like),
+                    MasterListEntry.first_name.ilike(like),
+                    MasterListEntry.last_name.ilike(like),
+                    MasterListEntry.middle_name.ilike(like),
+                    MasterListEntry.mobile_number.ilike(like),
+                    MasterListEntry.email.ilike(like),
+                )
+            )
         total = (
             await self.session.execute(
-                select(func.count(MasterListEntry.id)).where(MasterListEntry.deleted_at.is_(None))
+                select(func.count(MasterListEntry.id)).where(*filters)
             )
         ).scalar() or 0
         result = await self.session.execute(
             select(MasterListEntry)
-            .where(MasterListEntry.deleted_at.is_(None))
+            .where(*filters)
             .order_by(MasterListEntry.created_at.desc())
             .offset(offset)
             .limit(limit)
