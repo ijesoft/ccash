@@ -86,7 +86,7 @@ async def session() -> AsyncSession:
             await conn.execute(
                 text(
                     "TRUNCATE notifications, transactions, favorites, "
-                    "kyc_documents, audit_logs, merchant_profiles, wallets, users CASCADE"
+                    "kyc_documents, audit_logs, merchant_profiles, wallets, users, master_list_entries CASCADE"
                 )
             )
     finally:

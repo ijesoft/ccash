@@ -1,0 +1,102 @@
+import uuid
+
+import pytest
+
+from app.domains.master_list.service import MasterListService
+
+
+def test_master_list_model_imports():
+    from app.domains.master_list.models import MasterListEntry
+
+    assert MasterListEntry.__tablename__ == "master_list_entries"
+
+
+@pytest.mark.asyncio
+async def test_create_master_list_entry_rejects_bad_id_no(session):
+    svc = MasterListService(session)
+    with pytest.raises(Exception, match="9 digits"):
+        await svc.create_entry(
+            id_no="123",
+            first_name="Juan",
+            last_name="Cruz",
+            mobile_number="09171234567",
+            email="juan@example.ph",
+            actor_id=uuid.uuid4(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_master_list_entry_happy_path(session):
+    svc = MasterListService(session)
+    entry = await svc.create_entry(
+        id_no="111222333",
+        first_name="Maria",
+        last_name="Santos",
+        middle_name="Reyes",
+        mobile_number="09171234567",
+        email="maria@example.ph",
+        actor_id=None,
+    )
+    assert entry.id_no == "111222333"
+    assert entry.mobile_number == "09171234567"
+    assert entry.status.value == "ACTIVE"
+
+
+@pytest.mark.asyncio
+async def test_create_master_list_entry_inactive_and_rejects_bad_status(session):
+    from app.domains.master_list.models import MasterListStatus
+
+    svc = MasterListService(session)
+    entry = await svc.create_entry(
+        id_no="777888999",
+        first_name="Jose",
+        last_name="Rizal",
+        mobile_number="09173333333",
+        email="jose@example.ph",
+        status="INACTIVE",
+    )
+    assert entry.status == MasterListStatus.INACTIVE
+    with pytest.raises(Exception, match="ACTIVE or INACTIVE"):
+        await svc.create_entry(
+            id_no="000111222",
+            first_name="X",
+            last_name="Y",
+            mobile_number="09174444444",
+            email="x@example.ph",
+            status="UNKNOWN",
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_master_list_entry_rejects_duplicate_id_no(session):
+    svc = MasterListService(session)
+    await svc.create_entry(
+        id_no="444555666",
+        first_name="A",
+        last_name="B",
+        mobile_number="09171111111",
+        email="a@example.ph",
+    )
+    with pytest.raises(Exception, match="already registered"):
+        await svc.create_entry(
+            id_no="444555666",
+            first_name="C",
+            last_name="D",
+            mobile_number="09172222222",
+            email="c@example.ph",
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_master_list_entry_changes_status_and_mobile(session):
+    svc = MasterListService(session)
+    entry = await svc.create_entry(
+        id_no="999888777",
+        first_name="Ana",
+        last_name="Cruz",
+        mobile_number="09175555555",
+        email="ana@example.ph",
+    )
+    updated = await svc.update_entry(entry.id, status="INACTIVE", mobile_number="09176666666")
+    assert updated.status.value == "INACTIVE"
+    assert updated.mobile_number == "09176666666"

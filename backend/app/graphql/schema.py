@@ -2,6 +2,7 @@ import strawberry
 
 from app.domains.admin.graphql import AdminMutations, AdminQueries
 from app.domains.auth.graphql import AuthMutations, AuthQueries
+from app.domains.master_list.graphql import MasterListMutations, MasterListQueries
 from app.domains.merchants.graphql import MerchantMutations, MerchantQueries
 from app.domains.notifications.graphql import NotificationMutations, NotificationQueries
 from app.domains.transactions.graphql import TransactionMutations, TransactionQueries
@@ -14,6 +15,7 @@ class Query(
     AdminQueries,
     AuthQueries,
     KycQueries,
+    MasterListQueries,
     MerchantQueries,
     NotificationQueries,
     TransactionQueries,
@@ -27,6 +29,7 @@ class Mutation(
     AdminMutations,
     AuthMutations,
     KycMutations,
+    MasterListMutations,
     MerchantMutations,
     NotificationMutations,
     TransactionMutations,
