@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "CCash Digital Wallet",
-  "short_name": "CCash",
+  "name": "Campe Wallet",
+  "short_name": "Campe Wallet",
   "description": "A secure digital wallet for sending, receiving, and managing money.",
   "start_url": "/?source=pwa",
   "scope": "/",

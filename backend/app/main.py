@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="CCash API",
+    title="Campe Wallet API",
     version="0.1.0",
     lifespan=lifespan,
 )

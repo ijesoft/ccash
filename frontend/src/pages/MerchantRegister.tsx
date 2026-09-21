@@ -110,7 +110,7 @@ export default function MerchantRegister() {
               fontWeight={700}
               sx={{ fontFamily: '"League Spartan", sans-serif', color: "primary.main", fontSize: { xs: "1.75rem", sm: "2rem" }, letterSpacing: "-0.03em" }}
             >
-              CCash
+              Campe Wallet
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Merchant Sign-Up
@@ -185,7 +185,7 @@ export default function MerchantRegister() {
               onChange={(e) => setMerchantIdNo(e.target.value.toUpperCase().slice(0, 10))}
               margin="normal"
               placeholder="M123456789"
-              helperText="Leave blank and CCash will generate one automatically"
+              helperText="Leave blank and Campe Wallet will generate one automatically"
             />
             <TextField
               fullWidth

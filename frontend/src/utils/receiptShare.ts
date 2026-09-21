@@ -1,4 +1,4 @@
-/** Build a CCash receipt PNG and share/download it as payment proof. */
+/** Build a Campe Wallet receipt PNG and share/download it as payment proof. */
 
 export interface ReceiptShareData {
   title: string;
@@ -95,7 +95,7 @@ export async function buildReceiptPng(data: ReceiptShareData): Promise<Blob> {
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 15px \"League Spartan\", system-ui, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("CCash", width / 2, cy);
+  ctx.fillText("Campe Wallet", width / 2, cy);
 
   cy = cardY + 108;
   ctx.fillStyle = "#0f172a";
@@ -159,7 +159,7 @@ export async function buildReceiptPng(data: ReceiptShareData): Promise<Blob> {
   ctx.fillStyle = "#94a3b8";
   ctx.font = "400 11px system-ui, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("CCash · Proof of payment", width / 2, cy);
+  ctx.fillText("Campe Wallet · Proof of payment", width / 2, cy);
   ctx.fillText(new Date().toLocaleString("en-PH"), width / 2, cy + 16);
 
   return await new Promise<Blob>((resolve, reject) => {
@@ -190,7 +190,7 @@ function roundRect(
 
 export function receiptShareText(data: ReceiptShareData): string {
   const lines = [
-    `CCash — ${data.title}`,
+    `Campe Wallet — ${data.title}`,
     data.amountLabel,
     ...data.rows.map((r) => `${r.label}: ${r.value}`),
   ];
@@ -226,7 +226,7 @@ export async function shareReceipt(data: ReceiptShareData): Promise<"shared" | "
     if (navigator.canShare?.({ files: [file] })) {
       await navigator.share({
         files: [file],
-        title: `CCash — ${data.title}`,
+        title: `Campe Wallet — ${data.title}`,
         text,
       });
       return "shared";
@@ -239,7 +239,7 @@ export async function shareReceipt(data: ReceiptShareData): Promise<"shared" | "
   try {
     if (navigator.share) {
       await navigator.share({
-        title: `CCash — ${data.title}`,
+        title: `Campe Wallet — ${data.title}`,
         text,
       });
       // Still offer the image locally so they have proof.

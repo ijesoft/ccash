@@ -100,7 +100,7 @@ export default function PwaInstallPrompt() {
     <>
       <Paper
         role="region"
-        aria-label="Install CCash"
+        aria-label="Install Campe Wallet"
         elevation={12}
         className="animate-slide-up"
         sx={{
@@ -138,10 +138,10 @@ export default function PwaInstallPrompt() {
           />
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="subtitle1" fontWeight={700}>
-              Install CCash
+              Install Campe Wallet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Add CCash to your home screen for faster, app-like access.
+              Add Campe Wallet to your home screen for faster, app-like access.
             </Typography>
           </Box>
         </Box>
@@ -169,7 +169,7 @@ export default function PwaInstallPrompt() {
         slotProps={{ paper: { sx: { borderRadius: 3, m: 2 } } }}
       >
         <DialogTitle sx={{ pr: 6 }}>
-          Install CCash
+          Install Campe Wallet
           <IconButton
             onClick={() => setInstructionsOpen(false)}
             aria-label="Close instructions"
@@ -194,7 +194,7 @@ export default function PwaInstallPrompt() {
               <Instruction
                 icon={<AddToHomeScreenIcon color="success" />}
                 number="3"
-                text='Tap “Add” to finish installing CCash.'
+                text='Tap “Add” to finish installing Campe Wallet.'
               />
             </Stack>
           ) : (

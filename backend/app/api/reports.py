@@ -95,9 +95,9 @@ async def email_own_transactions(user_id: uuid.UUID = Depends(require_user_token
 
         send_email_notification.delay(
             to_email=user.email,
-            subject="Your CCash Transaction History",
+            subject="Your Campe Wallet Transaction History",
             body=(
-                "Attached is your CCash transaction history as of "
+                "Attached is your Campe Wallet transaction history as of "
                 f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}."
             ),
             attachment_base64=base64.b64encode(pdf_bytes).decode("ascii"),

@@ -131,7 +131,7 @@ export default function QrCameraScanner({ active, onScan }: Props) {
             highlightCodeOutline: true,
             preferredCamera: "environment",
             maxScansPerSecond: 8,
-            // Use a larger center region; default can miss dense CCash JSON QRs.
+            // Use a larger center region; default can miss dense Campe Wallet JSON QRs.
             calculateScanRegion: (v) => {
               const smallest = Math.min(v.videoWidth, v.videoHeight);
               const scanSize = Math.round(smallest * 0.85);
@@ -297,12 +297,12 @@ export default function QrCameraScanner({ active, onScan }: Props) {
           >
             <VideocamOffIcon sx={{ fontSize: 40, opacity: 0.8 }} />
             <Typography variant="subtitle1" fontWeight={700}>
-              Scan a CCash QR code
+              Scan a Campe Wallet QR code
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.8 }}>
               {cameraBlocked
                 ? "Live camera is unavailable on this connection. Upload a photo of the QR code instead."
-                : "Camera starts automatically — point at a CCash receive QR, or upload a photo."}
+                : "Camera starts automatically — point at a Campe Wallet receive QR, or upload a photo."}
             </Typography>
 
             <Stack spacing={1.25} sx={{ width: "100%", maxWidth: 280, mt: 1 }}>

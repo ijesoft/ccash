@@ -97,7 +97,7 @@ class AuthService:
 
         send_email_notification.delay(
             to_email=email,
-            subject="Verify your CCash account",
+            subject="Verify your Campe Wallet account",
             body=f"Your verification code is: {otp}\n\nThis code expires in 5 minutes.",
         )
 
@@ -109,7 +109,7 @@ class AuthService:
             raise NotFoundError("User not found")
 
         secret = generate_totp_secret()
-        uri = f"otpauth://totp/CCash:{email}?secret={secret}&issuer=CCash"
+        uri = f"otpauth://totp/Campe Wallet:{email}?secret={secret}&issuer=Campe Wallet"
         await self.redis.setex(f"verify_totp_secret:{email}", 600, secret)
 
         return secret, uri
@@ -160,7 +160,7 @@ class AuthService:
 
         send_email_notification.delay(
             to_email=email,
-            subject="Your CCash login code",
+            subject="Your Campe Wallet login code",
             body=f"Your login verification code is: {otp}\n\nThis code expires in 5 minutes.",
         )
 

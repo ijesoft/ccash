@@ -20,7 +20,7 @@ export default function AccountExportMenu({ accountId, accountLabel }: Props) {
     try {
       await downloadReport(
         `/api/admin/reports/transactions/${accountId}.${kind}`,
-        `ccash-transactions-${accountLabel}.${kind}`
+        `campe-wallet-transactions-${accountLabel}.${kind}`
       );
     } catch (err: any) {
       setError(err.message || "Export failed");

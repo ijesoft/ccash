@@ -156,7 +156,7 @@ export default function AdminDashboard() {
   const handleExportAll = async (kind: "pdf" | "xlsx") => {
     setExporting(kind);
     try {
-      await downloadReport(`/api/admin/reports/transactions/all.${kind}`, `ccash-all-transactions.${kind}`);
+      await downloadReport(`/api/admin/reports/transactions/all.${kind}`, `campe-wallet-all-transactions.${kind}`);
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message || "Export failed", severity: "error" });
     } finally {

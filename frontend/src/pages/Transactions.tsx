@@ -36,7 +36,7 @@ export default function TransactionsPage() {
   const handleDownload = async (kind: "pdf" | "xlsx") => {
     setBusy(kind);
     try {
-      await downloadReport(`/api/reports/transactions.${kind}`, `ccash-transactions.${kind}`);
+      await downloadReport(`/api/reports/transactions.${kind}`, `campe-wallet-transactions.${kind}`);
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message || "Download failed", severity: "error" });
     } finally {

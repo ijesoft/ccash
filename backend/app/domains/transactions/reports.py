@@ -58,7 +58,7 @@ def generate_transaction_history_pdf(
     styles = getSampleStyleSheet()
 
     elements = [
-        Paragraph("CCash Transaction History", styles["Title"]),
+        Paragraph("Campe Wallet Transaction History", styles["Title"]),
         Paragraph(account_label, styles["Heading2"]),
     ]
     for label, value in account_meta:
@@ -96,7 +96,7 @@ def generate_transaction_history_excel(
     ws = wb.active
     ws.title = "Transaction History"
 
-    ws.append(["CCash Transaction History"])
+    ws.append(["Campe Wallet Transaction History"])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([account_label])
     for label, value in account_meta:

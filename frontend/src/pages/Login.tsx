@@ -113,7 +113,7 @@ export default function Login() {
                   fontWeight={700}
                   sx={{ fontFamily: '"League Spartan", sans-serif', color: "primary.main", fontSize: { xs: "1.75rem", sm: "2rem" }, letterSpacing: "-0.03em" }}
                 >
-                  CCash
+                  Campe Wallet
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Sign in to your wallet
@@ -200,7 +200,7 @@ export default function Login() {
                   fontWeight={700}
                   sx={{ fontFamily: '"League Spartan", sans-serif', color: "primary.main", fontSize: { xs: "1.75rem", sm: "2rem" }, letterSpacing: "-0.03em" }}
                 >
-                  CCash
+                  Campe Wallet
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {hasExistingId ? "Confirm your ID No. to continue" : "Set your ID No. to finish signing in"}
