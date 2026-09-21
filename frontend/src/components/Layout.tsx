@@ -29,6 +29,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import PersonIcon from "@mui/icons-material/Person";
 import LogoutIcon from "@mui/icons-material/Logout";
+import ListAltIcon from "@mui/icons-material/ListAlt";
 import CallReceivedIcon from "@mui/icons-material/CallReceived";
 import CallMadeIcon from "@mui/icons-material/CallMade";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
@@ -47,6 +48,7 @@ const primaryNav = [
   { label: "Send", icon: <SendIcon />, path: "/send" },
   { label: "QR", icon: <QrCodeIcon />, path: "/qr-payment" },
   { label: "History", icon: <ReceiptIcon />, path: "/transactions" },
+  { label: "Master List", icon: <ListAltIcon />, path: "/master-list", adminOnly: true },
 ];
 
 const secondaryNav = [
@@ -62,6 +64,9 @@ export default function Layout() {
   const { user, isAdmin, logout } = useAuth();
   const visibleSecondaryNav = isAdmin ? secondaryNav : secondaryNav.filter(
     (item) => item.path !== "/cash-in" && item.path !== "/cash-out" && item.path !== "/admin",
+  );
+  const visiblePrimaryNav = primaryNav.filter(
+    (item) => !("adminOnly" in item && item.adminOnly) || isAdmin,
   );
   const navigate = useNavigate();
   const location = useLocation();
@@ -119,7 +124,7 @@ export default function Layout() {
       </Toolbar>
 
       <List sx={{ px: 1, flex: 1 }}>
-        {primaryNav.map((item) => (
+        {visiblePrimaryNav.map((item) => (
           <ListItem key={item.path} disablePadding>
             <ListItemButton
               selected={currentPath === item.path}
@@ -352,7 +357,7 @@ export default function Layout() {
       {isMobile && !mobileOpen && (
         <BottomNavigation
           showLabels
-          value={primaryNav.some((n) => n.path === currentPath) ? currentPath : false}
+          value={visiblePrimaryNav.some((n) => n.path === currentPath) ? currentPath : false}
           onChange={handleBottomNav}
           sx={{
             position: "fixed",
@@ -373,7 +378,7 @@ export default function Layout() {
             },
           }}
         >
-          {primaryNav.map((item) => (
+          {visiblePrimaryNav.map((item) => (
             <BottomNavigationAction
               key={item.path}
               label={item.label}

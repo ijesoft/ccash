@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     refreshSession,
     ensureFreshToken,
-  }), [user, accessToken, login, completeLogin logout, refreshSession, ensureFreshToken]);
+  }), [user, accessToken, login, completeLogin, logout, refreshSession, ensureFreshToken]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
