@@ -8,6 +8,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from strawberry.fastapi import GraphQLRouter
 
 from app.api.admin_members import router as admin_members_router
+from app.api.master_list import router as master_list_router
 from app.api.branding import router as branding_router
 from app.api.reports import admin_router as admin_reports_router
 from app.api.reports import router as reports_router
@@ -63,6 +64,7 @@ app.include_router(branding_router, prefix="/admin/branding")
 app.include_router(reports_router, prefix="/reports")
 app.include_router(admin_reports_router, prefix="/admin/reports")
 app.include_router(admin_members_router, prefix="/admin")
+app.include_router(master_list_router, prefix="/admin")
 
 
 @app.websocket("/ws")

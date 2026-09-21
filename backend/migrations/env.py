@@ -17,6 +17,7 @@ import app.domains.transactions.models  # noqa
 import app.domains.notifications.models  # noqa
 import app.domains.users.models  # noqa
 import app.domains.merchants.models  # noqa
+import app.domains.master_list.models  # noqa
 import app.core.audit  # noqa
 
 target_metadata = SQLModel.metadata
