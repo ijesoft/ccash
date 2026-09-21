@@ -5,16 +5,27 @@ instead of inflating a base64 GraphQL payload."""
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 
 from app.core.errors import ValidationError
 from app.core.rest_auth import require_admin_token
 from app.database import async_session_factory
 from app.domains.admin.batch_import import BatchImportError, parse_member_rows
 from app.domains.master_list.service import MasterListService
+from app.domains.master_list.template import TEMPLATE_FILENAME, build_template_bytes
 
 MAX_BATCH_ROWS = 5000
 
 router = APIRouter()
+
+
+@router.get("/master-list/batch/template")
+async def download_master_list_template(actor_id: uuid.UUID = Depends(require_admin_token)):
+    return StreamingResponse(
+        iter([build_template_bytes()]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{TEMPLATE_FILENAME}"'},
+    )
 
 
 @router.post("/master-list/batch")

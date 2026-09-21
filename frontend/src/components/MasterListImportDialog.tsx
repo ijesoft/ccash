@@ -17,6 +17,7 @@ import {
   LinearProgress,
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import DownloadIcon from "@mui/icons-material/Download";
 
 interface RowResult {
   row: number;
@@ -44,6 +45,7 @@ export default function MasterListImportDialog({ open, onClose, onUploaded }: Pr
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [response, setResponse] = useState<BatchResponse | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
@@ -55,6 +57,32 @@ export default function MasterListImportDialog({ open, onClose, onUploaded }: Pr
   const handleClose = () => {
     reset();
     onClose();
+  };
+
+  const handleDownloadTemplate = async () => {
+    setDownloading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/master-list/batch/template", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("accessToken") ?? ""}` },
+      });
+      if (!res.ok) {
+        throw new Error("Failed to download template");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "master_list_import_template.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to download template");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const handleUpload = async () => {
@@ -104,6 +132,14 @@ export default function MasterListImportDialog({ open, onClose, onUploaded }: Pr
             />
             <Button variant="outlined" onClick={() => inputRef.current?.click()} disabled={busy}>
               Choose file
+            </Button>
+            <Button
+              variant="text"
+              startIcon={<DownloadIcon />}
+              onClick={handleDownloadTemplate}
+              disabled={busy || downloading}
+            >
+              {downloading ? "Preparing..." : "Download template"}
             </Button>
             {file && <Typography variant="body2">{file.name}</Typography>}
           </Box>

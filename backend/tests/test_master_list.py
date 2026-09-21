@@ -141,3 +141,26 @@ async def test_list_entries_pagination_returns_page_and_total(session):
     assert total2 == 3
     assert len(page2) == 1
     assert {e.id for e in page1}.isdisjoint({e.id for e in page2})
+
+
+def test_import_template_headers_parse_cleanly():
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from app.domains.admin.batch_import import parse_member_rows
+    from app.domains.master_list.template import TEMPLATE_FILENAME, build_template_bytes
+
+    assert TEMPLATE_FILENAME == "master_list_import_template.xlsx"
+    raw = build_template_bytes()
+    wb = load_workbook(filename=BytesIO(raw))
+    headers = [c.value for c in wb["Master List"][1]]
+    assert headers == [
+        "9-DIGIT ID NO.",
+        "Last Name",
+        "First Name",
+        "Middle Name",
+        "Mobile Number",
+        "Email Address",
+    ]
+    assert parse_member_rows(raw, TEMPLATE_FILENAME) == []
