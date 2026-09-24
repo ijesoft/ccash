@@ -27,6 +27,11 @@ from app.tasks.notifications import send_email_notification
 # complete_login() below.
 _LOGIN_PENDING_TTL_SECONDS = 300
 
+# Shown instead of "Invalid credentials" when the account exists but is not
+# ACTIVE (PENDING signup or SUSPENDED), so users know to contact an admin
+# rather than retrying their password.
+INACTIVE_ACCOUNT_MESSAGE = "Account is inactive, please contact administrator."
+
 
 def _scopes_for(user: User) -> list[str]:
     scopes = ["wallet:read", "wallet:write"]
@@ -184,11 +189,11 @@ class AuthService:
             hash_password(password)
             raise AuthenticationError("Invalid credentials")
 
+        if user.status != UserStatus.ACTIVE:
+            raise AuthenticationError(INACTIVE_ACCOUNT_MESSAGE)
+
         if not verify_password(password, user.password_hash):
             raise AuthenticationError("Invalid credentials")
-
-        if user.status != UserStatus.ACTIVE:
-            raise AuthenticationError("Account is not active")
 
         if user.is_2fa_enabled:
             if not otp_code:
@@ -239,12 +244,12 @@ class AuthService:
         if not user:
             raise AuthenticationError("Invalid credentials")
 
+        if user.status != UserStatus.ACTIVE:
+            raise AuthenticationError(INACTIVE_ACCOUNT_MESSAGE)
+
         pending = await self.redis.get(f"login_pending:{email}")
         if not pending:
             raise AuthenticationError("Session expired, please sign in again")
-
-        if user.status != UserStatus.ACTIVE:
-            raise AuthenticationError("Account is not active")
 
         id_no = (id_no or "").strip()
         expected = await self._expected_id_no(user)
