@@ -20,7 +20,7 @@ export const GET_TRANSACTIONS = gql`
         type
         status
         direction
-        counterparty { walletId name maskedMobile }
+        counterparty { walletId name maskedMobile mobile }
         amount { cents }
         fee { cents }
         reference

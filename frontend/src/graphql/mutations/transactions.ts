@@ -7,7 +7,7 @@ export const SEND_MONEY = gql`
       type
       status
       direction
-      counterparty { walletId name maskedMobile }
+      counterparty { walletId name maskedMobile mobile }
       amount { cents }
       fee { cents }
       reference
@@ -65,7 +65,7 @@ export const SCAN_QR_PAYMENT = gql`
       type
       status
       direction
-      counterparty { walletId name maskedMobile }
+      counterparty { walletId name maskedMobile mobile }
       amount { cents }
       fee { cents }
       reference

@@ -46,6 +46,8 @@ export interface Counterparty {
   /** Null until the User model gains name fields; fall back to maskedMobile. */
   name: string | null;
   maskedMobile: string;
+  /** Full number, for tap-to-reveal on the receipt. Null when not disclosed. */
+  mobile: string | null;
 }
 
 export interface Transaction {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -12,6 +12,8 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
+  type SxProps,
+  type Theme,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -19,6 +21,8 @@ import CheckIcon from "@mui/icons-material/Check";
 import ShareIcon from "@mui/icons-material/Share";
 import DownloadIcon from "@mui/icons-material/Download";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import type { Transaction } from "../types";
@@ -51,12 +55,69 @@ function receiptTitle(tx: Transaction): string {
   return incoming ? "Money Received" : "Money Sent";
 }
 
+interface RevealableProps {
+  revealed: boolean;
+  onToggle: () => void;
+  full: string;
+  masked: string;
+  textSx?: SxProps<Theme>;
+}
+
+/** A sensitive value, masked by default; tap to reveal, tap again to hide. */
+function Revealable({ revealed, onToggle, full, masked, textSx }: RevealableProps) {
+  return (
+    <Tooltip title={revealed ? "Tap to hide" : "Tap to reveal"}>
+      <Box
+        onClick={onToggle}
+        role="button"
+        aria-label={revealed ? "Hide number" : "Reveal number"}
+        sx={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 0.5,
+          cursor: "pointer",
+          minWidth: 0,
+          justifyContent: "flex-end",
+        }}
+      >
+        <Typography
+          component="span"
+          sx={{ wordBreak: "break-all", textAlign: "right", ...textSx }}
+        >
+          {revealed ? full : masked}
+        </Typography>
+        {revealed ? (
+          <VisibilityOffIcon sx={{ fontSize: 16, color: "text.secondary", flexShrink: 0 }} />
+        ) : (
+          <VisibilityIcon sx={{ fontSize: 16, color: "text.secondary", flexShrink: 0 }} />
+        )}
+      </Box>
+    </Tooltip>
+  );
+}
+
 export default function TransactionReceiptDialog({ transaction, onClose }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<"share" | "image" | "pdf" | null>(null);
   const [actionMsg, setActionMsg] = useState("");
+  const [revealed, setRevealed] = useState<ReadonlySet<string>>(new Set());
+
+  // Re-mask the number when a different receipt is opened.
+  const receiptId = transaction?.id;
+  useEffect(() => {
+    setRevealed(new Set());
+  }, [receiptId]);
+
+  const toggleReveal = (key: string) => {
+    setRevealed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const shareData = useMemo<ReceiptShareData | null>(() => {
     if (!transaction) return null;
@@ -81,6 +142,7 @@ export default function TransactionReceiptDialog({ transaction, onClose }: Props
   const handleClose = () => {
     setCopied(false);
     setActionMsg("");
+    setRevealed(new Set());
     onClose();
   };
 
@@ -249,20 +311,43 @@ export default function TransactionReceiptDialog({ transaction, onClose }: Props
           </Box>
 
           <DialogContent sx={{ px: { xs: 2.5, sm: 3 }, py: 3 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, mb: 2 }}
+            >
+              <VisibilityIcon sx={{ fontSize: 14 }} /> Tap the masked number to reveal it, tap again to hide
+            </Typography>
             <Stack spacing={1.75} divider={<Divider flexItem />}>
-              {shareData.rows.map((row) => (
-                <Box
-                  key={row.label}
-                  sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}
-                >
-                  <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
-                    {row.label}
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600} sx={{ textAlign: "right", wordBreak: "break-word" }}>
-                    {row.value}
-                  </Typography>
-                </Box>
-              ))}
+              {shareData.rows.map((row) => {
+                const isParty = row.label === "From" || row.label === "To";
+                const cp = transaction.counterparty;
+                const masked = cp?.name || cp?.maskedMobile || row.value;
+                const full = cp?.name || cp?.mobile || masked;
+                return (
+                  <Box
+                    key={row.label}
+                    sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}
+                  >
+                    <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
+                      {row.label}
+                    </Typography>
+                    {isParty && full !== masked ? (
+                      <Revealable
+                        revealed={revealed.has("counterparty")}
+                        onToggle={() => toggleReveal("counterparty")}
+                        full={full}
+                        masked={masked}
+                        textSx={{ fontSize: "0.875rem", fontWeight: 600 }}
+                      />
+                    ) : (
+                      <Typography variant="body2" fontWeight={600} sx={{ textAlign: "right", wordBreak: "break-word" }}>
+                        {row.value}
+                      </Typography>
+                    )}
+                  </Box>
+                );
+              })}
 
               {shareData.reference && (
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
