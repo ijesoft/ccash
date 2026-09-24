@@ -26,6 +26,14 @@ export default function SessionGuard() {
     navigate("/login?reason=session-expired", { replace: true });
   }, [logout, navigate]);
 
+  // Keeps the backend `activity:user:{id}` clock fresh while the user is
+  // genuinely active. Throttled to 1 call/min by the hook. Failures are
+  // swallowed: a dead access token here must not log anyone out — the
+  // expire timer and the errorLink remain the only logout paths.
+  const touchBackend = useCallback(() => {
+    touchSession().catch(() => {});
+  }, [touchSession]);
+
   const { reset } = useIdleTimeout({
     enabled: isAuthenticated && !onPublicPath,
     onWarn: () => {
@@ -35,6 +43,8 @@ export default function SessionGuard() {
       void ensureFreshToken();
     },
     onExpired: () => void expire(),
+    onActivityThrottled: touchBackend,
+    touchThrottleMs: 60000,
   });
 
   const stay = useCallback(async () => {
@@ -62,6 +72,17 @@ export default function SessionGuard() {
     setWarning(false);
     reset();
   }, [touchSession, reset, expire, ensureFreshToken]);
+
+  // SPA navigation (React Router) does not always produce a DOM event the
+  // hook listens to (e.g. programmatic navigate after a mutation), yet it
+  // is unambiguous user activity. Reset the timers and poke the backend
+  // clock (fire-and-forget; same swallow rule as touchBackend).
+  const pathname = location.pathname;
+  useEffect(() => {
+    if (!isAuthenticated || onPublicPath) return;
+    reset();
+    touchSession().catch(() => {});
+  }, [pathname, isAuthenticated, onPublicPath, reset, touchSession]);
 
   // Background safety net: generic 401s (e.g. polls after token expiry)
   // trigger a silent refresh instead of a logout; only the exact backend
