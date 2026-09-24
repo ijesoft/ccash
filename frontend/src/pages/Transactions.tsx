@@ -19,12 +19,15 @@ import TableChartIcon from "@mui/icons-material/TableChart";
 import EmailIcon from "@mui/icons-material/Email";
 import { useTransactions } from "../hooks/useTransactions";
 import TransactionList from "../components/TransactionList";
+import TransactionReceiptDialog from "../components/TransactionReceiptDialog";
+import type { Transaction } from "../types";
 import { downloadReport, emailReport } from "../utils/reportDownload";
 
 export default function TransactionsPage() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState<"pdf" | "xlsx" | "email" | null>(null);
+  const [selected, setSelected] = useState<Transaction | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false,
     message: "",
@@ -127,7 +130,7 @@ export default function TransactionsPage() {
 
       {transactions ? (
         <Paper elevation={0} sx={{ borderRadius: 3, border: "1px solid", borderColor: "divider", overflow: "hidden" }}>
-          <TransactionList transactions={transactions.items} />
+          <TransactionList transactions={transactions.items} onSelect={setSelected} />
         </Paper>
       ) : (
         <Paper elevation={0} sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
@@ -148,6 +151,8 @@ export default function TransactionsPage() {
           />
         </Box>
       )}
+
+      <TransactionReceiptDialog transaction={selected} onClose={() => setSelected(null)} />
 
       <Snackbar
         open={snackbar.open}

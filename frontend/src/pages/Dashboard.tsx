@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -16,6 +17,8 @@ import { useWallet } from "../hooks/useWallet";
 import { useAuth } from "../context/AuthContext";
 import BalanceCard from "../components/BalanceCard";
 import TransactionList from "../components/TransactionList";
+import TransactionReceiptDialog from "../components/TransactionReceiptDialog";
+import type { Transaction } from "../types";
 import { useTransactions } from "../hooks/useTransactions";
 
 const allActions = [
@@ -32,6 +35,7 @@ export default function Dashboard() {
   const { transactions, loading: txLoading } = useTransactions(5, 0);
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [selected, setSelected] = useState<Transaction | null>(null);
 
   const actions = isAdmin ? allActions : allActions.filter((a) => !ADMIN_ONLY_PATHS.includes(a.path));
   const greetingName = user?.email?.split("@")[0] ?? "there";
@@ -162,7 +166,7 @@ export default function Dashboard() {
               <Skeleton height={56} />
             </Box>
           ) : transactions?.items?.length ? (
-            <TransactionList transactions={transactions.items} />
+            <TransactionList transactions={transactions.items} onSelect={setSelected} />
           ) : (
             <Box sx={{ p: 4, textAlign: "center" }}>
               <AccountBalanceWalletIcon sx={{ fontSize: 40, color: "text.disabled", mb: 1 }} />
@@ -176,6 +180,8 @@ export default function Dashboard() {
           )}
         </Paper>
       </Fade>
+
+      <TransactionReceiptDialog transaction={selected} onClose={() => setSelected(null)} />
     </Box>
   );
 }

@@ -258,3 +258,75 @@ export async function downloadReceipt(data: ReceiptShareData): Promise<void> {
   const blob = await buildReceiptPng(data);
   downloadBlob(blob, receiptFilename(data.reference));
 }
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Open a print-friendly receipt and trigger the browser print dialog so the
+ * user can save it as PDF. Returns false when the popup was blocked.
+ */
+export function printReceipt(data: ReceiptShareData): boolean {
+  const win = window.open("", "_blank", "width=480,height=640");
+  if (!win) return false;
+
+  const rows = data.rows
+    .map(
+      (r) =>
+        `<tr><td class="label">${escapeHtml(r.label)}</td><td class="value">${escapeHtml(r.value)}</td></tr>`,
+    )
+    .join("");
+
+  win.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Campe Wallet — ${escapeHtml(data.title)}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #fff; color: #0f172a; padding: 32px 24px; }
+  .card { max-width: 420px; margin: 0 auto; border: 1px solid #e5ebe8; border-radius: 16px; overflow: hidden; }
+  .band { background: #00b894; color: #fff; text-align: center; padding: 20px 16px 22px; }
+  .band .brand { font-weight: 700; font-size: 15px; }
+  .body { padding: 24px 24px 28px; text-align: center; }
+  .title { font-size: 20px; font-weight: 700; }
+  .subtitle { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .amount { font-size: 30px; font-weight: 700; margin: 14px 0 18px; }
+  table { width: 100%; border-collapse: collapse; text-align: left; border-top: 1px solid #e2e8f0; }
+  td { padding: 9px 0; font-size: 13px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  td.label { color: #64748b; }
+  td.value { font-weight: 600; text-align: right; word-break: break-word; }
+  td.value.mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .footer { font-size: 11px; color: #94a3b8; margin-top: 18px; }
+  @media print { body { padding: 0; } .card { border: none; border-radius: 0; max-width: none; } }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="band"><div class="brand">Campe Wallet</div></div>
+    <div class="body">
+      <div class="title">${escapeHtml(data.title)}</div>
+      ${data.subtitle ? `<div class="subtitle">${escapeHtml(data.subtitle)}</div>` : ""}
+      <div class="amount">${escapeHtml(data.amountLabel)}</div>
+      <table>${rows}
+      ${
+        data.reference
+          ? `<tr><td class="label">Reference</td><td class="value mono">${escapeHtml(data.reference)}</td></tr>`
+          : ""
+      }
+      </table>
+      <div class="footer">Campe Wallet · Proof of payment</div>
+    </div>
+  </div>
+  <script>window.onload = function () { window.focus(); window.print(); };<\/script>
+</body>
+</html>`);
+  win.document.close();
+  return true;
+}
