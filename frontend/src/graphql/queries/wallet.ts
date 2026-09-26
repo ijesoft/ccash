@@ -41,6 +41,7 @@ export const GET_NOTIFICATIONS = gql`
         title
         body
         isRead
+        transactionId
         createdAt
       }
       pagination { hasNext hasPrevious total }
@@ -61,5 +62,22 @@ export const GET_FAVORITES = gql`
 export const UNREAD_COUNT = gql`
   query UnreadCount {
     unreadCount
+  }
+`;
+
+export const GET_TRANSACTION_BY_ID = gql`
+  query TransactionById($id: String!) {
+    transaction(id: $id) {
+      id
+      type
+      status
+      direction
+      counterparty { walletId name maskedMobile mobile }
+      amount { cents }
+      fee { cents }
+      reference
+      description
+      createdAt
+    }
   }
 `;

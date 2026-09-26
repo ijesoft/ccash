@@ -76,6 +76,8 @@ export interface Notification {
   title: string;
   body: string;
   isRead: boolean;
+  /** Present only for transaction-related notifications; drives receipt viewing. */
+  transactionId: string | null;
   createdAt: string;
 }
 
