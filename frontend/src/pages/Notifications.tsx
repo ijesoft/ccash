@@ -11,10 +11,12 @@ import {
   Paper,
   Badge,
 } from "@mui/material";
-import { useMutation } from "@apollo/client";
-import { gql } from "@apollo/client";
+import { useMutation, useLazyQuery, gql } from "@apollo/client";
+import ReceiptIcon from "@mui/icons-material/Receipt";
 import { useNotifications } from "../hooks/useNotifications";
-import { GET_NOTIFICATIONS, UNREAD_COUNT } from "../graphql/queries/wallet";
+import { GET_NOTIFICATIONS, GET_TRANSACTION_BY_ID, UNREAD_COUNT } from "../graphql/queries/wallet";
+import TransactionReceiptDialog from "../components/TransactionReceiptDialog";
+import type { Transaction } from "../types";
 import { formatDate } from "../utils/format";
 
 const MARK_READ = gql`
@@ -51,6 +53,19 @@ export default function NotificationsPage() {
     ],
     awaitRefetchQueries: true,
   });
+
+  const [receipt, setReceipt] = useState<Transaction | null>(null);
+  const [fetchTransaction] = useLazyQuery(GET_TRANSACTION_BY_ID, { fetchPolicy: "network-only" });
+
+  const handleOpenReceipt = async (transactionId: string) => {
+    try {
+      const { data } = await fetchTransaction({ variables: { id: transactionId } });
+      if (data?.transaction) setReceipt(data.transaction as Transaction);
+      // null / error: silently skip — the item is still marked read.
+    } catch {
+      // Silently skip — the item is still marked read.
+    }
+  };
 
   const handleMarkRead = async (id: string) => {
     if (busyId || markingAll) return;
@@ -167,13 +182,17 @@ export default function NotificationsPage() {
               divider
               sx={{
                 bgcolor: notif.isRead ? "transparent" : "rgba(0, 184, 148, 0.08)",
-                cursor: notif.isRead || busyId === notif.id ? "default" : "pointer",
+                cursor: notif.isRead && !notif.transactionId ? "default" : "pointer",
                 opacity: busyId === notif.id ? 0.7 : 1,
                 alignItems: "flex-start",
                 py: 1.75,
                 px: { xs: 1.5, sm: 2 },
               }}
-              onClick={() => !notif.isRead && handleMarkRead(notif.id)}
+              onClick={() => {
+                if (busyId === notif.id) return;
+                if (!notif.isRead) void handleMarkRead(notif.id);
+                if (notif.transactionId) void handleOpenReceipt(notif.transactionId);
+              }}
             >
               <ListItemText
                 primary={
@@ -182,6 +201,9 @@ export default function NotificationsPage() {
                       {notif.title}
                     </Typography>
                     {!notif.isRead && <Chip label="New" size="small" color="primary" sx={{ height: 22 }} />}
+                    {notif.transactionId && (
+                      <ReceiptIcon fontSize="small" color="action" aria-label="Has receipt" />
+                    )}
                   </Box>
                 }
                 secondary={
@@ -199,6 +221,7 @@ export default function NotificationsPage() {
           ))}
         </List>
       </Paper>
+      <TransactionReceiptDialog transaction={receipt} onClose={() => setReceipt(null)} />
     </Box>
   );
 }
