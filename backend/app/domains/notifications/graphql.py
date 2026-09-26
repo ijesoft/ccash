@@ -4,6 +4,7 @@ import strawberry
 from strawberry.types import Info
 
 from app.database import async_session_factory
+from app.domains.notifications.models import Notification
 from app.domains.notifications.service import NotificationService
 from app.graphql.middleware import AuthContext
 from app.graphql.scalars import PaginationInfo
@@ -17,6 +18,20 @@ class NotificationType:
     body: str
     is_read: bool
     created_at: str
+    transaction_id: str | None = None
+
+    @classmethod
+    def from_model(cls, n: "Notification") -> "NotificationType":
+        data = n.data if isinstance(n.data, dict) else {}
+        return cls(
+            id=str(n.id),
+            type=n.type.value,
+            title=n.title,
+            body=n.body,
+            is_read=n.is_read,
+            created_at=n.created_at.isoformat() if n.created_at else "",
+            transaction_id=data.get("transaction_id"),
+        )
 
 
 @strawberry.type
@@ -42,7 +57,7 @@ class NotificationQueries:
         try:
             items, total = await service.list_notifications(context.user_id, limit, offset)
             return NotificationConnection(
-                items=[NotificationType(id=str(n.id), type=n.type.value, title=n.title, body=n.body, is_read=n.is_read, created_at=n.created_at.isoformat() if n.created_at else "") for n in items],
+                items=[NotificationType.from_model(n) for n in items],
                 pagination=PaginationInfo(has_next=(offset + limit) < total, has_previous=offset > 0, total=total),
             )
         finally:
