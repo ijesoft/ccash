@@ -269,10 +269,10 @@ class AdminService:
 
         send_email_notification.delay(
             to_email=email,
-            subject="Your CCash account has been created",
+            subject="Your Campe Wallet account has been created",
             body=(
                 f"Hi {first_name},\n\n"
-                "An account has been created for you on CCash.\n\n"
+                "An account has been created for you on Campe Wallet.\n\n"
                 f"Email: {email}\n"
                 f"Temporary password: {temp_password}\n\n"
                 "Please log in and change your password as soon as possible."
@@ -346,9 +346,9 @@ class AdminService:
 
         send_email_notification.delay(
             to_email=user.email,
-            subject="Your CCash password has been reset",
+            subject="Your Campe Wallet password has been reset",
             body=(
-                "An administrator has reset your CCash account password.\n\n"
+                "An administrator has reset your Campe Wallet account password.\n\n"
                 f"Temporary password: {temp_password}\n\n"
                 "Please log in and change it as soon as possible. You will "
                 "still need your ID No. to finish signing in."

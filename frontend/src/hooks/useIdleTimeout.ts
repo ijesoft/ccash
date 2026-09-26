@@ -9,17 +9,24 @@ interface Options {
   expireAtMs?: number;
   onWarn: () => void;
   onExpired: () => void;
+  /** Called at most once per `touchThrottleMs` on real user activity.
+   *  SessionGuard wires this to a throttled `touchSession` so the backend
+   *  idle clock follows frontend activity. Background polls must never
+   *  call this. */
+  onActivityThrottled?: () => void;
+  touchThrottleMs?: number;
 }
 
 export const IDLE_WARN_MS = 4 * 60 * 1000;
 export const IDLE_EXPIRE_MS = 5 * 60 * 1000;
 
-export function useIdleTimeout({ enabled, warnAtMs = IDLE_WARN_MS, expireAtMs = IDLE_EXPIRE_MS, onWarn, onExpired }: Options) {
+export function useIdleTimeout({ enabled, warnAtMs = IDLE_WARN_MS, expireAtMs = IDLE_EXPIRE_MS, onWarn, onExpired, onActivityThrottled, touchThrottleMs = 60000 }: Options) {
   const warnedRef = useRef(false);
   const timersRef = useRef<{ warn?: ReturnType<typeof setTimeout>; expire?: ReturnType<typeof setTimeout> }>({});
   const lastThrottleRef = useRef(0);
-  const callbacksRef = useRef({ onWarn, onExpired });
-  callbacksRef.current = { onWarn, onExpired };
+  const lastTouchRef = useRef(0);
+  const callbacksRef = useRef({ onWarn, onExpired, onActivityThrottled, touchThrottleMs });
+  callbacksRef.current = { onWarn, onExpired, onActivityThrottled, touchThrottleMs };
 
   const clear = useCallback(() => {
     if (timersRef.current.warn) clearTimeout(timersRef.current.warn);
@@ -59,6 +66,11 @@ export function useIdleTimeout({ enabled, warnAtMs = IDLE_WARN_MS, expireAtMs = 
       if (now - lastThrottleRef.current < 1000) return;
       lastThrottleRef.current = now;
       reset();
+      const { onActivityThrottled, touchThrottleMs } = callbacksRef.current;
+      if (onActivityThrottled && now - lastTouchRef.current >= touchThrottleMs) {
+        lastTouchRef.current = now;
+        onActivityThrottled();
+      }
     };
     const onExternal = (e: StorageEvent) => {
       if (e.key === ACTIVITY_KEY) arm();

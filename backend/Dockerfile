@@ -20,7 +20,7 @@ COPY app/ app/
 
 EXPOSE 8000
 
-RUN useradd -m -u 1000 appuser
+RUN useradd -m -u 1000 appuser && mkdir -p /app/static/branding /app/uploads && chown -R appuser:appuser /app/static /app/uploads
 
 USER appuser
 

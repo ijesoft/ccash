@@ -2,11 +2,13 @@ import { List, ListItem, ListItemText, Typography, Chip, Box, Divider, Avatar, T
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import type { Transaction } from "../types";
 import { formatDate, formatMoney } from "../utils/format";
 
 interface Props {
   transactions: Transaction[];
+  onSelect?: (tx: Transaction) => void;
 }
 
 const typeLabels: Record<string, string> = {
@@ -22,7 +24,7 @@ function counterpartyLabel(tx: Transaction): string {
   return tx.direction === "IN" ? `From ${who}` : `To ${who}`;
 }
 
-export default function TransactionList({ transactions }: Props) {
+export default function TransactionList({ transactions, onSelect }: Props) {
   if (!transactions.length) {
     return (
       <Box sx={{ textAlign: "center", py: 4 }}>
@@ -40,12 +42,16 @@ export default function TransactionList({ transactions }: Props) {
           <Box key={tx.id}>
             {index > 0 && <Divider component="li" />}
             <ListItem
+              onClick={onSelect ? () => onSelect(tx) : undefined}
               sx={{
                 py: { xs: 1.5, sm: 2 },
                 px: { xs: 1.5, sm: 2 },
                 alignItems: "flex-start",
                 gap: { xs: 1, sm: 0 },
                 "&:hover": { bgcolor: "action.hover" },
+                ...(onSelect
+                  ? { cursor: "pointer" }
+                  : {}),
               }}
             >
               <Avatar
@@ -125,6 +131,11 @@ export default function TransactionList({ transactions }: Props) {
                   }}
                 />
               </Box>
+              {onSelect && (
+                <ChevronRightIcon
+                  sx={{ color: "text.disabled", fontSize: 20, mt: 1.5, ml: 0.5, flexShrink: 0 }}
+                />
+              )}
             </ListItem>
           </Box>
         );

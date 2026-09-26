@@ -95,7 +95,7 @@ class MerchantService:
 
         send_email_notification.delay(
             to_email=email,
-            subject="Verify your CCash merchant account",
+            subject="Verify your Campe Wallet merchant account",
             body=f"Your verification code is: {otp}\n\nThis code expires in 5 minutes.",
         )
 

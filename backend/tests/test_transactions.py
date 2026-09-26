@@ -251,6 +251,25 @@ async def test_counterparty_shows_the_other_party_masked(session, make_account):
     assert "•" in receiver_views[0].counterparty.masked_mobile
 
 
+async def test_counterparty_exposes_full_mobile_to_involved_viewer(session, make_account):
+    from app.core.masking import normalize_philippine_mobile
+
+    sender, sender_wallet = await make_account(balance_cents=500_000)
+    receiver, receiver_wallet = await make_account()
+    service = TransactionService(session)
+
+    await service.send_money(sender_wallet.user_id, receiver_wallet.id, 5_000, str(uuid.uuid4()))
+
+    sender_views, _ = await service.list_transactions(sender_wallet.user_id)
+    receiver_views, _ = await service.list_transactions(receiver_wallet.user_id)
+
+    # Each party sees the other side's full number (for tap-to-reveal);
+    # the masked form stays masked.
+    assert sender_views[0].counterparty.mobile == normalize_philippine_mobile(receiver.phone)
+    assert receiver_views[0].counterparty.mobile == normalize_philippine_mobile(sender.phone)
+    assert sender.phone not in receiver_views[0].counterparty.masked_mobile
+
+
 async def test_cash_in_is_incoming_with_no_counterparty(session, make_account):
     _, wallet = await make_account()
     service = TransactionService(session)

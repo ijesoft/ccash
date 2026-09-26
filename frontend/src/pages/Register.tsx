@@ -131,7 +131,7 @@ export default function Register() {
               fontWeight={700}
               sx={{ fontFamily: '"League Spartan", sans-serif', color: "primary.main", fontSize: { xs: "1.75rem", sm: "2rem" }, letterSpacing: "-0.03em" }}
             >
-              CCash
+              Campe Wallet
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Member Sign-Up

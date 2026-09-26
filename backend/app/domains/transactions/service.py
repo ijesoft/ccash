@@ -12,7 +12,7 @@ from app.core.errors import (
     ValidationError,
     WalletNotActiveError,
 )
-from app.core.masking import mask_mobile
+from app.core.masking import mask_mobile, normalize_philippine_mobile
 from app.core.money import format_php
 from app.domains.auth.models import User
 from app.domains.auth.repository import UserRepository
@@ -51,8 +51,6 @@ class TransactionService:
         transaction_type: TransactionType = TransactionType.SEND,
     ) -> TransactionView:
         import re as _re
-
-        from app.core.masking import normalize_philippine_mobile
 
         # Best-practice: never trust client - normalize then enforce 11-digit form.
         if receiver_mobile is not None:
@@ -209,8 +207,6 @@ class TransactionService:
         self, payload: str
     ) -> tuple[uuid.UUID | None, str | None, int | None, str | None]:
         import json as _json
-
-        from app.core.masking import normalize_philippine_mobile
 
         raw = (payload or "").strip()
         if not raw:
@@ -531,6 +527,7 @@ class TransactionService:
                             wallet_id=other_id,
                             name=None,
                             masked_mobile=mask_mobile(owner.phone),
+                            mobile=normalize_philippine_mobile(owner.phone) or None,
                         )
                         if other_id and owner
                         else None

@@ -37,6 +37,11 @@ export const MASTER_LIST_UPDATE_ENTRY = gql`
     masterListUpdateEntry(entryId: $entryId, input: $input) {
       id
       idNo
+      lastName
+      firstName
+      middleName
+      mobileNumber
+      email
       status
     }
   }

@@ -50,7 +50,7 @@ def generate_all_transactions_pdf(rows: list[dict]) -> bytes:
     styles = getSampleStyleSheet()
 
     elements = [
-        Paragraph("CCash Platform Transaction Report", styles["Title"]),
+        Paragraph("Campe Wallet Platform Transaction Report", styles["Title"]),
         Paragraph(f"Generated: {_generated_at()}", styles["Normal"]),
         Paragraph(f"Total transactions: {len(rows)}", styles["Normal"]),
         Spacer(1, 0.25 * inch),
@@ -84,7 +84,7 @@ def generate_all_transactions_excel(rows: list[dict]) -> bytes:
     ws = wb.active
     ws.title = "All Transactions"
 
-    ws.append(["CCash Platform Transaction Report"])
+    ws.append(["Campe Wallet Platform Transaction Report"])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([f"Generated: {_generated_at()}"])
     ws.append([f"Total transactions: {len(rows)}"])

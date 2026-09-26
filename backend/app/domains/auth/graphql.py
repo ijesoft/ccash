@@ -179,7 +179,7 @@ class AuthMutations:
     @strawberry.mutation
     async def setup_2fa(self, info: Info) -> TwoFactorSetup:
         secret = generate_totp_secret()
-        uri = f"otpauth://totp/CCash:{info.context.user_id}?secret={secret}&issuer=CCash"
+        uri = f"otpauth://totp/Campe Wallet:{info.context.user_id}?secret={secret}&issuer=Campe Wallet"
         return TwoFactorSetup(secret=secret, uri=uri)
 
     @strawberry.mutation

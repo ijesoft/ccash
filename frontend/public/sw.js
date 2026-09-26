@@ -1,4 +1,4 @@
-const CACHE_VERSION = "ccash-v1";
+const CACHE_VERSION = "campe-wallet-v1";
 const APP_SHELL = [
   "/",
   "/index.html",

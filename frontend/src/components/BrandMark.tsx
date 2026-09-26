@@ -25,7 +25,7 @@ export default function BrandMark({ icon }: { icon: React.ReactNode }) {
         <img
           src={logoUrl}
           key={logoUrl}
-          alt="CCash logo"
+          alt="Campe Wallet logo"
           onError={() => setLogoError(true)}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />

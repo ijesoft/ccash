@@ -34,7 +34,8 @@ async def test_refresh_rejected_after_idle_timeout(session, make_account, monkey
     user, _ = await make_account()
     redis = FakeRedis()
     svc = AuthService(session, redis)
-    _access, refresh, _u = await svc.login(user.email, "Test123!")
+    await svc.login(user.email, "Test123!")
+    _access, refresh, _u = await svc.complete_login(user.email, "111111111")
 
     payload = decode_token(refresh)
     user_id = payload["sub"]
@@ -54,7 +55,8 @@ async def test_touch_resets_idle_clock(session, make_account, monkeypatch):
     user, _ = await make_account()
     redis = FakeRedis()
     svc = AuthService(session, redis)
-    _access, refresh, _u = await svc.login(user.email, "Test123!")
+    await svc.login(user.email, "Test123!")
+    _access, refresh, _u = await svc.complete_login(user.email, "222222222")
 
     payload = decode_token(refresh)
     user_id = payload["sub"]
@@ -70,6 +72,7 @@ async def test_active_refresh_still_rotates(session, make_account, monkeypatch):
     monkeypatch.setattr(settings, "inactivity_timeout_minutes", 5)
     user, _ = await make_account()
     svc = AuthService(session, FakeRedis())
-    _access, refresh, _u = await svc.login(user.email, "Test123!")
+    await svc.login(user.email, "Test123!")
+    _access, refresh, _u = await svc.complete_login(user.email, "333333333")
     new_access, new_refresh = await svc.refresh_token(refresh)
     assert new_access and new_refresh and new_refresh != refresh

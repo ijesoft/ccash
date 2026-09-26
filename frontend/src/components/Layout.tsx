@@ -112,14 +112,14 @@ export default function Layout() {
             fontSize: "0.9rem",
           }}
         >
-          {logoUrl && !logoError ? <img src={logoUrl} key={logoUrl} alt="CCash logo" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} onError={() => setLogoError(true)} /> : "C"}
+          {logoUrl && !logoError ? <img src={logoUrl} key={logoUrl} alt="Campe Wallet logo" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} onError={() => setLogoError(true)} /> : "C"}
         </Box>
         <Typography
           variant="h6"
           fontWeight={700}
           sx={{ fontFamily: '"League Spartan", sans-serif', color: "primary.main", letterSpacing: "-0.02em" }}
         >
-          CCash
+          Campe Wallet
         </Typography>
       </Toolbar>
 
@@ -259,7 +259,7 @@ export default function Layout() {
               noWrap
               sx={{ fontFamily: '"League Spartan", sans-serif', color: "primary.main", letterSpacing: "-0.02em" }}
             >
-              CCash
+              Campe Wallet
             </Typography>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>

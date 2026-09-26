@@ -163,7 +163,7 @@ export default function QrPayment() {
         const { data } = await resolveRecipient({ variables: { mobile: cleanedMobile } });
         if (data?.resolveRecipient) {
           setRecipientInfo({
-            name: data.resolveRecipient.name || displayName || "CCash User",
+            name: data.resolveRecipient.name || displayName || "Campe Wallet User",
             target: data.resolveRecipient.maskedMobile || cleanedMobile,
             walletId: data.resolveRecipient.walletId || walletId || undefined,
           });
@@ -340,7 +340,7 @@ export default function QrPayment() {
               {myDisplayName}
             </Typography>
             <Typography variant="body2" color="text.secondary" mb={2.5}>
-              {user?.phone ? user.phone : "Scan with CCash, GCash, Maya, or any QR Ph app"}
+              {user?.phone ? user.phone : "Scan with Campe Wallet, GCash, Maya, or any QR Ph app"}
             </Typography>
 
             {qrImageUrl ? (

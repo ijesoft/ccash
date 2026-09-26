@@ -66,6 +66,7 @@ class CounterpartyType:
     wallet_id: str
     name: str | None
     masked_mobile: str
+    mobile: str | None
 
 
 @strawberry.type
@@ -97,6 +98,7 @@ class TransactionType:
                     wallet_id=str(view.counterparty.wallet_id),
                     name=view.counterparty.name,
                     masked_mobile=view.counterparty.masked_mobile,
+                    mobile=view.counterparty.mobile,
                 )
                 if view.counterparty
                 else None
