@@ -129,6 +129,7 @@ services:
     env_file:
       - .env
     environment:
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-ccash}:${POSTGRES_PASSWORD:-ccash_secret_2024}@postgres:5432/${POSTGRES_DB:-ccash}
       - REDIS_URL=redis://redis:6379/0
       - RABBITMQ_URL=amqp://${RABBITMQ_USER:-ccash}:${RABBITMQ_PASSWORD:-ccash_secret_2024}@rabbitmq:5672/
@@ -158,10 +159,11 @@ services:
       dockerfile: Dockerfile
     container_name: ccash-celery-beat
     restart: unless-stopped
-    command: celery -A app.tasks.celery_app beat --loglevel=info
+    command: celery -A app.tasks.celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
     env_file:
       - .env
     environment:
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - REDIS_URL=redis://redis:6379/0
       - RABBITMQ_URL=amqp://${RABBITMQ_USER:-ccash}:${RABBITMQ_PASSWORD:-ccash_secret_2024}@rabbitmq:5672/
     depends_on:
