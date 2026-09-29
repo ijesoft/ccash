@@ -289,3 +289,18 @@ def test_member_token_cannot_read_admin_users():
         assert str(e) == "Not authorized"
     else:
         raise AssertionError("member must not pass USERS_READ")
+
+
+async def test_update_user_role_blocks_self_demote_to_member(session, make_account):
+    from app.core.errors import ValidationError
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+
+    admin, _w = await make_account()
+    await promote(session, admin)
+    other, _w2 = await make_account()
+    await promote(session, other)
+
+    service = AdminService(session)
+    with pytest.raises(ValidationError, match="own account"):
+        await service.update_user_role(admin.id, UserRole.MEMBER, actor_id=admin.id)

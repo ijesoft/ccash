@@ -181,6 +181,9 @@ class AdminService:
         if not user:
             raise NotFoundError("User not found")
 
+        if user_id == actor_id and new_role != UserRole.ADMIN:
+            raise ValidationError("You cannot demote your own account")
+
         # Lockout prevention: never allow the organization's last admin to be
         # demoted. SUSPENDED admins still count — they can be reactivated.
         if user.role == UserRole.ADMIN and new_role != UserRole.ADMIN:
