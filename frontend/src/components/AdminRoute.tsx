@@ -1,7 +1,8 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import type { Permission } from "../rbac";
 
-export function RequirePerm({ perm, children }: { perm: string; children: React.ReactNode }) {
+export function RequirePerm({ perm, children }: { perm: Permission; children: React.ReactNode }) {
   const { can } = useAuth();
   if (!can(perm)) return <Navigate to="/" replace />;
   return <>{children}</>;

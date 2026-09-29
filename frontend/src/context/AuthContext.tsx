@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useMemo, useState } from "react
 import { useApolloClient, useMutation } from "@apollo/client";
 import { COMPLETE_LOGIN, LOGIN, LOGOUT, REFRESH_TOKEN } from "../graphql/mutations/auth";
 import type { User } from "../types";
+import { hasPermission, type Permission } from "../rbac";
 
 interface LoginChallenge {
   email: string;
@@ -100,11 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user && !!accessToken,
     isAdmin: user?.role === "ADMIN",
     hasRole: (...roles: string[]) => !!user?.role && roles.includes(user.role),
-    can: (_perm: string) => {
-      if (!user?.role) return false;
-      if (user.role === "ADMIN") return true;
-      return false;
-    },
+    can: (perm: string) => hasPermission(user?.role, perm as Permission),
     login, completeLogin, logout, refreshSession, ensureFreshToken,
   }), [user, accessToken, login, completeLogin, logout, refreshSession, ensureFreshToken]);
 

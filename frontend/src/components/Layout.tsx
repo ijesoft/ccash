@@ -62,9 +62,11 @@ const secondaryNav = [
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, isAdmin, can, logout } = useAuth();
-  const visibleSecondaryNav = can("cash:operate") ? secondaryNav : secondaryNav.filter(
-    (item) => item.path !== "/cash-in" && item.path !== "/cash-out" && item.path !== "/admin",
-  );
+  const visibleSecondaryNav = secondaryNav.filter((item) => {
+    if (item.path === "/cash-in" || item.path === "/cash-out") return can("cash:operate");
+    if (item.path === "/admin") return can("users:read");
+    return true;
+  });
   const visiblePrimaryNav = primaryNav.filter(
     (item) => (!item.perm || can(item.perm)) && (!item.adminOnly || isAdmin),
   );
