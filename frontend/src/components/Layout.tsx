@@ -42,13 +42,13 @@ import { useAuth } from "../context/AuthContext";
 
 const DRAWER_WIDTH = 260;
 
-const primaryNav = [
+const primaryNav: { label: string; icon: React.ReactNode; path: string; perm?: string; adminOnly?: boolean }[] = [
   { label: "Home", icon: <HomeIcon />, path: "/" },
   { label: "Wallet", icon: <AccountBalanceWalletIcon />, path: "/wallet" },
   { label: "Send", icon: <SendIcon />, path: "/send" },
   { label: "QR", icon: <QrCodeIcon />, path: "/qr-payment" },
   { label: "History", icon: <ReceiptIcon />, path: "/transactions" },
-  { label: "Master List", icon: <ListAltIcon />, path: "/master-list", adminOnly: true },
+  { label: "Master List", icon: <ListAltIcon />, path: "/master-list", perm: "masterlist:read" },
 ];
 
 const secondaryNav = [
@@ -61,12 +61,12 @@ const secondaryNav = [
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, isAdmin, logout } = useAuth();
-  const visibleSecondaryNav = isAdmin ? secondaryNav : secondaryNav.filter(
+  const { user, isAdmin, can, logout } = useAuth();
+  const visibleSecondaryNav = can("cash:operate") ? secondaryNav : secondaryNav.filter(
     (item) => item.path !== "/cash-in" && item.path !== "/cash-out" && item.path !== "/admin",
   );
   const visiblePrimaryNav = primaryNav.filter(
-    (item) => !("adminOnly" in item && item.adminOnly) || isAdmin,
+    (item) => (!item.perm || can(item.perm)) && (!item.adminOnly || isAdmin),
   );
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,7 +74,7 @@ export default function Layout() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { data: unreadData } = useQuery<{ unreadCount: number }>(UNREAD_COUNT, { pollInterval: 20000 });
   const unreadCount = unreadData?.unreadCount ?? 0;
-  const { data: statsData } = useQuery(GET_ADMIN_STATS, { skip: !isAdmin, pollInterval: 20000 });
+  const { data: statsData } = useQuery(GET_ADMIN_STATS, { skip: !can("platform:stats"), pollInterval: 20000 });
   const totalWalletBalanceCents = statsData?.platformStats?.totalWalletBalanceCents as number | undefined;
   const { data: brandingData } = useQuery<BrandingData>(GET_BRANDING);
   const logoUrl = brandingData?.branding?.logoUrl || "";

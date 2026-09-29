@@ -14,6 +14,8 @@ interface AuthContextType {
   accessToken: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  hasRole: (...roles: string[]) => boolean;
+  can: (perm: string) => boolean;
   /** Step 1: password (+2FA). Does not authenticate on its own — returns a
    * challenge; call completeLogin with the account's ID No. to finish. */
   login: (email: string, password: string, otpCode?: string) => Promise<LoginChallenge>;
@@ -94,15 +96,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshSession]);
 
   const value = useMemo(() => ({
-    user,
-    accessToken,
+    user, accessToken,
     isAuthenticated: !!user && !!accessToken,
     isAdmin: user?.role === "ADMIN",
-    login,
-    completeLogin,
-    logout,
-    refreshSession,
-    ensureFreshToken,
+    hasRole: (...roles: string[]) => !!user?.role && roles.includes(user.role),
+    can: (_perm: string) => {
+      if (!user?.role) return false;
+      if (user.role === "ADMIN") return true;
+      return false;
+    },
+    login, completeLogin, logout, refreshSession, ensureFreshToken,
   }), [user, accessToken, login, completeLogin, logout, refreshSession, ensureFreshToken]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

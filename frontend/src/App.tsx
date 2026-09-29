@@ -5,7 +5,7 @@ import { AuthProvider } from "./context/AuthContext";
 import client from "./graphql/client";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AdminRoute from "./components/AdminRoute";
+import { RequirePerm } from "./components/AdminRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import MerchantRegister from "./pages/MerchantRegister";
@@ -43,16 +43,16 @@ export default function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/send" element={<SendMoney />} />
-                <Route path="/cash-in" element={<AdminRoute><CashIn /></AdminRoute>} />
-                <Route path="/cash-out" element={<AdminRoute><CashOut /></AdminRoute>} />
+                <Route path="/cash-in" element={<RequirePerm perm="cash:operate"><CashIn /></RequirePerm>} />
+                <Route path="/cash-out" element={<RequirePerm perm="cash:operate"><CashOut /></RequirePerm>} />
                 <Route path="/qr-payment" element={<QrPayment />} />
                 <Route path="/transactions" element={<TransactionsPage />} />
-                <Route path="/master-list" element={<AdminRoute><MasterList /></AdminRoute>} />
+                <Route path="/master-list" element={<RequirePerm perm="masterlist:read"><MasterList /></RequirePerm>} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                <Route path="/admin/accounts/:id" element={<AdminRoute><AccountDetail /></AdminRoute>} />
-                <Route path="/wallet-balances" element={<AdminRoute><WalletBalances /></AdminRoute>} />
+                <Route path="/admin" element={<RequirePerm perm="users:read"><AdminDashboard /></RequirePerm>} />
+                <Route path="/admin/accounts/:id" element={<RequirePerm perm="users:read"><AccountDetail /></RequirePerm>} />
+                <Route path="/wallet-balances" element={<RequirePerm perm="platform:stats"><WalletBalances /></RequirePerm>} />
               </Route>
             </Routes>
             <PwaInstallPrompt />
