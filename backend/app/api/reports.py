@@ -17,7 +17,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
 from app.core.errors import NotFoundError
-from app.core.rest_auth import require_admin_token, require_user_token
+from app.core.rbac import Permission
+from app.core.rest_auth import require_perms_token, require_user_token
 from app.database import async_session_factory
 from app.domains.admin.reports import generate_all_transactions_excel, generate_all_transactions_pdf
 from app.domains.admin.service import AdminService
@@ -113,7 +114,7 @@ async def email_own_transactions(user_id: uuid.UUID = Depends(require_user_token
 
 
 @admin_router.get("/transactions/all.pdf")
-async def download_all_transactions_pdf(_actor: uuid.UUID = Depends(require_admin_token)):
+async def download_all_transactions_pdf(_actor: uuid.UUID = Depends(require_perms_token(Permission.REPORTS_EXPORT))):
     session = async_session_factory()
     try:
         rows = await AdminService(session).list_all_transactions_for_report()
@@ -124,7 +125,7 @@ async def download_all_transactions_pdf(_actor: uuid.UUID = Depends(require_admi
 
 
 @admin_router.get("/transactions/all.xlsx")
-async def download_all_transactions_excel(_actor: uuid.UUID = Depends(require_admin_token)):
+async def download_all_transactions_excel(_actor: uuid.UUID = Depends(require_perms_token(Permission.REPORTS_EXPORT))):
     session = async_session_factory()
     try:
         rows = await AdminService(session).list_all_transactions_for_report()
@@ -135,7 +136,7 @@ async def download_all_transactions_excel(_actor: uuid.UUID = Depends(require_ad
 
 
 @admin_router.get("/transactions/{account_id}.pdf")
-async def download_account_transactions_pdf(account_id: str, _actor: uuid.UUID = Depends(require_admin_token)):
+async def download_account_transactions_pdf(account_id: str, _actor: uuid.UUID = Depends(require_perms_token(Permission.REPORTS_EXPORT))):
     session = async_session_factory()
     try:
         label, meta, views = await _account_report(session, uuid.UUID(account_id))
@@ -148,7 +149,7 @@ async def download_account_transactions_pdf(account_id: str, _actor: uuid.UUID =
 
 
 @admin_router.get("/transactions/{account_id}.xlsx")
-async def download_account_transactions_excel(account_id: str, _actor: uuid.UUID = Depends(require_admin_token)):
+async def download_account_transactions_excel(account_id: str, _actor: uuid.UUID = Depends(require_perms_token(Permission.REPORTS_EXPORT))):
     session = async_session_factory()
     try:
         label, meta, views = await _account_report(session, uuid.UUID(account_id))

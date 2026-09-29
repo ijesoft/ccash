@@ -1,14 +1,15 @@
 """Admin-only branding upload endpoints (binary REST, not GraphQL).
 
 Rationale: a 5MB logo as GraphQL base64 would bloat ~33%; FastAPI UploadFile
-streams to disk via python-multipart. Auth mirrors require_admin semantics.
+streams to disk via python-multipart. Auth mirrors require_perms_token semantics.
 """
 
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from app.core.rest_auth import require_admin_token
+from app.core.rbac import Permission
+from app.core.rest_auth import require_perms_token
 from app.domains.admin.branding_service import (
     BASE_DIR,
     BrandingError,
@@ -24,7 +25,7 @@ router = APIRouter()
 
 
 @router.post("/logo")
-async def upload_logo(file: UploadFile = File(...), actor_id: uuid.UUID = Depends(require_admin_token)):
+async def upload_logo(file: UploadFile = File(...), actor_id: uuid.UUID = Depends(require_perms_token(Permission.BRANDING_WRITE))):
     content = await file.read()
     try:
         validate_upload(content, file.content_type, file.filename or "")
@@ -36,6 +37,6 @@ async def upload_logo(file: UploadFile = File(...), actor_id: uuid.UUID = Depend
 
 
 @router.delete("/logo")
-async def reset_logo(actor_id: uuid.UUID = Depends(require_admin_token)):
+async def reset_logo(actor_id: uuid.UUID = Depends(require_perms_token(Permission.BRANDING_WRITE))):
     _ = actor_id
     return reset_branding(base_dir=BASE_DIR)

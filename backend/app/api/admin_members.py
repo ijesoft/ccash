@@ -11,7 +11,8 @@ import uuid
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.core.errors import ValidationError
-from app.core.rest_auth import require_admin_token
+from app.core.rbac import Permission
+from app.core.rest_auth import require_perms_token
 from app.database import async_session_factory
 from app.domains.admin.batch_import import BatchImportError, parse_member_rows
 from app.domains.admin.service import AdminService
@@ -22,7 +23,7 @@ router = APIRouter()
 
 
 @router.post("/members/batch")
-async def batch_upload_members(file: UploadFile = File(...), _actor: uuid.UUID = Depends(require_admin_token)):
+async def batch_upload_members(file: UploadFile = File(...), _actor: uuid.UUID = Depends(require_perms_token(Permission.USERS_CREATE))):
     content = await file.read()
     try:
         rows = parse_member_rows(content, file.filename or "")

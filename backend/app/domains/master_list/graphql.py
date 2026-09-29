@@ -8,7 +8,8 @@ from app.core.errors import NotFoundError, ValidationError
 from app.database import async_session_factory
 from app.domains.master_list.models import MasterListEntry, MasterListStatus
 from app.domains.master_list.service import MasterListService
-from app.graphql.middleware import require_admin
+from app.core.rbac import Permission
+from app.graphql.middleware import require_perms
 
 
 @strawberry.enum
@@ -77,7 +78,7 @@ class MasterListQueries:
     async def master_list_entries(
         self, info: Info, limit: int = 20, offset: int = 0, q: str = ""
     ) -> MasterListPage:
-        require_admin(info.context)
+        require_perms(info.context, Permission.MASTERLIST_READ)
         session = async_session_factory()
         try:
             service = MasterListService(session)
@@ -93,7 +94,7 @@ class MasterListQueries:
 class MasterListMutations:
     @strawberry.mutation
     async def master_list_create_entry(self, info: Info, input: MasterListCreateInput) -> MasterListType:
-        require_admin(info.context)
+        require_perms(info.context, Permission.MASTERLIST_WRITE)
         session = async_session_factory()
         try:
             service = MasterListService(session)
@@ -118,7 +119,7 @@ class MasterListMutations:
         self, info: Info, entry_id: str, input: MasterListUpdateInput
     ) -> MasterListType:
         """Admin-only update (names, mobile, email, status). id_no is immutable."""
-        require_admin(info.context)
+        require_perms(info.context, Permission.MASTERLIST_WRITE)
         session = async_session_factory()
         try:
             service = MasterListService(session)

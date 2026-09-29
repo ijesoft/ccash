@@ -184,7 +184,7 @@ def test_upload_roundtrip_and_reset(tmp_path, monkeypatch):
 
     test_app = _branding_test_app(tmp_path, monkeypatch)
     client = TestClient(test_app, raise_server_exceptions=False)
-    admin_token = _token(["wallet:read", "wallet:write", "admin"])
+    admin_token = _token(["wallet:read", "wallet:write", "admin", "branding:write"])
     headers = {"Authorization": f"Bearer {admin_token}"}
 
     res = client.post(

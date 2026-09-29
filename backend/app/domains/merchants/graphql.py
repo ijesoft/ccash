@@ -5,7 +5,8 @@ from app.core.errors import NotFoundError, ValidationError
 from app.core.redis import get_redis
 from app.database import async_session_factory
 from app.domains.merchants.service import MerchantService
-from app.graphql.middleware import AuthContext, require_admin
+from app.core.rbac import Permission
+from app.graphql.middleware import AuthContext, require_perms
 
 
 @strawberry.type
@@ -113,7 +114,7 @@ class MerchantQueries:
 
     @strawberry.field
     async def admin_merchants(self, info: Info, limit: int = 20, offset: int = 0) -> list[AdminMerchantType]:
-        require_admin(info.context)
+        require_perms(info.context, Permission.MERCHANTS_READ)
         service = await get_merchant_service(info)
         try:
             merchants, _total = await service.list_merchants(limit, offset)

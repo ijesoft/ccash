@@ -13,7 +13,8 @@ from app.domains.auth.models import UserRole
 from app.domains.merchants.graphql import MerchantProfileType
 from app.domains.transactions.graphql import TransactionType
 from app.domains.transactions.service import TransactionService
-from app.graphql.middleware import require_admin
+from app.core.rbac import Permission
+from app.graphql.middleware import require_perms
 
 
 @strawberry.enum
@@ -125,7 +126,7 @@ async def get_admin_service(info: Info) -> AdminService:
 class AdminQueries:
     @strawberry.field
     async def platform_stats(self, info: Info) -> PlatformStats:
-        require_admin(info.context)
+        require_perms(info.context, Permission.PLATFORM_STATS)
         service = await get_admin_service(info)
         try:
             stats = await service.get_platform_stats()
@@ -137,7 +138,7 @@ class AdminQueries:
     async def admin_users(
         self, info: Info, limit: int = 20, offset: int = 0, role: UserRoleEnum | None = None
     ) -> list[AdminMemberType]:
-        require_admin(info.context)
+        require_perms(info.context, Permission.USERS_READ)
         service = await get_admin_service(info)
         try:
             role_filter = UserRole(role.value) if role else None
@@ -151,7 +152,8 @@ class AdminQueries:
         self, info: Info, user_id: str, limit: int = 20, offset: int = 0
     ) -> list[TransactionType]:
         """Admin view of one user's history, from that user's perspective."""
-        require_admin(info.context)
+        require_perms(info.context, Permission.USERS_READ)
+        require_perms(info.context, Permission.TX_READ_ALL)
         session = async_session_factory()
         try:
             service = TransactionService(session)
@@ -162,7 +164,7 @@ class AdminQueries:
 
     @strawberry.field
     async def admin_account_detail(self, info: Info, user_id: str) -> AdminAccountDetailType:
-        require_admin(info.context)
+        require_perms(info.context, Permission.USERS_READ)
         service = await get_admin_service(info)
         try:
             detail = await service.get_account_detail(uuid.UUID(user_id))
@@ -190,7 +192,7 @@ class AdminMutations:
     async def admin_create_member(self, info: Info, input: AdminCreateMemberInput) -> AdminCreateMemberResult:
         """Individual add (one row at a time). See app/api/admin_members.py
         for the batch-upload counterpart used for the initial ~3000-member roll."""
-        require_admin(info.context)
+        require_perms(info.context, Permission.USERS_CREATE)
         service = await get_admin_service(info)
         try:
             user, temp_password = await service.create_member(
@@ -210,7 +212,7 @@ class AdminMutations:
     @strawberry.mutation
     async def admin_set_member_id(self, info: Info, user_id: str, id_no: str) -> UserType:
         """Assign or reassign a Member/Admin's login ID No."""
-        require_admin(info.context)
+        require_perms(info.context, Permission.USERS_SET_ID)
         service = await get_admin_service(info)
         try:
             user = await service.set_member_id(uuid.UUID(user_id), id_no)
@@ -223,7 +225,7 @@ class AdminMutations:
     @strawberry.mutation
     async def admin_set_merchant_id(self, info: Info, user_id: str, merchant_id_no: str) -> MerchantProfileType:
         """Assign or reassign a Merchant's login ID (the 'M' + 9-digit number)."""
-        require_admin(info.context)
+        require_perms(info.context, Permission.MERCHANTS_SET_ID)
         service = await get_admin_service(info)
         try:
             profile = await service.set_merchant_id(uuid.UUID(user_id), merchant_id_no)
@@ -246,7 +248,7 @@ class AdminMutations:
         """Generate a new temporary password for an account and email it —
         there is no self-service "forgot password" flow, so this is how a
         Member/Merchant recovers access."""
-        require_admin(info.context)
+        require_perms(info.context, Permission.USERS_RESET_PASSWORD)
         service = await get_admin_service(info)
         try:
             user, temp_password = await service.reset_password(uuid.UUID(user_id))
@@ -260,7 +262,7 @@ class AdminMutations:
     async def admin_update_member_profile(
         self, info: Info, user_id: str, input: AdminUpdateMemberProfileInput
     ) -> UserType:
-        require_admin(info.context)
+        require_perms(info.context, Permission.USERS_UPDATE)
         service = await get_admin_service(info)
         try:
             user = await service.update_member_profile(
@@ -281,7 +283,7 @@ class AdminMutations:
     async def admin_update_merchant_profile(
         self, info: Info, user_id: str, input: AdminUpdateMerchantProfileInput
     ) -> MerchantProfileType:
-        require_admin(info.context)
+        require_perms(info.context, Permission.MERCHANTS_UPDATE)
         service = await get_admin_service(info)
         try:
             _user, profile = await service.update_merchant_profile(
@@ -310,7 +312,7 @@ class AdminMutations:
 
     @strawberry.mutation
     async def admin_delete_account(self, info: Info, user_id: str) -> bool:
-        require_admin(info.context)
+        require_perms(info.context, Permission.USERS_DELETE)
         service = await get_admin_service(info)
         try:
             await service.delete_account(uuid.UUID(user_id), info.context.user_id)
@@ -322,7 +324,7 @@ class AdminMutations:
 
     @strawberry.mutation
     async def suspend_user(self, info: Info, user_id: str) -> UserType | None:
-        require_admin(info.context)
+        require_perms(info.context, Permission.USERS_SUSPEND)
         service = await get_admin_service(info)
         try:
             user = await service.suspend_user(uuid.UUID(user_id))
@@ -332,7 +334,7 @@ class AdminMutations:
 
     @strawberry.mutation
     async def activate_user(self, info: Info, user_id: str) -> UserType | None:
-        require_admin(info.context)
+        require_perms(info.context, Permission.USERS_SUSPEND)
         service = await get_admin_service(info)
         try:
             user = await service.activate_user(uuid.UUID(user_id))
@@ -344,7 +346,7 @@ class AdminMutations:
     async def update_user_role(
         self, info: Info, user_id: str, role: UserRoleEnum
     ) -> UserType | None:
-        require_admin(info.context)
+        require_perms(info.context, Permission.USERS_CHANGE_ROLE)
         service = await get_admin_service(info)
         try:
             user = await service.update_user_role(

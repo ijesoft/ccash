@@ -35,7 +35,7 @@ def login_required(permissions: list[str] | None = None):
 
 
 def require_perms(context: AuthContext, *perms: str) -> None:
-    """Allow if any requested permission string is in scopes."""
+    """Allow if any requested permission string is in scopes. Single perm = check; multiple perms in one call = ANY (OR). For ALL, call twice."""
     wants = {p.value if hasattr(p, "value") else str(p) for p in perms}
     if not context.user_id or not wants.intersection(set(context.scopes)):
         raise Exception("Not authorized")

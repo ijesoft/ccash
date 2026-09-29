@@ -41,6 +41,8 @@ async def require_admin_token(request: Request) -> uuid.UUID:
 
 
 def require_perms_token(*perms: str) -> Callable:
+    """REST equivalent of require_perms. Single perm = check; multiple perms in one call = ANY (OR). For ALL, call twice."""
+
     async def _dep(request: Request) -> uuid.UUID:
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):

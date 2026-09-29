@@ -274,3 +274,18 @@ def test_login_scopes_carry_permissions_plus_legacy_admin():
     admin = User(email="a@t", phone="09180000001", password_hash="x", role=UserRole.ADMIN)
     perms = permissions_for(admin.role)
     assert "users:read" in perms
+
+
+def test_member_token_cannot_read_admin_users():
+    import uuid
+    from app.core.rbac import Permission
+    from app.graphql.middleware import AuthContext, require_perms
+    member = AuthContext()
+    member.user_id = uuid.uuid4()
+    member.scopes = ["wallet:read", "wallet:write"]
+    try:
+        require_perms(member, Permission.USERS_READ)
+    except Exception as e:
+        assert str(e) == "Not authorized"
+    else:
+        raise AssertionError("member must not pass USERS_READ")

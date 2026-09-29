@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.core.errors import ValidationError
-from app.core.rest_auth import require_admin_token
+from app.core.rbac import Permission
+from app.core.rest_auth import require_perms_token
 from app.database import async_session_factory
 from app.domains.admin.batch_import import BatchImportError, parse_member_rows
 from app.domains.master_list.service import MasterListService
@@ -20,7 +21,7 @@ router = APIRouter()
 
 
 @router.get("/master-list/batch/template")
-async def download_master_list_template(actor_id: uuid.UUID = Depends(require_admin_token)):
+async def download_master_list_template(actor_id: uuid.UUID = Depends(require_perms_token(Permission.MASTERLIST_WRITE))):
     return StreamingResponse(
         iter([build_template_bytes()]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -30,7 +31,7 @@ async def download_master_list_template(actor_id: uuid.UUID = Depends(require_ad
 
 @router.post("/master-list/batch")
 async def batch_upload_master_list(
-    file: UploadFile = File(...), actor_id: uuid.UUID = Depends(require_admin_token)
+    file: UploadFile = File(...), actor_id: uuid.UUID = Depends(require_perms_token(Permission.MASTERLIST_WRITE))
 ):
     content = await file.read()
     try:

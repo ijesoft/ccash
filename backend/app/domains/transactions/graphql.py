@@ -16,7 +16,8 @@ from app.core.errors import (
 from app.database import async_session_factory
 from app.domains.transactions.service import TransactionService
 from app.domains.transactions.views import TransactionView
-from app.graphql.middleware import AuthContext, require_admin
+from app.core.rbac import Permission
+from app.graphql.middleware import AuthContext, require_perms
 from app.graphql.scalars import Money, PaginationInfo
 
 # Errors that describe a rejected-but-valid request. Anything not listed here is
@@ -272,7 +273,7 @@ class TransactionMutations:
     @strawberry.mutation
     async def cash_in(self, info: Info, input: CashInInput) -> TransactionType:
         user_id = require_user(info)
-        require_admin(info.context)
+        require_perms(info.context, Permission.CASH_OPERATE)
 
         service = await get_tx_service(info)
         try:
@@ -288,7 +289,7 @@ class TransactionMutations:
     @strawberry.mutation
     async def cash_out(self, info: Info, input: CashOutInput) -> TransactionType:
         user_id = require_user(info)
-        require_admin(info.context)
+        require_perms(info.context, Permission.CASH_OPERATE)
 
         service = await get_tx_service(info)
         try:

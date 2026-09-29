@@ -5,7 +5,8 @@ from strawberry.types import Info
 
 from app.database import async_session_factory
 from app.domains.users.service import KycService
-from app.graphql.middleware import require_admin
+from app.core.rbac import Permission
+from app.graphql.middleware import require_perms
 
 
 @strawberry.type
@@ -74,7 +75,7 @@ class KycMutations:
     @strawberry.mutation
     async def approve_kyc(self, info: Info, document_id: str) -> bool:
         context = info.context
-        require_admin(context)
+        require_perms(context, Permission.KYC_REVIEW)
 
         service = await get_kyc_service(info)
         try:
@@ -86,7 +87,7 @@ class KycMutations:
     @strawberry.mutation
     async def reject_kyc(self, info: Info, document_id: str, reason: str) -> bool:
         context = info.context
-        require_admin(context)
+        require_perms(context, Permission.KYC_REVIEW)
 
         service = await get_kyc_service(info)
         try:
