@@ -7,6 +7,7 @@ expressed as a plain FastAPI dependency.
 """
 
 import uuid
+from collections.abc import Callable
 
 from fastapi import HTTPException, Request
 
@@ -37,3 +38,22 @@ async def require_admin_token(request: Request) -> uuid.UUID:
     if "admin" not in scopes:
         raise HTTPException(status_code=403, detail="Not authorized")
     return user_id
+
+
+def require_perms_token(*perms: str) -> Callable:
+    async def _dep(request: Request) -> uuid.UUID:
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        try:
+            payload = decode_token(auth[7:])
+            user_id = uuid.UUID(payload.get("sub"))
+            scopes = payload.get("scopes", [])
+        except Exception:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        wants = {p.value if hasattr(p, "value") else str(p) for p in perms}
+        if not wants.intersection(set(scopes)):
+            raise HTTPException(status_code=403, detail="Not authorized")
+        return user_id
+
+    return _dep

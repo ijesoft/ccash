@@ -22,10 +22,11 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(user_id: str, scopes: list[str] | None = None) -> str:
+def create_access_token(user_id: str, scopes: list[str] | None = None, role: str | None = None) -> str:
     payload = {
         "sub": user_id,
         "scopes": scopes or [],
+        "role": role,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes),
         "iat": datetime.now(timezone.utc),
         "type": "access",

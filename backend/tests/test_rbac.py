@@ -29,7 +29,11 @@ def test_scopes_for_admin_include_admin():
         password_hash="x",
         role=UserRole.ADMIN,
     )
-    assert _scopes_for(admin) == ["wallet:read", "wallet:write", "admin"]
+    scopes = _scopes_for(admin)
+    assert scopes[:2] == ["wallet:read", "wallet:write"]
+    assert "admin" in scopes
+    assert "users:read" in scopes
+    assert "platform:stats" in scopes
 
 
 def test_scopes_for_regular_user_has_no_admin():
@@ -219,3 +223,54 @@ def test_permissions_for_returns_sorted_strings():
     assert "users:read" in perms
     assert "platform:stats" in perms
     assert permissions_for(UserRole.MEMBER) == []
+
+
+def test_require_perms_allows_admin_perm_denies_member():
+    import uuid
+
+    from app.core.rbac import Permission
+    from app.graphql.middleware import AuthContext, require_perms
+
+    admin_ctx = AuthContext()
+    admin_ctx.user_id = uuid.uuid4()
+    admin_ctx.scopes = ["wallet:read", "wallet:write", "users:read", "admin"]
+    require_perms(admin_ctx, Permission.USERS_READ)  # must not raise
+
+    member_ctx = AuthContext()
+    member_ctx.user_id = uuid.uuid4()
+    member_ctx.scopes = ["wallet:read", "wallet:write"]
+    try:
+        require_perms(member_ctx, Permission.USERS_READ)
+    except Exception as e:
+        assert str(e) == "Not authorized"
+    else:
+        raise AssertionError("member should have been rejected")
+
+
+def test_require_roles_accepts_admin_rejects_member():
+    import uuid
+
+    from app.domains.auth.models import UserRole
+    from app.graphql.middleware import AuthContext, require_roles
+
+    ctx = AuthContext()
+    ctx.user_id = uuid.uuid4()
+    ctx.role = UserRole.ADMIN
+    require_roles(ctx, UserRole.ADMIN)
+
+    ctx.role = UserRole.MEMBER
+    try:
+        require_roles(ctx, UserRole.ADMIN)
+    except Exception as e:
+        assert str(e) == "Not authorized"
+    else:
+        raise AssertionError("member should have been rejected")
+
+
+def test_login_scopes_carry_permissions_plus_legacy_admin():
+    from app.core.rbac import permissions_for
+    from app.domains.auth.models import User, UserRole
+
+    admin = User(email="a@t", phone="09180000001", password_hash="x", role=UserRole.ADMIN)
+    perms = permissions_for(admin.role)
+    assert "users:read" in perms
