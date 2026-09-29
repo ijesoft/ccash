@@ -187,3 +187,35 @@ async def test_update_user_role_unknown_user_raises(session, make_account):
     service = AdminService(session)
     with pytest.raises(NotFoundError):
         await service.update_user_role(uuid.uuid4(), UserRole.ADMIN, actor_id=admin.id)
+
+
+def test_rbac_member_and_merchant_have_no_admin_perms():
+    from app.core.rbac import Permission, has_permission
+    from app.domains.auth.models import UserRole
+
+    assert has_permission(UserRole.MEMBER, Permission.PLATFORM_STATS) is False
+    assert has_permission(UserRole.MERCHANT, Permission.PLATFORM_STATS) is False
+    assert has_permission(UserRole.MERCHANT, Permission.USERS_READ) is False
+
+
+def test_rbac_admin_has_all_perms():
+    from app.core.rbac import Permission, ROLE_PERMISSIONS
+    from app.domains.auth.models import UserRole
+
+    admin_perms = ROLE_PERMISSIONS[UserRole.ADMIN]
+    assert Permission.USERS_READ in admin_perms
+    assert Permission.USERS_CHANGE_ROLE in admin_perms
+    assert Permission.PLATFORM_STATS in admin_perms
+    assert Permission.CASH_OPERATE in admin_perms
+    assert Permission.REPORTS_EXPORT in admin_perms
+
+
+def test_permissions_for_returns_sorted_strings():
+    from app.core.rbac import permissions_for
+    from app.domains.auth.models import UserRole
+
+    perms = permissions_for(UserRole.ADMIN)
+    assert perms == sorted(perms)
+    assert "users:read" in perms
+    assert "platform:stats" in perms
+    assert permissions_for(UserRole.MEMBER) == []
