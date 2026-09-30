@@ -42,18 +42,19 @@ class AdminService:
 
     async def get_platform_stats(self) -> dict:
         user_count_result = await self.session.execute(select(func.count(User.id)))
-        user_count = user_count_result.scalar() or 0
+        user_count = int(user_count_result.scalar() or 0)
 
         wallet_count_result = await self.session.execute(select(func.count(Wallet.id)))
-        wallet_count = wallet_count_result.scalar() or 0
+        wallet_count = int(wallet_count_result.scalar() or 0)
 
         tx_count_result = await self.session.execute(select(func.count(Transaction.id)))
-        tx_count = tx_count_result.scalar() or 0
+        tx_count = int(tx_count_result.scalar() or 0)
 
         volume_result = await self.session.execute(
             select(func.coalesce(func.sum(Transaction.amount_cents), 0)).where(Transaction.status == TransactionStatus.SUCCESS)
         )
-        volume = volume_result.scalar() or 0
+        # SUM(BigInteger) comes back as Decimal; Strawberry Int cannot serialize it.
+        volume = int(volume_result.scalar() or 0)
 
         balance_result = await self.session.execute(
             select(func.coalesce(func.sum(Wallet.balance_cents), 0)).where(
@@ -61,7 +62,7 @@ class AdminService:
                 Wallet.deleted_at.is_(None),
             )
         )
-        total_balance = balance_result.scalar() or 0
+        total_balance = int(balance_result.scalar() or 0)
 
         return {
             "total_users": user_count,
