@@ -46,3 +46,18 @@ export const MASTER_LIST_UPDATE_ENTRY = gql`
     }
   }
 `;
+
+// Public roster check for the member sign-up form: exact ID match, null when absent.
+export const MASTER_LIST_LOOKUP = gql`
+  query MasterListLookup($idNo: String!) {
+    masterListLookup(idNo: $idNo) {
+      idNo
+      lastName
+      firstName
+      middleName
+      mobileNumber
+      email
+      status
+    }
+  }
+`;

@@ -71,6 +71,15 @@ class MasterListService:
     async def list_entries(self, limit: int = 20, offset: int = 0, q: str = ""):
         return await self.repo.list_entries(limit, offset, q)
 
+    async def lookup_by_id_no(self, id_no: str) -> MasterListEntry | None:
+        """Roster check for the member sign-up form: exact 9-digit match only,
+        no wildcards, so roster IDs cannot be fished out by prefix. Returns
+        None when the ID is not on the roster (including soft-deleted rows)."""
+        id_no = (id_no or "").strip()
+        if not re.fullmatch(r"\d{9}", id_no):
+            raise ValidationError("ID No. must be exactly 9 digits")
+        return await self.repo.get_by_id_no(id_no)
+
     async def update_entry(
         self,
         entry_id: uuid.UUID,

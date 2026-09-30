@@ -164,3 +164,32 @@ def test_import_template_headers_parse_cleanly():
         "Email Address",
     ]
     assert parse_member_rows(raw, TEMPLATE_FILENAME) == []
+
+
+@pytest.mark.asyncio
+async def test_lookup_by_id_no_returns_entry_on_exact_match(session):
+    svc = MasterListService(session)
+    await svc.create_entry(
+        id_no="300000001", first_name="Liza", last_name="Soberano",
+        middle_name="Reyes", mobile_number="09173000001", email="liza.s@example.ph",
+    )
+    entry = await svc.lookup_by_id_no("300000001")
+    assert entry is not None
+    assert entry.first_name == "Liza"
+    assert entry.last_name == "Soberano"
+    assert entry.email == "liza.s@example.ph"
+
+
+@pytest.mark.asyncio
+async def test_lookup_by_id_no_returns_none_when_absent(session):
+    svc = MasterListService(session)
+    assert await svc.lookup_by_id_no("300000002") is None
+
+
+@pytest.mark.asyncio
+async def test_lookup_by_id_no_rejects_malformed_input(session):
+    svc = MasterListService(session)
+    with pytest.raises(Exception, match="9 digits"):
+        await svc.lookup_by_id_no("12ab")
+    with pytest.raises(Exception, match="9 digits"):
+        await svc.lookup_by_id_no("12345678")

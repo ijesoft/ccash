@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
-import { Box, Button, Card, CardContent, TextField, Typography, Alert, Link, Stack } from "@mui/material";
+import { Box, Button, Card, CardContent, CircularProgress, InputAdornment, TextField, Typography, Alert, Link, Stack } from "@mui/material";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
-import { useMutation } from "@apollo/client";
+import { useLazyQuery, useMutation } from "@apollo/client";
 import { REGISTER } from "../graphql/mutations/auth";
+import { MASTER_LIST_LOOKUP } from "../graphql/queries/masterList";
 import BrandMark from "../components/BrandMark";
 
 export default function Register() {
@@ -20,6 +21,51 @@ export default function Register() {
   const [error, setError] = useState("");
   const [registerMutation, { loading }] = useMutation(REGISTER);
   const navigate = useNavigate();
+
+  // Master-list auto-fill: once the ID No. is a complete 9-digit value, look
+  // it up and fill the name/email/mobile fields. The form stays editable and
+  // registration never requires a roster match.
+  const [lookupNote, setLookupNote] = useState("");
+  const [lookupFound, setLookupFound] = useState<boolean | null>(null);
+  const lastLookedUp = useRef("");
+  const [lookupMasterList, { loading: lookupLoading }] = useLazyQuery(MASTER_LIST_LOOKUP, {
+    fetchPolicy: "network-only",
+    onCompleted: (lookupData) => {
+      const entry = lookupData?.masterListLookup;
+      if (!entry) {
+        setLookupFound(false);
+        setLookupNote("ID not found in the master list — please fill in your details manually.");
+        return;
+      }
+      setLastName(entry.lastName ?? "");
+      setFirstName(entry.firstName ?? "");
+      setMiddleName(entry.middleName ?? "");
+      setEmail(entry.email ?? "");
+      setPhone((entry.mobileNumber ?? "").replace(/\D/g, "").slice(0, 11));
+      setLookupFound(true);
+      setLookupNote(
+        entry.status === "ACTIVE"
+          ? "Details loaded from the master list — please verify before continuing."
+          : "Details loaded from the master list, but this ID is marked INACTIVE — please verify before continuing."
+      );
+    },
+    onError: () => {
+      setLookupFound(null);
+      setLookupNote("");
+    },
+  });
+
+  useEffect(() => {
+    if (/^\d{9}$/.test(idNo)) {
+      if (lastLookedUp.current === idNo) return;
+      lastLookedUp.current = idNo;
+      setLookupNote("");
+      setLookupFound(null);
+      void lookupMasterList({ variables: { idNo } });
+    } else {
+      lastLookedUp.current = "";
+    }
+  }, [idNo, lookupMasterList]);
 
   const validatePhone = (value: string): string | null => {
     if (!/^\d+$/.test(value)) {
@@ -139,6 +185,11 @@ export default function Register() {
           </Box>
 
           {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
+          {lookupNote && (
+            <Alert severity={lookupFound ? "success" : "info"} sx={{ mb: 2, borderRadius: 2 }}>
+              {lookupNote}
+            </Alert>
+          )}
 
           <Box component="form" onSubmit={handleSubmit}>
             <TextField
@@ -156,6 +207,13 @@ export default function Register() {
               helperText={idNoError || "Your 9-digit employee/member ID"}
               error={!!idNoError}
               inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 9 }}
+              InputProps={{
+                endAdornment: lookupLoading ? (
+                  <InputAdornment position="end">
+                    <CircularProgress size={20} />
+                  </InputAdornment>
+                ) : undefined,
+              }}
             />
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 0, sm: 1.5 }} sx={{ "& > *": { flex: 1 } }}>

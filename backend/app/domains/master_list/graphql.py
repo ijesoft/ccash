@@ -72,6 +72,20 @@ class MasterListPage:
 
 
 @strawberry.type
+class MasterListLookupResult:
+    """One roster row for the sign-up form's auto-fill. Deliberately the same
+    fields the member would type themselves — no internal metadata."""
+
+    id_no: str
+    last_name: str
+    first_name: str
+    middle_name: str | None
+    mobile_number: str
+    email: str
+    status: str
+
+
+@strawberry.type
 class MasterListQueries:
     @strawberry.field
     async def master_list_entries(
@@ -85,6 +99,34 @@ class MasterListQueries:
             return MasterListPage(
                 items=[MasterListType.from_model(e) for e in entries], total=total
             )
+        finally:
+            await session.close()
+
+    @strawberry.field
+    async def master_list_lookup(self, info: Info, id_no: str) -> MasterListLookupResult | None:
+        """Public (unauthenticated) roster check for the member sign-up form.
+
+        Exact 9-digit match only — unlike the admin search there are no
+        wildcards, and the general per-IP rate-limit bucket applies, so the
+        9-digit ID space cannot feasibly be enumerated. Returns null when the
+        ID is not on the roster; the form then stays manually fillable."""
+        session = async_session_factory()
+        try:
+            service = MasterListService(session)
+            entry = await service.lookup_by_id_no(id_no)
+            if not entry:
+                return None
+            return MasterListLookupResult(
+                id_no=entry.id_no,
+                last_name=entry.last_name,
+                first_name=entry.first_name,
+                middle_name=entry.middle_name,
+                mobile_number=entry.mobile_number,
+                email=entry.email,
+                status=entry.status.value if isinstance(entry.status, MasterListStatus) else str(entry.status),
+            )
+        except ValidationError as e:
+            raise Exception(str(e))
         finally:
             await session.close()
 
