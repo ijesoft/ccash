@@ -199,6 +199,7 @@ class AdminService:
             members.append({
                 "id": str(user.id),
                 "email": user.email,
+                "phone": user.phone,
                 "id_no": user.id_no or merchant_id_nos.get(user.id),
                 "first_name": user.first_name,
                 "middle_name": user.middle_name,

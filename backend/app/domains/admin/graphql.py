@@ -55,6 +55,7 @@ class AuditLogType:
 class AdminMemberType:
     id: str
     email: str
+    phone: str
     id_no: str | None
     first_name: str | None
     middle_name: str | None

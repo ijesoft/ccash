@@ -297,3 +297,12 @@ async def test_list_users_shows_merchant_id_no(session, make_account):
     members, _ = await AdminService(session).list_users()
     row = next(m for m in members if m["id"] == str(merchant.id))
     assert row["id_no"] == "M123456789"
+
+
+async def test_list_users_includes_phone(session, make_account):
+    from app.domains.admin.service import AdminService
+
+    user, _ = await make_account()
+    members, _ = await AdminService(session).list_users()
+    row = next(m for m in members if m["id"] == str(user.id))
+    assert row["phone"] == user.phone

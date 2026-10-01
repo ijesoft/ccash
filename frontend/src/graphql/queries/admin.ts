@@ -23,6 +23,7 @@ export const GET_ADMIN_MEMBERS = gql`
     adminUsers(limit: $limit, offset: $offset, role: $role) {
       id
       email
+      phone
       idNo
       firstName
       middleName

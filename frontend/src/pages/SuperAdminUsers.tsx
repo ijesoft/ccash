@@ -49,6 +49,7 @@ export default function SuperAdminUsers() {
   const columns: GridColDef[] = [
     { field: "email", headerName: "Email", flex: 1, minWidth: 200,
       renderCell: (params) => (<Button variant="text" size="small" onClick={() => navigate(`/admin/accounts/${params.row.id}`)} sx={{ textTransform: "none", justifyContent: "flex-start", minWidth: 0, px: 0 }}>{params.value}</Button>) },
+    { field: "phone", headerName: "Mobile", width: 140 },
     { field: "idNo", headerName: "ID No.", width: 110 },
     { field: "role", headerName: "Role", width: 130,
       renderCell: (params) => (<Chip label={params.value} color={params.value === "SUPER_ADMIN" ? "error" : params.value === "ADMIN" ? "primary" : params.value === "MERCHANT" ? "secondary" : "default"} size="small" variant="outlined" />) },
