@@ -46,13 +46,20 @@ export default function Login() {
     }
   };
 
+  const normalizedIdNo = idNo.trim().toUpperCase();
+  const isMemberId = /^\d{9}$/.test(normalizedIdNo);
+  const isMerchantId = /^M\d{9}$/.test(normalizedIdNo);
+  // Confirm mode accepts either format (member 9-digit or merchant M+9-digit);
+  // first-time set mode is members only, so 9 digits.
+  const idValid = hasExistingId ? isMemberId || isMerchantId : isMemberId;
+
   const handleIdSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pendingEmail) return;
     setIdError("");
     setIdLoading(true);
     try {
-      await completeLogin(pendingEmail, idNo);
+      await completeLogin(pendingEmail, normalizedIdNo);
       navigate("/");
     } catch (err: any) {
       setIdError(err.message || "Could not verify ID No.");
@@ -221,22 +228,35 @@ export default function Login() {
                   label="ID No."
                   value={idNo}
                   onChange={(e) => {
-                    setIdNo(e.target.value.replace(/\D/g, "").slice(0, 9));
+                    const raw = e.target.value.toUpperCase();
+                    setIdNo(
+                      hasExistingId
+                        ? raw.replace(/[^M0-9]/g, "").slice(0, 10)
+                        : raw.replace(/\D/g, "").slice(0, 9),
+                    );
                     if (idError) setIdError("");
                   }}
                   required
                   margin="normal"
                   autoFocus
-                  placeholder="123456789"
-                  helperText={hasExistingId ? "Your 9-digit Member/Merchant ID" : "Choose a 9-digit ID No. you'll remember"}
-                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 9 }}
+                  placeholder={hasExistingId ? "123456789 or M123456789" : "123456789"}
+                  helperText={
+                    hasExistingId
+                      ? "Your 9-digit Member ID or Merchant ID (M + 9 digits)"
+                      : "Choose a 9-digit ID No. you'll remember"
+                  }
+                  inputProps={
+                    hasExistingId
+                      ? { maxLength: 10, autoCapitalize: "characters" }
+                      : { inputMode: "numeric", pattern: "[0-9]*", maxLength: 9 }
+                  }
                 />
                 <Button
                   fullWidth
                   type="submit"
                   variant="contained"
                   size="large"
-                  disabled={idLoading || idNo.length !== 9}
+                  disabled={idLoading || !idValid}
                   sx={{ mt: 2, mb: 1, borderRadius: 2, py: 1.5, minHeight: 48 }}
                 >
                   {idLoading ? "Verifying..." : hasExistingId ? "Continue" : "Set ID & Continue"}
