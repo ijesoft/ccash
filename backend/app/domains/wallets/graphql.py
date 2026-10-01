@@ -69,13 +69,20 @@ class WalletQueries:
         context: AuthContext = info.context
         if not context.user_id:
             raise Exception("Not authenticated")
-        if context.role == UserRole.SUPER_ADMIN.value:
-            raise Exception("Super admin accounts do not have wallets")
 
         service = await get_wallet_service(info)
         try:
-            wallet = await service.get_or_create_wallet(context.user_id)
+            try:
+                role = UserRole(context.role) if context.role else None
+            except ValueError:
+                role = None
+            if role is not None:
+                wallet = await service.get_or_create_wallet_for_role(context.user_id, role)
+            else:
+                wallet = await service.get_or_create_wallet(context.user_id)
             return WalletType.from_model(wallet)
+        except ValidationError as e:
+            raise Exception(str(e))
         finally:
             await service.session.close()
 

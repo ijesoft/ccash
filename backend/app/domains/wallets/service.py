@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError, WalletNotActiveError
 from app.domains.auth.models import UserRole
+from app.domains.auth.repository import UserRepository
 from app.domains.wallets.models import Favorite, Wallet, WalletStatus
 from app.domains.wallets.repository import WalletRepository
 
@@ -17,6 +18,9 @@ class WalletService:
         self.session = session
 
     async def get_or_create_wallet(self, user_id: uuid.UUID) -> Wallet:
+        owner = await UserRepository(self.session).get_by_id(user_id)
+        if owner is not None and owner.role == UserRole.SUPER_ADMIN:
+            raise ValidationError("Super admin accounts do not have wallets")
         wallet = await self.repo.get_by_user_id(user_id)
         if not wallet:
             wallet = await self.repo.create(user_id)

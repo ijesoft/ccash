@@ -101,3 +101,42 @@ async def test_send_money_blocks_super_admin_caller(session, make_account):
         await service.send_money(
             caller.id, None, 10000, str(uuid.uuid4()), receiver_mobile="09180000002"
         )
+
+
+def test_register_has_no_role_param():
+    import inspect
+
+    from app.domains.auth.service import AuthService
+
+    assert "role" not in inspect.signature(AuthService.register).parameters
+
+
+async def test_request_money_blocks_super_admin(session, make_account):
+    import uuid
+
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.domains.transactions.service import TransactionService
+
+    caller, _w = await make_account()
+    caller.role = UserRole.SUPER_ADMIN
+    await session.commit()
+    _other, other_wallet = await make_account()
+    service = TransactionService(session)
+    with pytest.raises(ValidationError, match="Super admin"):
+        await service.request_money(caller.id, other_wallet.id, 10000, str(uuid.uuid4()))
+
+
+async def test_set_pin_blocks_super_admin(session, make_account):
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.domains.wallets.service import WalletService
+
+    user, _w = await make_account()
+    user.role = UserRole.SUPER_ADMIN
+    await session.commit()
+    service = WalletService(session)
+    with pytest.raises(ValidationError, match="Super admin"):
+        await service.set_pin(user.id, "1234")

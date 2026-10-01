@@ -223,12 +223,19 @@ class TransactionQueries:
 
         from app.domains.wallets.service import WalletService
         from app.domains.auth.repository import UserRepository
+        from app.domains.auth.models import UserRole
 
         service = await get_tx_service(info)
         wallet_service = WalletService(service.session)
         user_repo = UserRepository(service.session)
         try:
-            wallet = await wallet_service.get_or_create_wallet(user_id)
+            caller = await user_repo.get_by_id(user_id)
+            if caller is not None and caller.role == UserRole.SUPER_ADMIN:
+                raise Exception("Super admin accounts do not have wallets")
+            try:
+                wallet = await wallet_service.get_or_create_wallet(user_id)
+            except ValidationError as e:
+                raise Exception(str(e))
             user = await user_repo.get_by_id(user_id)
             name = f"{user.first_name or ''} {user.last_name or ''}".strip() if user else ""
             phone = user.phone if user else ""

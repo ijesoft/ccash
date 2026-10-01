@@ -578,6 +578,10 @@ class TransactionService:
         idempotency_key: str,
         description: str | None = None,
     ) -> TransactionView:
+        caller = await UserRepository(self.session).get_by_id(sender_user_id)
+        if caller is not None and caller.role == UserRole.SUPER_ADMIN:
+            raise ValidationError("Super admin accounts cannot transact (no wallet)")
+
         validate_amount(amount_cents)
 
         existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
@@ -630,6 +634,10 @@ class TransactionService:
         tx_id: uuid.UUID,
         approve: bool,
     ) -> TransactionView:
+        caller = await UserRepository(self.session).get_by_id(user_id)
+        if caller is not None and caller.role == UserRole.SUPER_ADMIN:
+            raise ValidationError("Super admin accounts cannot transact (no wallet)")
+
         tx = await self.tx_repo.get_by_id(tx_id)
         if not tx:
             raise NotFoundError("Request not found")
