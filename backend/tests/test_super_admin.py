@@ -291,3 +291,34 @@ async def test_seed_shape_superadmin_has_no_wallet(session, make_account):
     assert fetched.status == UserStatus.ACTIVE
     assert fetched.is_verified is True
     assert await WalletRepository(session).get_by_user_id(user.id) is None
+
+
+async def test_send_money_to_super_admin_wallet_id_blocked(session, make_account):
+    import uuid
+
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.domains.transactions.repository import TransactionRepository
+    from app.domains.transactions.service import TransactionService
+    from app.domains.wallets.repository import WalletRepository
+
+    sender, _sender_wallet = await make_account()
+    recipient, recipient_wallet = await make_account()
+    balance_before = recipient_wallet.balance_cents
+    recipient.role = UserRole.SUPER_ADMIN
+    await session.commit()
+    # Unlike the mobile path, the direct wallet-id path keeps the recipient's
+    # wallet row (make_account minted it); the guard must still refuse to
+    # credit it.
+    assert await WalletRepository(session).get_by_id(recipient_wallet.id) is not None
+
+    service = TransactionService(session)
+    key = str(uuid.uuid4())
+    with pytest.raises(ValidationError, match="(?i)super admin"):
+        await service.send_money(sender.id, recipient_wallet.id, 10000, key)
+
+    fresh = await WalletRepository(session).get_by_id(recipient_wallet.id)
+    assert fresh is not None
+    assert fresh.balance_cents == balance_before
+    assert await TransactionRepository(session).get_by_idempotency_key(key) is None
