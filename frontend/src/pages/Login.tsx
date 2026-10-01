@@ -60,7 +60,9 @@ export default function Login() {
     setIdLoading(true);
     try {
       await completeLogin(pendingEmail, normalizedIdNo);
-      navigate("/");
+      const raw = localStorage.getItem("user");
+      const role = raw ? (JSON.parse(raw).role as string) : "";
+      navigate(role === "SUPER_ADMIN" ? "/super-admin" : "/");
     } catch (err: any) {
       setIdError(err.message || "Could not verify ID No.");
     } finally {

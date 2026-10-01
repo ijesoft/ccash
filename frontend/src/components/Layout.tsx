@@ -51,25 +51,28 @@ const primaryNav: { label: string; icon: React.ReactNode; path: string; perm?: s
   { label: "Master List", icon: <ListAltIcon />, path: "/master-list", perm: "masterlist:read" },
 ];
 
-const secondaryNav = [
+const secondaryNav: { label: string; icon: React.ReactNode; path: string; superOnly?: boolean }[] = [
   { label: "Cash In", icon: <CallReceivedIcon />, path: "/cash-in" },
   { label: "Cash Out", icon: <CallMadeIcon />, path: "/cash-out" },
   { label: "Admin", icon: <AdminPanelSettingsIcon />, path: "/admin" },
+  { label: "Super Admin", icon: <AdminPanelSettingsIcon />, path: "/super-admin", superOnly: true },
   { label: "Notifications", icon: <NotificationsNoneIcon />, path: "/notifications" },
   { label: "Profile", icon: <PersonIcon />, path: "/profile" },
 ];
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, isAdmin, can, logout } = useAuth();
+  const { user, isAdmin, isSuperAdmin, can, logout } = useAuth();
   const visibleSecondaryNav = secondaryNav.filter((item) => {
+    if (item.superOnly) return isSuperAdmin;
+    if (isSuperAdmin) return item.path === "/notifications" || item.path === "/profile";
     if (item.path === "/cash-in" || item.path === "/cash-out") return can("cash:operate");
     if (item.path === "/admin") return can("users:read");
     return true;
   });
   const visiblePrimaryNav = primaryNav.filter(
     (item) => (!item.perm || can(item.perm)) && (!item.adminOnly || isAdmin),
-  );
+  ).filter(() => !isSuperAdmin);
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -183,7 +186,7 @@ export default function Layout() {
         ))}
       </List>
 
-      {isAdmin && (
+      {(isAdmin || isSuperAdmin) && (
         <Box sx={{ px: 2, pb: 1 }}>
           <Box
             role="button"
@@ -356,7 +359,7 @@ export default function Layout() {
         <Outlet />
       </Box>
 
-      {isMobile && !mobileOpen && (
+      {isMobile && !mobileOpen && visiblePrimaryNav.length > 0 && (
         <BottomNavigation
           showLabels
           value={visiblePrimaryNav.some((n) => n.path === currentPath) ? currentPath : false}

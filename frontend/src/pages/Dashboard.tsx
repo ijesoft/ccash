@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -33,8 +33,9 @@ const ADMIN_ONLY_PATHS = ["/cash-in", "/cash-out"];
 export default function Dashboard() {
   const { wallet, loading } = useWallet();
   const { transactions, loading: txLoading } = useTransactions(5, 0);
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
+  useEffect(() => { if (isSuperAdmin) navigate("/super-admin", { replace: true }); }, [isSuperAdmin, navigate]);
   const [selected, setSelected] = useState<Transaction | null>(null);
 
   const actions = isAdmin ? allActions : allActions.filter((a) => !ADMIN_ONLY_PATHS.includes(a.path));

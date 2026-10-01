@@ -5,7 +5,7 @@ import { AuthProvider } from "./context/AuthContext";
 import client from "./graphql/client";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { RequirePerm } from "./components/AdminRoute";
+import { RequirePerm, RequireSuperAdmin } from "./components/AdminRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import MerchantRegister from "./pages/MerchantRegister";
@@ -21,6 +21,7 @@ import MasterList from "./pages/MasterList";
 import Profile from "./pages/Profile";
 import NotificationsPage from "./pages/Notifications";
 import AdminDashboard from "./pages/AdminDashboard";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import WalletBalances from "./pages/WalletBalances";
 import AccountDetail from "./pages/AccountDetail";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
@@ -51,6 +52,7 @@ export default function App() {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/admin" element={<RequirePerm perm="users:read"><AdminDashboard /></RequirePerm>} />
+                <Route path="/super-admin" element={<RequireSuperAdmin><SuperAdminDashboard /></RequireSuperAdmin>} />
                 <Route path="/admin/accounts/:id" element={<RequirePerm perm="users:read"><AccountDetail /></RequirePerm>} />
                 <Route path="/wallet-balances" element={<RequirePerm perm="platform:stats"><WalletBalances /></RequirePerm>} />
               </Route>
