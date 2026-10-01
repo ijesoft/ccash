@@ -63,12 +63,36 @@ class AdminService:
         )
         total_balance = balance_result.scalar() or 0
 
+        role_count_rows = (
+            await self.session.execute(select(User.role, func.count(User.id)).group_by(User.role))
+        ).all()
+        role_counts = {role: count for role, count in role_count_rows}
+
+        role_balance_rows = (
+            await self.session.execute(
+                select(User.role, func.coalesce(func.sum(Wallet.balance_cents), 0))
+                .join(Wallet, User.id == Wallet.user_id)
+                .where(
+                    Wallet.status == WalletStatus.ACTIVE,
+                    Wallet.deleted_at.is_(None),
+                )
+                .group_by(User.role)
+            )
+        ).all()
+        role_balances = {role: balance or 0 for role, balance in role_balance_rows}
+
         return {
             "total_users": user_count,
             "active_wallets": wallet_count,
             "total_transactions": tx_count,
             "transaction_volume_cents": volume,
             "total_wallet_balance_cents": total_balance,
+            "member_count": role_counts.get(UserRole.MEMBER, 0),
+            "merchant_count": role_counts.get(UserRole.MERCHANT, 0),
+            "admin_count": role_counts.get(UserRole.ADMIN, 0),
+            "member_balance_cents": role_balances.get(UserRole.MEMBER, 0),
+            "merchant_balance_cents": role_balances.get(UserRole.MERCHANT, 0),
+            "admin_balance_cents": role_balances.get(UserRole.ADMIN, 0),
         }
 
     async def list_users(

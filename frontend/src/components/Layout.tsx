@@ -33,6 +33,8 @@ import ListAltIcon from "@mui/icons-material/ListAlt";
 import CallReceivedIcon from "@mui/icons-material/CallReceived";
 import CallMadeIcon from "@mui/icons-material/CallMade";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import PeopleIcon from "@mui/icons-material/People";
 import { useQuery } from "@apollo/client";
 import { UNREAD_COUNT } from "../graphql/queries/wallet";
 import { GET_BRANDING, type BrandingData } from "../graphql/queries/branding";
@@ -55,7 +57,8 @@ const secondaryNav: { label: string; icon: React.ReactNode; path: string; superO
   { label: "Cash In", icon: <CallReceivedIcon />, path: "/cash-in" },
   { label: "Cash Out", icon: <CallMadeIcon />, path: "/cash-out" },
   { label: "Admin", icon: <AdminPanelSettingsIcon />, path: "/admin" },
-  { label: "Super Admin", icon: <AdminPanelSettingsIcon />, path: "/super-admin", superOnly: true },
+  { label: "Dashboard", icon: <DashboardIcon />, path: "/super-admin", superOnly: true },
+  { label: "Users", icon: <PeopleIcon />, path: "/super-admin/users", superOnly: true },
   { label: "Notifications", icon: <NotificationsNoneIcon />, path: "/notifications" },
   { label: "Profile", icon: <PersonIcon />, path: "/profile" },
 ];

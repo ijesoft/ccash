@@ -11,6 +11,36 @@ def test_super_admin_role_exists_with_all_perms():
     assert "users:read" in permissions_for(UserRole.SUPER_ADMIN)
 
 
+async def test_platform_stats_includes_role_breakdown(session, make_account):
+    from app.domains.admin.service import AdminService
+
+    member, member_wallet = await make_account()
+    merchant, _ = await make_account()
+    merchant.role = UserRole.MERCHANT
+    admin, _ = await make_account()
+    admin.role = UserRole.ADMIN
+    member_wallet.balance_cents = 10000
+    await session.commit()
+
+    from app.domains.wallets.repository import WalletRepository
+
+    merchant_wallet = await WalletRepository(session).get_by_user_id(merchant.id)
+    admin_wallet = await WalletRepository(session).get_by_user_id(admin.id)
+    assert merchant_wallet is not None and admin_wallet is not None
+    merchant_wallet.balance_cents = 20000
+    admin_wallet.balance_cents = 30000
+    await session.commit()
+
+    stats = await AdminService(session).get_platform_stats()
+    assert stats["member_count"] == 1
+    assert stats["merchant_count"] == 1
+    assert stats["admin_count"] == 1
+    assert stats["member_balance_cents"] == 10000
+    assert stats["merchant_balance_cents"] == 20000
+    assert stats["admin_balance_cents"] == 30000
+    assert stats["total_wallet_balance_cents"] == 60000
+
+
 async def test_userrole_enum_has_super_admin_in_db(session):
     from sqlalchemy import text
 

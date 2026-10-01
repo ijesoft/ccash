@@ -8,6 +8,12 @@ export const GET_ADMIN_STATS = gql`
       totalTransactions
       transactionVolumeCents
       totalWalletBalanceCents
+      memberCount
+      merchantCount
+      adminCount
+      memberBalanceCents
+      merchantBalanceCents
+      adminBalanceCents
     }
   }
 `;

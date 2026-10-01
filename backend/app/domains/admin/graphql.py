@@ -32,6 +32,12 @@ class PlatformStats:
     total_transactions: int
     transaction_volume_cents: int
     total_wallet_balance_cents: int
+    member_count: int
+    merchant_count: int
+    admin_count: int
+    member_balance_cents: int
+    merchant_balance_cents: int
+    admin_balance_cents: int
 
 
 @strawberry.type
