@@ -328,8 +328,10 @@ class AdminMutations:
         require_perms(info.context, Permission.USERS_SUSPEND)
         service = await get_admin_service(info)
         try:
-            user = await service.suspend_user(uuid.UUID(user_id))
+            user = await service.suspend_user_as(uuid.UUID(user_id), info.context.user_id)
             return UserType.from_model(user) if user else None
+        except ValidationError as e:
+            raise Exception(str(e))
         finally:
             await service.session.close()
 
@@ -338,8 +340,10 @@ class AdminMutations:
         require_perms(info.context, Permission.USERS_SUSPEND)
         service = await get_admin_service(info)
         try:
-            user = await service.activate_user(uuid.UUID(user_id))
+            user = await service.activate_user_as(uuid.UUID(user_id), info.context.user_id)
             return UserType.from_model(user) if user else None
+        except ValidationError as e:
+            raise Exception(str(e))
         finally:
             await service.session.close()
 

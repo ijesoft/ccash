@@ -168,3 +168,89 @@ async def test_send_money_to_super_admin_recipient_blocked(session, make_account
             sender.id, None, 10000, str(uuid.uuid4()), receiver_mobile=recipient.phone
         )
     assert await WalletRepository(session).get_by_user_id(recipient.id) is None
+
+
+async def test_only_super_admin_can_assign_super_admin(session, make_account):
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+
+    admin, _ = await make_account()
+    admin.role = UserRole.ADMIN
+    target, _ = await make_account()
+    await session.commit()
+    service = AdminService(session)
+    with pytest.raises(ValidationError, match="(?i)super admin"):
+        await service.update_user_role(target.id, UserRole.SUPER_ADMIN, actor_id=admin.id)
+
+
+async def test_super_admin_can_promote_to_super_admin(session, make_account):
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+
+    superadmin, _ = await make_account()
+    superadmin.role = UserRole.SUPER_ADMIN
+    target, _ = await make_account()
+    await session.commit()
+    service = AdminService(session)
+    updated = await service.update_user_role(
+        target.id, UserRole.SUPER_ADMIN, actor_id=superadmin.id
+    )
+    assert updated.role == UserRole.SUPER_ADMIN
+
+
+async def test_admin_cannot_suspend_or_delete_super_admin(session, make_account):
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+
+    admin, _ = await make_account()
+    admin.role = UserRole.ADMIN
+    superadmin, _ = await make_account()
+    superadmin.role = UserRole.SUPER_ADMIN
+    await session.commit()
+    service = AdminService(session)
+    with pytest.raises(ValidationError, match="(?i)super admin"):
+        await service.suspend_user_as(superadmin.id, actor_id=admin.id)
+    with pytest.raises(ValidationError, match="(?i)super admin"):
+        await service.delete_account(superadmin.id, actor_id=admin.id)
+
+
+async def test_cannot_delete_last_super_admin(session, make_account):
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+
+    superadmin, _ = await make_account()
+    superadmin.role = UserRole.SUPER_ADMIN
+    await session.commit()
+    service = AdminService(session)
+    # Self-delete guard fires first in the single-super-admin setup; accept
+    # either message — both prevent last-super-admin lockout.
+    with pytest.raises(ValidationError, match="(?i)super-admin|own account"):
+        await service.delete_account(superadmin.id, actor_id=superadmin.id)
+
+
+async def test_cannot_demote_last_super_admin(session, make_account):
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+
+    superadmin, _ = await make_account()
+    superadmin.role = UserRole.SUPER_ADMIN
+    await session.commit()
+    service = AdminService(session)
+    # Self-demote guard fires first in the single-super-admin setup; accept
+    # either message — both prevent last-super-admin lockout.
+    with pytest.raises(ValidationError, match="(?i)super-admin|own account"):
+        await service.update_user_role(
+            superadmin.id, UserRole.MEMBER, actor_id=superadmin.id
+        )

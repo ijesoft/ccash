@@ -174,6 +174,28 @@ class AdminService:
             await self.session.commit()
         return user
 
+    async def suspend_user_as(self, user_id: uuid.UUID, actor_id: uuid.UUID) -> User | None:
+        actor = await self.user_repo.get_by_id(actor_id)
+        target = await self.user_repo.get_by_id(user_id)
+        if (
+            target
+            and target.role == UserRole.SUPER_ADMIN
+            and (not actor or actor.role != UserRole.SUPER_ADMIN)
+        ):
+            raise ValidationError("Only a super admin can suspend a super admin account")
+        return await self.suspend_user(user_id)
+
+    async def activate_user_as(self, user_id: uuid.UUID, actor_id: uuid.UUID) -> User | None:
+        actor = await self.user_repo.get_by_id(actor_id)
+        target = await self.user_repo.get_by_id(user_id)
+        if (
+            target
+            and target.role == UserRole.SUPER_ADMIN
+            and (not actor or actor.role != UserRole.SUPER_ADMIN)
+        ):
+            raise ValidationError("Only a super admin can activate a super admin account")
+        return await self.activate_user(user_id)
+
     async def update_user_role(
         self, user_id: uuid.UUID, new_role: UserRole, actor_id: uuid.UUID
     ) -> User:
@@ -181,8 +203,19 @@ class AdminService:
         if not user:
             raise NotFoundError("User not found")
 
-        if user_id == actor_id and new_role != UserRole.ADMIN:
+        if user_id == actor_id and new_role != user.role:
             raise ValidationError("You cannot demote your own account")
+
+        actor = await self.user_repo.get_by_id(actor_id)
+        actor_role = actor.role if actor else None
+
+        # Only an existing super-admin can create another super-admin.
+        if new_role == UserRole.SUPER_ADMIN and actor_role != UserRole.SUPER_ADMIN:
+            raise ValidationError("Only a super admin can assign the super admin role")
+
+        # Admins cannot touch super-admin accounts at all.
+        if user.role == UserRole.SUPER_ADMIN and actor_role != UserRole.SUPER_ADMIN:
+            raise ValidationError("Only a super admin can modify a super admin account")
 
         # Lockout prevention: never allow the organization's last admin to be
         # demoted. SUSPENDED admins still count — they can be reactivated.
@@ -198,6 +231,20 @@ class AdminService:
             ).scalar() or 0
             if other_admins == 0:
                 raise ValidationError("Cannot demote the last admin")
+
+        # Same lockout prevention for the last super-admin.
+        if user.role == UserRole.SUPER_ADMIN and new_role != UserRole.SUPER_ADMIN:
+            other_supers = (
+                await self.session.execute(
+                    select(func.count(User.id)).where(
+                        User.role == UserRole.SUPER_ADMIN,
+                        User.deleted_at.is_(None),
+                        User.id != user_id,
+                    )
+                )
+            ).scalar() or 0
+            if other_supers == 0:
+                raise ValidationError("Cannot demote the last super-admin")
 
         old_role = user.role.value
         user.role = new_role
@@ -513,6 +560,23 @@ class AdminService:
         user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise NotFoundError("Account not found")
+
+        actor = await self.user_repo.get_by_id(actor_id)
+        actor_role = actor.role if actor else None
+        if user.role == UserRole.SUPER_ADMIN and actor_role != UserRole.SUPER_ADMIN:
+            raise ValidationError("Only a super admin can delete a super admin account")
+        if user.role == UserRole.SUPER_ADMIN:
+            other_supers = (
+                await self.session.execute(
+                    select(func.count(User.id)).where(
+                        User.role == UserRole.SUPER_ADMIN,
+                        User.deleted_at.is_(None),
+                        User.id != user_id,
+                    )
+                )
+            ).scalar() or 0
+            if other_supers == 0:
+                raise ValidationError("Cannot delete the last super-admin")
 
         if user.role == UserRole.ADMIN:
             other_admins = (
