@@ -89,6 +89,8 @@ class TransactionService:
             user = await self._find_user_by_mobile(receiver_mobile)
             if not user:
                 raise NotFoundError("Recipient not found")
+            if user.role == UserRole.SUPER_ADMIN:
+                raise ValidationError("Super admin accounts cannot receive money (no wallet)")
             receiver_wallet = await self.wallet_repo.get_by_user_id(user.id)
             if not receiver_wallet:
                 receiver_wallet = await self.wallet_repo.create(user.id)
@@ -96,6 +98,17 @@ class TransactionService:
 
         if resolved_receiver_wallet_id is None:
             raise ValidationError("Recipient is required")
+
+        # Direct wallet-id path: the recipient user is the wallet's owner.
+        # Checked before locking or mutating balances so a super-admin is
+        # never credited (and no wallet row is minted for them above).
+        receiver_wallet_pre = await self.wallet_repo.get_by_id(resolved_receiver_wallet_id)
+        if receiver_wallet_pre is not None:
+            recipient_user = await UserRepository(self.session).get_by_id(
+                receiver_wallet_pre.user_id
+            )
+            if recipient_user is not None and recipient_user.role == UserRole.SUPER_ADMIN:
+                raise ValidationError("Super admin accounts cannot receive money (no wallet)")
 
         if sender_wallet.id == resolved_receiver_wallet_id:
             raise ValidationError("Cannot send money to your own wallet")

@@ -140,3 +140,31 @@ async def test_set_pin_blocks_super_admin(session, make_account):
     service = WalletService(session)
     with pytest.raises(ValidationError, match="Super admin"):
         await service.set_pin(user.id, "1234")
+
+
+async def test_send_money_to_super_admin_recipient_blocked(session, make_account):
+    import uuid
+
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.domains.transactions.service import TransactionService
+    from app.domains.wallets.repository import WalletRepository
+
+    sender, _sender_wallet = await make_account()
+    recipient, _recipient_wallet = await make_account()
+    recipient.role = UserRole.SUPER_ADMIN
+    await session.commit()
+    # Simulate the seed shape: super-admin rows exist without a wallet.
+    existing = await WalletRepository(session).get_by_user_id(recipient.id)
+    if existing:
+        await session.delete(existing)
+        await session.commit()
+    assert await WalletRepository(session).get_by_user_id(recipient.id) is None
+
+    service = TransactionService(session)
+    with pytest.raises(ValidationError, match="Super admin"):
+        await service.send_money(
+            sender.id, None, 10000, str(uuid.uuid4()), receiver_mobile=recipient.phone
+        )
+    assert await WalletRepository(session).get_by_user_id(recipient.id) is None
