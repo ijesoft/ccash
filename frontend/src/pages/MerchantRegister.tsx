@@ -77,7 +77,7 @@ export default function MerchantRegister() {
           },
         },
       });
-      navigate(`/verify-otp?email=${encodeURIComponent(email)}`);
+      navigate("/login", { state: { registeredEmail: email } });
     } catch (err: any) {
       setError(err.message || "Registration failed");
     }

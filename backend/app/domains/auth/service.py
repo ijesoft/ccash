@@ -103,16 +103,14 @@ class AuthService:
             id_no=id_no,
             middle_name=middle_name,
         )
+        # No email verification step: signup is immediately verified and the
+        # wallet is issued here (verify_otp previously did both).
+        user.is_verified = True
+        user.status = UserStatus.ACTIVE
+        wallet_repo = WalletRepository(self.session)
+        if not await wallet_repo.get_by_user_id(user.id):
+            await wallet_repo.create(user.id)
         await self.session.commit()
-
-        otp = generate_otp()
-        await self.redis.setex(f"otp:{email}", 300, otp)
-
-        send_email_notification.delay(
-            to_email=email,
-            subject="Verify your Campe Wallet account",
-            body=f"Your verification code is: {otp}\n\nThis code expires in 5 minutes.",
-        )
 
         return user
 

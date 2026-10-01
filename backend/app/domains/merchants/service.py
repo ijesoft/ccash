@@ -7,13 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
 from app.core.masking import normalize_philippine_mobile
-from app.core.security import generate_otp, hash_password
-from app.domains.auth.models import User, UserRole
+from app.core.security import hash_password
+from app.domains.auth.models import User, UserRole, UserStatus
 from app.domains.auth.repository import UserRepository
 from app.domains.merchants.models import MerchantProfile
 from app.domains.merchants.policy import generate_merchant_id_no, is_valid_merchant_id_no
 from app.domains.merchants.repository import MerchantRepository
-from app.tasks.notifications import send_email_notification
+from app.domains.wallets.repository import WalletRepository
 
 _MAX_ID_GENERATION_ATTEMPTS = 5
 
@@ -83,21 +83,19 @@ class MerchantService:
             address=address,
             tin=tin,
         )
+        # No email verification step: signup is immediately verified and the
+        # wallet is issued here.
+        user.is_verified = True
+        user.status = UserStatus.ACTIVE
         try:
             await self.merchant_repo.create(profile)
+            wallet_repo = WalletRepository(self.session)
+            if not await wallet_repo.get_by_user_id(user.id):
+                await wallet_repo.create(user.id)
             await self.session.commit()
         except IntegrityError:
             await self.session.rollback()
             raise ValidationError("Merchant ID, email, or mobile number already in use")
-
-        otp = generate_otp()
-        await self.redis.setex(f"otp:{email}", 300, otp)
-
-        send_email_notification.delay(
-            to_email=email,
-            subject="Verify your Campe Wallet merchant account",
-            body=f"Your verification code is: {otp}\n\nThis code expires in 5 minutes.",
-        )
 
         return user, profile
 

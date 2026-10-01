@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link as RouterLink, useSearchParams } from "react-router-dom";
+import { useNavigate, Link as RouterLink, useSearchParams, useLocation } from "react-router-dom";
 import { Box, Button, Card, CardContent, TextField, Typography, Alert, Link } from "@mui/material";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import BadgeIcon from "@mui/icons-material/Badge";
@@ -29,7 +29,9 @@ export default function Login() {
   const [sendLoginOtp] = useMutation(SEND_LOGIN_OTP);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const sessionExpired = searchParams.get("reason") === "session-expired";
+  const justRegisteredEmail = (location.state as { registeredEmail?: string } | null)?.registeredEmail;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,6 +137,9 @@ export default function Login() {
                 </Alert>
               )}
               {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
+              {!pendingEmail && justRegisteredEmail && !error && (
+                <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>Account created for {justRegisteredEmail}. Please sign in.</Alert>
+              )}
               {otpSent && <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>Verification code sent to your email</Alert>}
 
               <Box component="form" onSubmit={handleSubmit}>

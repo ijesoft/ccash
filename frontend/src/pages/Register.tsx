@@ -98,7 +98,7 @@ export default function Register() {
           middleName: middleName || null,
         },
       });
-      navigate(`/verify-otp?email=${encodeURIComponent(email)}`);
+      navigate("/login", { state: { registeredEmail: email } });
     } catch (err: any) {
       setError(err.message || "Registration failed");
     }

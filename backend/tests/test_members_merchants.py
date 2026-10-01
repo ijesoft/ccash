@@ -306,3 +306,47 @@ async def test_list_users_includes_phone(session, make_account):
     members, _ = await AdminService(session).list_users()
     row = next(m for m in members if m["id"] == str(user.id))
     assert row["phone"] == user.phone
+
+
+async def test_member_register_auto_verifies_with_wallet(session):
+    """No email verification step: member signup is immediately verified
+    with a wallet, and no OTP is stored."""
+    from app.domains.auth.models import UserStatus
+    from app.domains.auth.service import AuthService
+    from app.domains.wallets.repository import WalletRepository
+
+    service = AuthService(session, None)
+    user = await service.register(
+        email="fresh-member@ccash.test",
+        phone="09189999901",
+        password="Test123!",
+        id_no="899999901",
+        first_name="Fresh",
+        last_name="Member",
+    )
+    assert user.is_verified is True
+    assert user.status == UserStatus.ACTIVE
+    wallet = await WalletRepository(session).get_by_user_id(user.id)
+    assert wallet is not None
+
+
+async def test_merchant_register_auto_verifies_with_wallet(session):
+    """No email verification step for merchants either."""
+    from app.domains.auth.models import UserStatus
+    from app.domains.merchants.service import MerchantService
+    from app.domains.wallets.repository import WalletRepository
+
+    service = MerchantService(session, None)
+    user, _ = await service.register(
+        email="fresh-store@ccash.test",
+        mobile_no="09189999902",
+        password="Test123!",
+        company_name="Fresh Store",
+        contact_person="Owner",
+        address="Somewhere",
+        tin="999-999-999",
+    )
+    assert user.is_verified is True
+    assert user.status == UserStatus.ACTIVE
+    wallet = await WalletRepository(session).get_by_user_id(user.id)
+    assert wallet is not None
