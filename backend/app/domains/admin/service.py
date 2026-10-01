@@ -276,7 +276,10 @@ class AdminService:
     async def activate_user(self, user_id: uuid.UUID) -> User | None:
         user = await self.user_repo.get_by_id(user_id)
         if user:
+            # Approval doubles as verification: newly signed-up accounts wait
+            # in PENDING until an admin activates them here.
             user.status = UserStatus.ACTIVE
+            user.is_verified = True
             await self.user_repo.update(user)
             await self.session.commit()
         return user

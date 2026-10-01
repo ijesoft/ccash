@@ -31,7 +31,8 @@ export default function Login() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const sessionExpired = searchParams.get("reason") === "session-expired";
-  const justRegisteredEmail = (location.state as { registeredEmail?: string } | null)?.registeredEmail;
+  const justRegisteredEmail = (location.state as { registeredEmail?: string; pendingApproval?: boolean } | null)?.registeredEmail;
+  const pendingApproval = (location.state as { pendingApproval?: boolean } | null)?.pendingApproval === true;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +139,11 @@ export default function Login() {
               )}
               {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
               {!pendingEmail && justRegisteredEmail && !error && (
-                <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>Account created for {justRegisteredEmail}. Please sign in.</Alert>
+                <Alert severity={pendingApproval ? "warning" : "success"} sx={{ mb: 2, borderRadius: 2 }}>
+                  {pendingApproval
+                    ? `Account created for ${justRegisteredEmail}. Please wait for admin approval before signing in.`
+                    : `Account created for ${justRegisteredEmail}. Please sign in.`}
+                </Alert>
               )}
               {otpSent && <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>Verification code sent to your email</Alert>}
 

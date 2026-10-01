@@ -308,9 +308,11 @@ async def test_list_users_includes_phone(session, make_account):
     assert row["phone"] == user.phone
 
 
-async def test_member_register_auto_verifies_with_wallet(session):
-    """No email verification step: member signup is immediately verified
-    with a wallet, and no OTP is stored."""
+async def test_member_register_stays_pending_until_admin_approval(session):
+    """New member signups wait for admin approval: PENDING + unverified,
+    wallet pre-created, login rejected until an admin activates."""
+    from app.core.errors import AuthenticationError
+    from app.domains.admin.service import AdminService
     from app.domains.auth.models import UserStatus
     from app.domains.auth.service import AuthService
     from app.domains.wallets.repository import WalletRepository
@@ -324,10 +326,18 @@ async def test_member_register_auto_verifies_with_wallet(session):
         first_name="Fresh",
         last_name="Member",
     )
-    assert user.is_verified is True
-    assert user.status == UserStatus.ACTIVE
+    assert user.status == UserStatus.PENDING
+    assert user.is_verified is False
     wallet = await WalletRepository(session).get_by_user_id(user.id)
     assert wallet is not None
+
+    with pytest.raises(AuthenticationError, match="inactive"):
+        await service.login("fresh-member@ccash.test", "Test123!")
+
+    activated = await AdminService(session).activate_user(user.id)
+    assert activated is not None
+    assert activated.status == UserStatus.ACTIVE
+    assert activated.is_verified is True
 
 
 async def test_merchant_register_auto_verifies_with_wallet(session):

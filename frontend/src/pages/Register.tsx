@@ -98,7 +98,7 @@ export default function Register() {
           middleName: middleName || null,
         },
       });
-      navigate("/login", { state: { registeredEmail: email } });
+      navigate("/login", { state: { registeredEmail: email, pendingApproval: true } });
     } catch (err: any) {
       setError(err.message || "Registration failed");
     }
