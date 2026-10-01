@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFoundError, ValidationError
 from app.core.masking import normalize_philippine_mobile
 from app.core.security import hash_password
-from app.domains.auth.models import User, UserRole, UserStatus
+from app.domains.auth.models import User, UserRole
 from app.domains.auth.repository import UserRepository
 from app.domains.merchants.models import MerchantProfile
 from app.domains.merchants.policy import generate_merchant_id_no, is_valid_merchant_id_no
@@ -83,10 +83,9 @@ class MerchantService:
             address=address,
             tin=tin,
         )
-        # No email verification step: signup is immediately verified and the
-        # wallet is issued here.
-        user.is_verified = True
-        user.status = UserStatus.ACTIVE
+        # No email verification step: the account stays PENDING (unverified)
+        # until an admin approves it via activate_user. The wallet is
+        # pre-created so it is ready the moment approval lands.
         try:
             await self.merchant_repo.create(profile)
             wallet_repo = WalletRepository(self.session)

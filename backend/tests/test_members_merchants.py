@@ -340,9 +340,13 @@ async def test_member_register_stays_pending_until_admin_approval(session):
     assert activated.is_verified is True
 
 
-async def test_merchant_register_auto_verifies_with_wallet(session):
-    """No email verification step for merchants either."""
+async def test_merchant_register_stays_pending_until_admin_approval(session):
+    """Merchant signups wait for admin approval too: PENDING + unverified,
+    wallet pre-created, login rejected until an admin activates."""
+    from app.core.errors import AuthenticationError
+    from app.domains.admin.service import AdminService
     from app.domains.auth.models import UserStatus
+    from app.domains.auth.service import AuthService
     from app.domains.merchants.service import MerchantService
     from app.domains.wallets.repository import WalletRepository
 
@@ -356,7 +360,15 @@ async def test_merchant_register_auto_verifies_with_wallet(session):
         address="Somewhere",
         tin="999-999-999",
     )
-    assert user.is_verified is True
-    assert user.status == UserStatus.ACTIVE
+    assert user.status == UserStatus.PENDING
+    assert user.is_verified is False
     wallet = await WalletRepository(session).get_by_user_id(user.id)
     assert wallet is not None
+
+    with pytest.raises(AuthenticationError, match="inactive"):
+        await AuthService(session, None).login("fresh-store@ccash.test", "Test123!")
+
+    activated = await AdminService(session).activate_user(user.id)
+    assert activated is not None
+    assert activated.status == UserStatus.ACTIVE
+    assert activated.is_verified is True
