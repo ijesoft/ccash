@@ -30,3 +30,74 @@ async def test_userrole_enum_has_super_admin_in_db(session):
     assert "SUPER_ADMIN" in rows
     # Model-level lock alongside the DB check
     assert UserRole.SUPER_ADMIN.value == "SUPER_ADMIN"
+
+
+async def test_verify_otp_creates_no_wallet_for_super_admin(session, make_account):
+    from app.domains.auth.service import AuthService
+    from app.domains.wallets.repository import WalletRepository
+
+    class _FakeRedis:
+        """In-memory stand-in: real Redis is unreachable from the host."""
+
+        def __init__(self):
+            self.store: dict[str, str] = {}
+
+        async def get(self, key: str):
+            return self.store.get(key)
+
+        async def setex(self, key: str, _ttl: int, value: str):
+            self.store[key] = value
+
+        async def delete(self, *keys: str):
+            for key in keys:
+                self.store.pop(key, None)
+
+    user, _w = await make_account()
+    user.role = UserRole.SUPER_ADMIN
+    await session.commit()
+    # Simulate the seed shape: super-admin rows are created without a wallet.
+    existing = await WalletRepository(session).get_by_user_id(user.id)
+    if existing:
+        await session.delete(existing)
+        await session.commit()
+    assert await WalletRepository(session).get_by_user_id(user.id) is None
+
+    # Directly assert verify_otp skips wallet creation for SUPER_ADMIN.
+    fake_redis = _FakeRedis()
+    fake_redis.store[f"otp:{user.email}"] = "123456"
+    service = AuthService(session, fake_redis)
+    assert await service.verify_otp(user.email, "123456") is True
+    assert await WalletRepository(session).get_by_user_id(user.id) is None
+
+
+async def test_wallet_service_blocks_super_admin(session, make_account):
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.domains.wallets.service import WalletService
+
+    user, _w = await make_account()
+    user.role = UserRole.SUPER_ADMIN
+    user.id_no = "900000001"
+    await session.commit()
+    service = WalletService(session)
+    with pytest.raises(ValidationError, match="Super admin"):
+        await service.get_or_create_wallet_for_role(user.id, UserRole.SUPER_ADMIN)
+
+
+async def test_send_money_blocks_super_admin_caller(session, make_account):
+    import uuid
+
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.domains.transactions.service import TransactionService
+
+    caller, _w = await make_account()
+    caller.role = UserRole.SUPER_ADMIN
+    await session.commit()
+    service = TransactionService(session)
+    with pytest.raises(ValidationError, match="Super admin"):
+        await service.send_money(
+            caller.id, None, 10000, str(uuid.uuid4()), receiver_mobile="09180000002"
+        )

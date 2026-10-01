@@ -7,7 +7,7 @@ from app.core.errors import NotFoundError, ValidationError
 from app.core.masking import mask_mobile
 from app.database import async_session_factory
 from app.domains.auth.repository import UserRepository
-from app.domains.auth.models import User
+from app.domains.auth.models import User, UserRole
 from app.domains.wallets.models import Wallet
 from app.domains.wallets.service import WalletService
 from app.graphql.middleware import AuthContext
@@ -69,6 +69,8 @@ class WalletQueries:
         context: AuthContext = info.context
         if not context.user_id:
             raise Exception("Not authenticated")
+        if context.role == UserRole.SUPER_ADMIN.value:
+            raise Exception("Super admin accounts do not have wallets")
 
         service = await get_wallet_service(info)
         try:

@@ -37,7 +37,7 @@ INACTIVE_ACCOUNT_MESSAGE = "Account is inactive, please contact administrator."
 def _scopes_for(user: User) -> list[str]:
     scopes = ["wallet:read", "wallet:write"]
     scopes.extend(permissions_for(user.role))
-    if user.role == UserRole.ADMIN and "admin" not in scopes:
+    if user.role in (UserRole.ADMIN, UserRole.SUPER_ADMIN) and "admin" not in scopes:
         scopes.append("admin")  # legacy shim, remove after frontend cutover
     return scopes
 
@@ -60,6 +60,12 @@ class AuthService:
         middle_name: str | None = None,
     ) -> User:
         import re
+
+        # Public registration can only create MEMBER accounts. SUPER_ADMIN
+        # accounts are created by seed (superadmin@ccash.ph) and managed
+        # via AdminService.update_user_role by an existing super-admin.
+        # (register takes no role param — this comment locks that invariant
+        # so any future role-param addition keeps SUPER_ADMIN unmintable here.)
 
         # Strict 11-digit numeric check - no letters/symbols allowed
         if not re.fullmatch(r"\d{11}", phone):
@@ -149,9 +155,10 @@ class AuthService:
         await self.repo.update(user)
 
         wallet_repo = WalletRepository(self.session)
-        existing_wallet = await wallet_repo.get_by_user_id(user.id)
-        if not existing_wallet:
-            await wallet_repo.create(user.id)
+        if user.role != UserRole.SUPER_ADMIN:
+            existing_wallet = await wallet_repo.get_by_user_id(user.id)
+            if not existing_wallet:
+                await wallet_repo.create(user.id)
 
         await self.session.commit()
 

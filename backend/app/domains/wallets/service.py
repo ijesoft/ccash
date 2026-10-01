@@ -4,6 +4,7 @@ from argon2 import PasswordHasher
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError, WalletNotActiveError
+from app.domains.auth.models import UserRole
 from app.domains.wallets.models import Favorite, Wallet, WalletStatus
 from app.domains.wallets.repository import WalletRepository
 
@@ -21,6 +22,11 @@ class WalletService:
             wallet = await self.repo.create(user_id)
             await self.session.commit()
         return wallet
+
+    async def get_or_create_wallet_for_role(self, user_id: uuid.UUID, role: UserRole) -> Wallet:
+        if role == UserRole.SUPER_ADMIN:
+            raise ValidationError("Super admin accounts do not have wallets")
+        return await self.get_or_create_wallet(user_id)
 
     async def get_wallet(self, user_id: uuid.UUID) -> Wallet:
         wallet = await self.repo.get_by_user_id(user_id)

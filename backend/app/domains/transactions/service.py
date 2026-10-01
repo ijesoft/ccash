@@ -14,7 +14,7 @@ from app.core.errors import (
 )
 from app.core.masking import mask_mobile, normalize_philippine_mobile
 from app.core.money import format_php
-from app.domains.auth.models import User
+from app.domains.auth.models import User, UserRole
 from app.domains.auth.repository import UserRepository
 from app.domains.notifications.models import NotificationType
 from app.domains.notifications.repository import NotificationRepository
@@ -50,6 +50,10 @@ class TransactionService:
         pin: str | None = None,
         transaction_type: TransactionType = TransactionType.SEND,
     ) -> TransactionView:
+        caller = await UserRepository(self.session).get_by_id(sender_user_id)
+        if caller is not None and caller.role == UserRole.SUPER_ADMIN:
+            raise ValidationError("Super admin accounts cannot transact (no wallet)")
+
         import re as _re
 
         # Best-practice: never trust client - normalize then enforce 11-digit form.
@@ -284,6 +288,10 @@ class TransactionService:
         idempotency_key: str,
         description: str | None = None,
     ) -> TransactionView:
+        caller = await UserRepository(self.session).get_by_id(user_id)
+        if caller is not None and caller.role == UserRole.SUPER_ADMIN:
+            raise ValidationError("Super admin accounts cannot transact (no wallet)")
+
         validate_amount(amount_cents)
 
         existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
@@ -327,6 +335,10 @@ class TransactionService:
         idempotency_key: str,
         description: str | None = None,
     ) -> TransactionView:
+        caller = await UserRepository(self.session).get_by_id(user_id)
+        if caller is not None and caller.role == UserRole.SUPER_ADMIN:
+            raise ValidationError("Super admin accounts cannot transact (no wallet)")
+
         validate_amount(amount_cents)
 
         existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
