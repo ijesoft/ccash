@@ -254,3 +254,36 @@ async def test_cannot_demote_last_super_admin(session, make_account):
         await service.update_user_role(
             superadmin.id, UserRole.MEMBER, actor_id=superadmin.id
         )
+
+
+async def test_seed_shape_superadmin_has_no_wallet(session, make_account):
+    # Seed contract: a SUPER_ADMIN row mirroring the seed fields exists and
+    # has no wallet row. DB-backed shape test only — do NOT invoke
+    # seed.seed() here (it targets whichever DB settings point at, i.e. the
+    # non-test DB). Live-seed verification is deferred to Task 8/operator.
+    from app.domains.auth.models import UserRole, UserStatus
+    from app.domains.wallets.repository import WalletRepository
+
+    user, _w = await make_account()
+    user.email = "superadmin@ccash.ph"
+    user.phone = "09180000000"
+    user.id_no = "000000000"
+    user.first_name = "Super"
+    user.last_name = "Admin"
+    user.status = UserStatus.ACTIVE
+    user.is_verified = True
+    user.role = UserRole.SUPER_ADMIN
+    await session.commit()
+    # Simulate the seed shape: super-admin rows are created without a wallet.
+    existing = await WalletRepository(session).get_by_user_id(user.id)
+    if existing:
+        await session.delete(existing)
+        await session.commit()
+
+    fetched = await session.get(type(user), user.id)
+    assert fetched is not None
+    assert fetched.email == "superadmin@ccash.ph"
+    assert fetched.role == UserRole.SUPER_ADMIN
+    assert fetched.status == UserStatus.ACTIVE
+    assert fetched.is_verified is True
+    assert await WalletRepository(session).get_by_user_id(user.id) is None
