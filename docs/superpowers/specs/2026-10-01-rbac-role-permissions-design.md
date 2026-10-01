@@ -30,7 +30,7 @@ Alembic migration `009_role_permissions.py`: creates the table, then seeds it fr
 
 New module `backend/app/domains/admin/role_permissions.py` following the domain pattern (`models.py` → `repository.py` → `service.py` → `graphql.py`; service owns the session and calls `session.commit()` explicitly):
 
-- `RolePermission` SQLModel (`role`, `permission`, `deleted_at`, `version`).
+- `RolePermission` SQLModel (`role`, `permission` composite PK only — no `deleted_at`/`version`; see section A).
 - `RolePermissionService`: `get_matrix()` returns `{role: [permissions]}` for all four roles (SUPER_ADMIN synthesized as all permissions, never read from the table); `set_role_permissions(role, permissions, actor_id)` validates every string against the `Permission` enum, rejects `SUPER_ADMIN`, deletes existing rows for the role and inserts the new set in one transaction, writes one `AuditLog` row (`action='rbac.update'`, `resource_type='role'`, `resource_id=role`, old/new permission lists), then commits.
 - `AuthService._scopes_for()` becomes async and awaits the DB-backed `permissions_for()` at login, complete-login, and refresh, preserving the existing `wallet:read/write` base scopes and the legacy `admin` shim.
 
