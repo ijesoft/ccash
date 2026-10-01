@@ -15,6 +15,7 @@ interface AuthContextType {
   accessToken: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   hasRole: (...roles: string[]) => boolean;
   can: (perm: string) => boolean;
   /** Step 1: password (+2FA). Does not authenticate on its own — returns a
@@ -100,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user, accessToken,
     isAuthenticated: !!user && !!accessToken,
     isAdmin: user?.role === "ADMIN",
+    isSuperAdmin: user?.role === "SUPER_ADMIN",
     hasRole: (...roles: string[]) => !!user?.role && roles.includes(user.role),
     can: (perm: string) => hasPermission(user?.role, perm as Permission),
     login, completeLogin, logout, refreshSession, ensureFreshToken,

@@ -1,4 +1,4 @@
-export type Role = "MEMBER" | "MERCHANT" | "ADMIN";
+export type Role = "MEMBER" | "MERCHANT" | "ADMIN" | "SUPER_ADMIN";
 
 export const PERMISSIONS = {
   PLATFORM_STATS: "platform:stats",
@@ -30,6 +30,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   MEMBER: [],
   MERCHANT: [],
   ADMIN: [...ALL],
+  SUPER_ADMIN: [...ALL],
 };
 
 export function hasPermission(role: string | null | undefined, perm: Permission): boolean {
@@ -40,4 +41,8 @@ export function hasPermission(role: string | null | undefined, perm: Permission)
 export function hasRole(role: string | null | undefined, ...wants: Role[]): boolean {
   if (!role) return false;
   return wants.includes(role as Role);
+}
+
+export function isSuperAdmin(role: string | null | undefined): boolean {
+  return role === "SUPER_ADMIN";
 }
