@@ -268,3 +268,32 @@ async def _make_bare_user(session, email: str, phone: str):
     session.add(user)
     await session.flush()
     return user, None
+
+
+async def test_list_users_shows_merchant_id_no(session, make_account):
+    """Merchants log in with their M-prefixed merchant_id_no (stored on the
+    profile, not users.id_no) — the admin users table must show it."""
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+    from app.domains.merchants.models import MerchantProfile
+
+    merchant, _ = await make_account()
+    merchant.role = UserRole.MERCHANT
+    merchant.id_no = None
+    await session.commit()
+    session.add(
+        MerchantProfile(
+            user_id=merchant.id,
+            merchant_id_no="M123456789",
+            company_name="Test Store",
+            contact_person="Owner",
+            mobile_no="09180000009",
+            address="Somewhere",
+            tin="000-000-000",
+        )
+    )
+    await session.commit()
+
+    members, _ = await AdminService(session).list_users()
+    row = next(m for m in members if m["id"] == str(merchant.id))
+    assert row["id_no"] == "M123456789"

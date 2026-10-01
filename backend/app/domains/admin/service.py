@@ -179,12 +179,27 @@ class AdminService:
             .limit(limit)
         )
         rows = result.all()
+        # Merchants log in with their M-prefixed merchant_id_no (stored on the
+        # profile, not users.id_no) — fetch profiles in one query, not per row.
+        merchant_ids = [user.id for user, _ in rows if user.role == UserRole.MERCHANT]
+        merchant_id_nos: dict[uuid.UUID, str] = {}
+        if merchant_ids:
+            profiles = (
+                (
+                    await self.session.execute(
+                        select(MerchantProfile).where(MerchantProfile.user_id.in_(merchant_ids))
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            merchant_id_nos = {p.user_id: p.merchant_id_no for p in profiles}
         members = []
         for user, wallet in rows:
             members.append({
                 "id": str(user.id),
                 "email": user.email,
-                "id_no": user.id_no,
+                "id_no": user.id_no or merchant_id_nos.get(user.id),
                 "first_name": user.first_name,
                 "middle_name": user.middle_name,
                 "last_name": user.last_name,
@@ -512,7 +527,8 @@ class AdminService:
             "id": str(user.id),
             "email": user.email,
             "phone": user.phone,
-            "id_no": user.id_no,
+            "id_no": user.id_no
+            or (merchant_profile.merchant_id_no if merchant_profile else None),
             "first_name": user.first_name,
             "middle_name": user.middle_name,
             "last_name": user.last_name,
