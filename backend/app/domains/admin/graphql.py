@@ -14,7 +14,7 @@ from app.domains.merchants.graphql import MerchantProfileType
 from app.domains.transactions.graphql import TransactionType
 from app.domains.transactions.service import TransactionService
 from app.core.rbac import Permission
-from app.graphql.middleware import require_perms
+from app.graphql.middleware import require_perms, require_roles
 
 
 @strawberry.enum
@@ -38,6 +38,17 @@ class PlatformStats:
     member_balance_cents: int
     merchant_balance_cents: int
     admin_balance_cents: int
+
+
+@strawberry.type
+class AuditLogType:
+    id: str
+    actor_email: str | None
+    action: str
+    resource_type: str
+    resource_id: str | None
+    summary: str
+    created_at: str
 
 
 @strawberry.type
@@ -138,6 +149,36 @@ class AdminQueries:
         try:
             stats = await service.get_platform_stats()
             return PlatformStats(**stats)
+        finally:
+            await service.session.close()
+
+    @strawberry.field
+    async def audit_logs(
+        self,
+        info: Info,
+        limit: int = 20,
+        offset: int = 0,
+        action: str | None = None,
+        search: str | None = None,
+    ) -> list[AuditLogType]:
+        """Super-admin-only audit trail (money movements + admin actions)."""
+        require_roles(info.context, UserRole.SUPER_ADMIN)
+        service = await get_admin_service(info)
+        try:
+            items, _ = await service.list_audit_logs(limit, offset, action, search)
+            return [AuditLogType(**item) for item in items]
+        finally:
+            await service.session.close()
+
+    @strawberry.field
+    async def audit_logs_count(
+        self, info: Info, action: str | None = None, search: str | None = None
+    ) -> int:
+        require_roles(info.context, UserRole.SUPER_ADMIN)
+        service = await get_admin_service(info)
+        try:
+            _, total = await service.list_audit_logs(1, 0, action, search)
+            return total
         finally:
             await service.session.close()
 

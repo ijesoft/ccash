@@ -59,6 +59,7 @@ const secondaryNav: { label: string; icon: React.ReactNode; path: string; superO
   { label: "Admin", icon: <AdminPanelSettingsIcon />, path: "/admin" },
   { label: "Dashboard", icon: <DashboardIcon />, path: "/super-admin", superOnly: true },
   { label: "Users", icon: <PeopleIcon />, path: "/super-admin/users", superOnly: true },
+  { label: "Audit Log", icon: <ReceiptIcon />, path: "/super-admin/audit-log", superOnly: true },
   { label: "Notifications", icon: <NotificationsNoneIcon />, path: "/notifications" },
   { label: "Profile", icon: <PersonIcon />, path: "/profile" },
 ];

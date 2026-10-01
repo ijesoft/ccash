@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import AuditLog
 from app.core.errors import (
     AuthorizationError,
     DailyLimitExceededError,
@@ -175,8 +176,36 @@ class TransactionService:
             tx,
         )
 
+        action = (
+            "transaction.qr_payment"
+            if tx.type == TransactionType.QR_PAYMENT
+            else "transaction.send"
+        )
+        self._audit_transfer(sender_user_id, tx, action)
+
         winner = await self._commit(idempotency_key)
         return await self._view_for_user(winner or tx, sender_user_id)
+
+    def _audit_transfer(self, user_id: uuid.UUID, tx: Transaction, action: str) -> None:
+        """Buffer an audit row for a money movement. Added to the session
+        before _commit, so a rolled-back transfer leaves no audit trail and an
+        idempotent replay (early return above) never double-logs."""
+        self.session.add(
+            AuditLog(
+                user_id=user_id,
+                action=action,
+                resource_type="transaction",
+                resource_id=str(tx.id),
+                new_values={
+                    "type": tx.type.value,
+                    "status": tx.status.value,
+                    "amount_cents": tx.amount_cents,
+                    "reference": tx.reference,
+                    "sender_wallet_id": str(tx.sender_wallet_id) if tx.sender_wallet_id else None,
+                    "receiver_wallet_id": str(tx.receiver_wallet_id) if tx.receiver_wallet_id else None,
+                },
+            )
+        )
 
     async def scan_qr_payment(
         self,
@@ -338,6 +367,8 @@ class TransactionService:
             tx,
         )
 
+        self._audit_transfer(user_id, tx, "transaction.cash_in")
+
         winner = await self._commit(idempotency_key)
         return await self._view_for_user(winner or tx, user_id)
 
@@ -386,6 +417,8 @@ class TransactionService:
             f"{format_php(amount_cents)} has been withdrawn from your wallet.",
             tx,
         )
+
+        self._audit_transfer(user_id, tx, "transaction.cash_out")
 
         winner = await self._commit(idempotency_key)
         return await self._view_for_user(winner or tx, user_id)

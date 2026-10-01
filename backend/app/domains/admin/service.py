@@ -95,6 +95,73 @@ class AdminService:
             "admin_balance_cents": role_balances.get(UserRole.ADMIN, 0),
         }
 
+    def _audit_summary(self, action: str, new_values: dict | None, old_values: dict | None) -> str:
+        nv = new_values or {}
+        if action.startswith("transaction."):
+            parts = [
+                str(nv.get("type", "?")),
+                format_php(int(nv.get("amount_cents", 0))),
+                str(nv.get("status", "?")),
+            ]
+            if nv.get("reference"):
+                parts.append(f"ref {nv['reference']}")
+            return " · ".join(parts)
+        if action == "role.change":
+            old_role = (old_values or {}).get("role", "?")
+            return f"role {old_role} → {nv.get('role', '?')}"
+        return action
+
+    async def list_audit_logs(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        action: str | None = None,
+        search: str | None = None,
+    ) -> tuple[list[dict], int]:
+        filters = [AuditLog.action == action] if action else []
+        if search:
+            like = f"%{search}%"
+            filters.append(
+                (User.email.ilike(like))
+                | (AuditLog.action.ilike(like))
+                | (AuditLog.resource_id.ilike(like))
+            )
+
+        base = (
+            select(func.count(AuditLog.id))
+            .select_from(AuditLog)
+            .outerjoin(User, User.id == AuditLog.user_id)
+            .where(*filters)
+        )
+        total = (await self.session.execute(base)).scalar() or 0
+
+        rows = (
+            (
+                await self.session.execute(
+                    select(AuditLog, User.email)
+                    .outerjoin(User, User.id == AuditLog.user_id)
+                    .where(*filters)
+                    .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+                    .offset(offset)
+                    .limit(limit)
+                )
+            )
+            .all()
+        )
+        items = [
+            {
+                "id": str(log.id),
+                "actor_email": email,
+                "action": log.action,
+                "resource_type": log.resource_type,
+                "resource_id": log.resource_id,
+                "summary": self._audit_summary(log.action, log.new_values, log.old_values),
+                "created_at": log.created_at.isoformat() if log.created_at else "",
+            }
+            for log, email in rows
+        ]
+        return items, total
+
     async def list_users(
         self, limit: int = 20, offset: int = 0, role: UserRole | None = None
     ) -> tuple[list[dict], int]:

@@ -69,6 +69,26 @@ export const ADMIN_CREATE_MEMBER = gql`
   }
 `;
 
+export const GET_AUDIT_LOGS = gql`
+  query AuditLogs($limit: Int, $offset: Int, $action: String, $search: String) {
+    auditLogs(limit: $limit, offset: $offset, action: $action, search: $search) {
+      id
+      actorEmail
+      action
+      resourceType
+      resourceId
+      summary
+      createdAt
+    }
+  }
+`;
+
+export const GET_AUDIT_LOG_COUNT = gql`
+  query AuditLogCount($action: String, $search: String) {
+    auditLogsCount(action: $action, search: $search)
+  }
+`;
+
 export const GET_ADMIN_USER_TRANSACTIONS = gql`
   query AdminUserTransactions($userId: String!, $limit: Int, $offset: Int) {
     adminUserTransactions(userId: $userId, limit: $limit, offset: $offset) {
