@@ -283,6 +283,10 @@ async def test_seed_shape_superadmin_has_no_wallet(session, make_account):
     fetched = await session.get(type(user), user.id)
     assert fetched is not None
     assert fetched.email == "superadmin@ccash.ph"
+    assert fetched.phone == "09180000000"
+    assert fetched.id_no == "000000000"
+    assert fetched.first_name == "Super"
+    assert fetched.last_name == "Admin"
     assert fetched.role == UserRole.SUPER_ADMIN
     assert fetched.status == UserStatus.ACTIVE
     assert fetched.is_verified is True
