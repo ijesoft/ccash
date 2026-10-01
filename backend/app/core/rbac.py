@@ -38,6 +38,7 @@ ROLE_PERMISSIONS: dict[UserRole, frozenset[Permission]] = {
     UserRole.MEMBER: frozenset(),
     UserRole.MERCHANT: frozenset(),
     UserRole.ADMIN: _ALL,
+    UserRole.SUPER_ADMIN: _ALL,
 }
 
 

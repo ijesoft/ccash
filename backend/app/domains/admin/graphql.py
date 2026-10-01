@@ -22,6 +22,7 @@ class UserRoleEnum(str, enum.Enum):
     MEMBER = "MEMBER"
     MERCHANT = "MERCHANT"
     ADMIN = "ADMIN"
+    SUPER_ADMIN = "SUPER_ADMIN"
 
 
 @strawberry.type

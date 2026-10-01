@@ -22,6 +22,7 @@ class UserRole(str, enum.Enum):
     MEMBER = "MEMBER"
     MERCHANT = "MERCHANT"
     ADMIN = "ADMIN"
+    SUPER_ADMIN = "SUPER_ADMIN"
 
 
 class User(SQLModel, table=True):
