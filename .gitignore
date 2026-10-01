@@ -32,5 +32,8 @@ backend/static/branding/
 # Superpowers
 .superpowers/
 
+# Git worktrees (isolated implementation workspaces)
+.worktrees/
+
 # tsc emit into src (build output belongs in dist/)
 frontend/src/**/*.js
