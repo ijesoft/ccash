@@ -19,8 +19,8 @@ export const GET_ADMIN_STATS = gql`
 `;
 
 export const GET_ADMIN_MEMBERS = gql`
-  query AdminMembers($limit: Int, $offset: Int, $role: UserRoleEnum) {
-    adminUsers(limit: $limit, offset: $offset, role: $role) {
+  query AdminMembers($limit: Int, $offset: Int, $role: UserRoleEnum, $search: String) {
+    adminUsers(limit: $limit, offset: $offset, role: $role, search: $search) {
       id
       email
       phone
@@ -34,6 +34,12 @@ export const GET_ADMIN_MEMBERS = gql`
       walletStatus
       createdAt
     }
+  }
+`;
+
+export const GET_ADMIN_USER_COUNT = gql`
+  query AdminUserCount($role: UserRoleEnum, $search: String) {
+    adminUsersCount(role: $role, search: $search)
   }
 `;
 

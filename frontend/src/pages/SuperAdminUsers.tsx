@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Typography, Stack, Button, Chip, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Snackbar, Alert } from "@mui/material";
+import { Box, Typography, Stack, Button, Chip, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Snackbar, Alert, TextField } from "@mui/material";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useQuery, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
@@ -11,7 +11,8 @@ import PersonIcon from "@mui/icons-material/Person";
 import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
 import BadgeIcon from "@mui/icons-material/Badge";
 import LockResetIcon from "@mui/icons-material/LockReset";
-import { GET_ADMIN_MEMBERS, GET_ADMIN_STATS, ACTIVATE_USER, SUSPEND_USER, UPDATE_USER_ROLE, ADMIN_SET_MEMBER_ID } from "../graphql/queries/admin";
+import SearchIcon from "@mui/icons-material/Search";
+import { GET_ADMIN_MEMBERS, GET_ADMIN_STATS, GET_ADMIN_USER_COUNT, ACTIVATE_USER, SUSPEND_USER, UPDATE_USER_ROLE, ADMIN_SET_MEMBER_ID } from "../graphql/queries/admin";
 import { formatMoney } from "../utils/format";
 import SetIdDialog from "../components/SetIdDialog";
 import ResetPasswordDialog from "../components/ResetPasswordDialog";
@@ -26,17 +27,21 @@ export default function SuperAdminUsers() {
   const [setIdTarget, setSetIdTarget] = useState<AccountRow | null>(null);
   const [resetPasswordTarget, setResetPasswordTarget] = useState<AccountRow | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({ open: false, message: "", severity: "success" });
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
 
-  const { data: statsData } = useQuery(GET_ADMIN_STATS);
   const { data: membersData, loading: membersLoading, refetch } = useQuery(GET_ADMIN_MEMBERS, {
-    variables: { limit: paginationModel.pageSize, offset: paginationModel.page * paginationModel.pageSize },
+    variables: { limit: paginationModel.pageSize, offset: paginationModel.page * paginationModel.pageSize, search: search || null },
+  });
+  const { data: countData } = useQuery(GET_ADMIN_USER_COUNT, {
+    variables: { search: search || null },
   });
   const [activateUser] = useMutation(ACTIVATE_USER, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }, { query: GET_ADMIN_STATS }] });
   const [suspendUser] = useMutation(SUSPEND_USER, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }, { query: GET_ADMIN_STATS }] });
   const [updateUserRole] = useMutation(UPDATE_USER_ROLE, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }, { query: GET_ADMIN_STATS }] });
   const [setMemberId] = useMutation(ADMIN_SET_MEMBER_ID, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }] });
-  const stats = statsData?.platformStats;
   const members = membersData?.adminUsers ?? [];
+  const rowCount = countData?.adminUsersCount ?? 0;
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, row: AccountRow) => { setAnchorEl(event.currentTarget); setSelectedUser(row); };
   const handleMenuClose = () => { setAnchorEl(null); setSelectedUser(null); };
@@ -69,8 +74,21 @@ export default function SuperAdminUsers() {
         <Chip icon={<SupervisorAccountIcon />} label="SUPER ADMIN" color="error" variant="outlined" size="small" />
       </Stack>
       <Typography variant="body2" color="text.secondary" mb={2}>Members, merchants, admins and super-admins listed with status; use Actions to update a record.</Typography>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} mb={2} component="form" onSubmit={(e) => { e.preventDefault(); setPaginationModel((m) => ({ ...m, page: 0 })); setSearch(searchInput.trim()); }}>
+        <TextField
+          label="Search email, mobile, name or ID"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          size="small"
+          sx={{ flex: 1, maxWidth: 480 }}
+          placeholder="alice@ccash.ph, 0918…, M352600292"
+        />
+        <Button type="submit" variant="contained" startIcon={<SearchIcon />} sx={{ minHeight: 40 }}>
+          Search
+        </Button>
+      </Stack>
       <Box sx={{ height: 560, width: "100%" }}>
-        <DataGrid rows={members} columns={columns} loading={membersLoading} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} paginationMode="server" rowCount={stats?.totalUsers ?? 0} pageSizeOptions={[5, 10, 25]} disableRowSelectionOnClick sx={{ border: 1, borderColor: "divider", borderRadius: 2 }} />
+        <DataGrid rows={members} columns={columns} loading={membersLoading} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} paginationMode="server" rowCount={rowCount} pageSizeOptions={[5, 10, 25]} disableRowSelectionOnClick sx={{ border: 1, borderColor: "divider", borderRadius: 2 }} />
       </Box>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
         {selectedUser?.status !== "ACTIVE" && (<MenuItem onClick={() => selectedUser && act(() => activateUser({ variables: { userId: selectedUser.id } }), `${selectedUser.email} activated`)}><ListItemIcon><CheckCircleIcon fontSize="small" color="success" /></ListItemIcon><ListItemText>Activate</ListItemText></MenuItem>)}

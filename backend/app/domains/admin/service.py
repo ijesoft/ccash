@@ -163,16 +163,36 @@ class AdminService:
         return items, total
 
     async def list_users(
-        self, limit: int = 20, offset: int = 0, role: UserRole | None = None
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        role: UserRole | None = None,
+        search: str | None = None,
     ) -> tuple[list[dict], int]:
         base_filter = [User.role == role] if role else []
+        if search:
+            like = f"%{search}%"
+            base_filter.append(
+                User.email.ilike(like)
+                | User.phone.ilike(like)
+                | User.id_no.ilike(like)
+                | User.first_name.ilike(like)
+                | User.last_name.ilike(like)
+                | MerchantProfile.merchant_id_no.ilike(like)
+            )
 
-        total_result = await self.session.execute(select(func.count(User.id)).where(*base_filter))
+        total_result = await self.session.execute(
+            select(func.count(User.id))
+            .select_from(User)
+            .outerjoin(MerchantProfile, MerchantProfile.user_id == User.id)
+            .where(*base_filter)
+        )
         total = total_result.scalar() or 0
 
         result = await self.session.execute(
             select(User, Wallet)
             .outerjoin(Wallet, User.id == Wallet.user_id)
+            .outerjoin(MerchantProfile, MerchantProfile.user_id == User.id)
             .where(*base_filter)
             .order_by(User.created_at.desc())
             .offset(offset)

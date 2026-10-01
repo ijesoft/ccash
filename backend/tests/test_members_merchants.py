@@ -372,3 +372,43 @@ async def test_merchant_register_stays_pending_until_admin_approval(session):
     assert activated is not None
     assert activated.status == UserStatus.ACTIVE
     assert activated.is_verified is True
+
+
+async def test_list_users_search(session, make_account):
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+    from app.domains.merchants.models import MerchantProfile
+
+    user, _ = await make_account()
+    merchant, _ = await make_account()
+    merchant.role = UserRole.MERCHANT
+    merchant.id_no = None
+    await session.commit()
+    session.add(
+        MerchantProfile(
+            user_id=merchant.id,
+            merchant_id_no="M987654321",
+            company_name="Search Store",
+            contact_person="Owner",
+            mobile_no="09189999903",
+            address="Somewhere",
+            tin="000-000-001",
+        )
+    )
+    await session.commit()
+    service = AdminService(session)
+
+    by_email, total = await service.list_users(search=user.email[:12])
+    assert total == 1
+    assert by_email[0]["id"] == str(user.id)
+
+    by_mid, total = await service.list_users(search="M987654321")
+    assert total == 1
+    assert by_mid[0]["id"] == str(merchant.id)
+
+    by_phone, total = await service.list_users(search=merchant.phone)
+    assert total == 1
+
+    nothing, total = await service.list_users(search="zzz-no-such-user")
+    assert total == 0
+    assert nothing == []

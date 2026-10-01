@@ -184,14 +184,32 @@ class AdminQueries:
             await service.session.close()
 
     @strawberry.field
+    async def admin_users_count(
+        self, info: Info, role: UserRoleEnum | None = None, search: str | None = None
+    ) -> int:
+        require_perms(info.context, Permission.USERS_READ)
+        service = await get_admin_service(info)
+        try:
+            role_filter = UserRole(role.value) if role else None
+            _, total = await service.list_users(1, 0, role_filter, search)
+            return total
+        finally:
+            await service.session.close()
+
+    @strawberry.field
     async def admin_users(
-        self, info: Info, limit: int = 20, offset: int = 0, role: UserRoleEnum | None = None
+        self,
+        info: Info,
+        limit: int = 20,
+        offset: int = 0,
+        role: UserRoleEnum | None = None,
+        search: str | None = None,
     ) -> list[AdminMemberType]:
         require_perms(info.context, Permission.USERS_READ)
         service = await get_admin_service(info)
         try:
             role_filter = UserRole(role.value) if role else None
-            members, _ = await service.list_users(limit, offset, role_filter)
+            members, _ = await service.list_users(limit, offset, role_filter, search)
             return [AdminMemberType(**m) for m in members]
         finally:
             await service.session.close()
