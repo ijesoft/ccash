@@ -49,3 +49,37 @@ def permissions_for(role: UserRole) -> list[str]:
 def has_permission(role: UserRole, perm: Permission | str) -> bool:
     want = perm.value if isinstance(perm, Permission) else perm
     return any(p.value == want for p in ROLE_PERMISSIONS.get(role, frozenset()))
+
+
+async def permissions_for_role(session, role: UserRole) -> list[str]:
+    """DB-backed permissions for a role, falling back to constants.
+
+    Reads `role_permissions` rows first. Falls back to the ROLE_PERMISSIONS
+    constant only when the whole table is empty (fresh DB before migration
+    009, or truncated test DB) — a role with no rows in a non-empty table
+    was intentionally cleared and resolves to []. SUPER_ADMIN always
+    resolves to every Permission. The import is lazy:
+    `role_permissions.py` imports Permission from this module.
+    """
+    from sqlalchemy import select
+
+    from app.domains.admin.role_permissions import RolePermission
+
+    if role == UserRole.SUPER_ADMIN:
+        return sorted(p.value for p in Permission)
+    rows = (
+        await session.execute(
+            select(RolePermission.permission).where(RolePermission.role == role.value)
+        )
+    ).all()
+    perms = sorted(r[0] for r in rows)
+    if perms:
+        unknown = [p for p in perms if p not in {perm.value for perm in Permission}]
+        if not unknown:
+            return perms
+    table_has_any = (
+        await session.execute(select(RolePermission).limit(1))
+    ).first() is not None
+    if not table_has_any:
+        return permissions_for(role)
+    return perms

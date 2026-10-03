@@ -102,3 +102,24 @@ async def test_duplicate_permissions_are_deduped(session, make_account):
         UserRole.MEMBER, ["users:read", "users:read"], actor.id, actor.role
     )
     assert updated == ["users:read"]
+
+
+async def test_permissions_for_role_reads_db_then_falls_back(session, make_account):
+    from app.core.rbac import permissions_for_role
+    from app.domains.admin.role_permissions import RolePermissionService
+    from app.domains.auth.models import UserRole
+
+    actor = await make_super_admin(session, make_account)
+
+    # Empty table (truncated between tests) falls back to constants.
+    assert await permissions_for_role(session, UserRole.MEMBER) == []
+    assert "users:read" in await permissions_for_role(session, UserRole.ADMIN)
+
+    # After a DB write, the DB wins over the constants.
+    await RolePermissionService(session).set_role_permissions(
+        UserRole.MEMBER, ["users:read", "platform:stats"], actor.id, actor.role
+    )
+    assert await permissions_for_role(session, UserRole.MEMBER) == [
+        "platform:stats",
+        "users:read",
+    ]
