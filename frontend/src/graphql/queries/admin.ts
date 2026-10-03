@@ -232,3 +232,18 @@ export const ADMIN_DELETE_ACCOUNT = gql`
     adminDeleteAccount(userId: $userId)
   }
 `;
+
+export const GET_ROLE_PERMISSIONS = gql`
+  query RolePermissions {
+    rolePermissions {
+      role
+      permissions
+    }
+  }
+`;
+
+export const UPDATE_ROLE_PERMISSIONS = gql`
+  mutation UpdateRolePermissions($role: UserRoleEnum!, $permissions: [String!]!) {
+    updateRolePermissions(role: $role, permissions: $permissions)
+  }
+`;

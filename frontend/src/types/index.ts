@@ -90,6 +90,7 @@ export interface Favorite {
 export interface AuthPayload {
   accessToken: string;
   refreshToken: string;
+  scopes: string[];
   user: User;
 }
 

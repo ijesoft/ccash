@@ -64,6 +64,7 @@ export const COMPLETE_LOGIN = gql`
     completeLogin(email: $email, idNo: $idNo) {
       accessToken
       refreshToken
+      scopes
       user {
         id
         email
@@ -88,6 +89,7 @@ export const REFRESH_TOKEN = gql`
     refreshToken(refreshToken: $refreshToken) {
       accessToken
       refreshToken
+      scopes
     }
   }
 `;
