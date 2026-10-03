@@ -245,6 +245,7 @@ from sqlmodel import Field, SQLModel
 
 from app.core.audit import AuditLog
 from app.core.errors import ValidationError
+from app.core.rbac import ROLE_PERMISSIONS, Permission
 from app.domains.auth.models import UserRole
 
 
@@ -262,19 +263,20 @@ class RolePermissionService:
     async def get_matrix(self) -> dict[str, list[str]]:
         """{role: sorted permissions} for all four roles.
 
-        Falls back to the ROLE_PERMISSIONS constants when the table has no
-        rows for a role (fresh DB before migration 009, or tests that
-        truncate between cases).
+        Falls back to the ROLE_PERMISSIONS constants when the table is empty
+        (fresh DB before migration 009, or tests that truncate between cases).
+        A fully-empty table means fresh state; an intentionally cleared role
+        stays cleared as long as any row exists.
         """
-        from app.core.rbac import ROLE_PERMISSIONS, Permission
-
         rows = (await self.session.execute(select(RolePermission))).scalars().all()
         matrix: dict[str, list[str]] = {role.value: [] for role in UserRole}
-        for row in rows:
-            matrix.setdefault(row.role, []).append(row.permission)
-        for role, fallback in ROLE_PERMISSIONS.items():
-            if not matrix.get(role.value):
+        if not rows:
+            for role, fallback in ROLE_PERMISSIONS.items():
                 matrix[role.value] = sorted(p.value for p in fallback)
+        else:
+            for row in rows:
+                if row.role in matrix:
+                    matrix[row.role].append(row.permission)
         matrix[UserRole.SUPER_ADMIN.value] = sorted(p.value for p in Permission)
         return {role: sorted(perms) for role, perms in matrix.items()}
 
@@ -286,7 +288,6 @@ class RolePermissionService:
         actor_role: UserRole | None,
     ) -> list[str]:
         """Replace a role's permission set; returns the sorted new set."""
-        from app.core.rbac import Permission
 
         if actor_role != UserRole.SUPER_ADMIN:
             raise ValidationError("Only a super admin can change role permissions")
@@ -385,9 +386,10 @@ Expected: FAIL with `ImportError` (`cannot import name 'permissions_for_role'`).
 async def permissions_for_role(session, role: UserRole) -> list[str]:
     """DB-backed permissions for a role, falling back to constants.
 
-    Reads `role_permissions` rows first; when the role has no rows (fresh DB
-    before migration 009, or truncated test DB), returns the
-    ROLE_PERMISSIONS constant so login never breaks. SUPER_ADMIN always
+    Reads `role_permissions` rows first. Falls back to the ROLE_PERMISSIONS
+    constant only when the whole table is empty (fresh DB before migration
+    009, or truncated test DB) — a role with no rows in a non-empty table
+    was intentionally cleared and resolves to []. SUPER_ADMIN always
     resolves to every Permission. The import is lazy:
     `role_permissions.py` imports Permission from this module.
     """
@@ -403,10 +405,14 @@ async def permissions_for_role(session, role: UserRole) -> list[str]:
         )
     ).all()
     perms = sorted(r[0] for r in rows)
-    if not perms:
-        return permissions_for(role)
-    unknown = [p for p in perms if p not in {perm.value for perm in Permission}]
-    if unknown:
+    if perms:
+        unknown = [p for p in perms if p not in {perm.value for perm in Permission}]
+        if not unknown:
+            return perms
+    table_has_any = (
+        await session.execute(select(RolePermission).limit(1))
+    ).first() is not None
+    if not table_has_any:
         return permissions_for(role)
     return perms
 ```

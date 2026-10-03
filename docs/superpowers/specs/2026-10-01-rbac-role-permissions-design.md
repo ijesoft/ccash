@@ -24,7 +24,7 @@ New table `role_permissions` (`role TEXT`, `permission TEXT`, composite PK). One
 
 Alembic migration `009_role_permissions.py`: creates the table, then seeds it from the current `ROLE_PERMISSIONS` constants (ADMIN = all 19, SUPER_ADMIN = all 19, MEMBER / MERCHANT = none). The `User` model is unchanged (`role` enum already exists; no new enum values). `create_tables()` model and the migration are kept in sync and re-verified by diffing per repo convention.
 
-`ROLE_PERMISSIONS` in `app/core/rbac.py` stays as the fallback default used when the table has no rows for a role (fresh DB before migration, tests that bypass Alembic). `permissions_for(role)` becomes an async function that reads the DB first and falls back to the constants.
+`ROLE_PERMISSIONS` in `app/core/rbac.py` stays as the fallback default used when the table is empty (fresh DB before migration, tests that truncate between cases — a fully-empty table means fresh state). `permissions_for_role(session, role)` reads the DB first and falls back to the constants only then, so an intentionally cleared role stays cleared as long as any row exists. Display and enforcement both read the same matrix, so they can never diverge.
 
 ### B. Backend service & GraphQL
 
