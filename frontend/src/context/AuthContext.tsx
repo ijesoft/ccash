@@ -18,6 +18,7 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   hasRole: (...roles: string[]) => boolean;
   can: (perm: string) => boolean;
+  scopes: string[];
   /** Step 1: password (+2FA). Does not authenticate on its own — returns a
    * challenge; call completeLogin with the account's ID No. to finish. */
   login: (email: string, password: string, otpCode?: string) => Promise<LoginChallenge>;
@@ -37,6 +38,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return stored ? JSON.parse(stored) : null;
   });
   const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem("accessToken"));
+  const [scopes, setScopes] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("scopes") ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
   const client = useApolloClient();
 
   const [loginMutation] = useMutation(LOGIN);
@@ -61,6 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("accessToken", data.completeLogin.accessToken);
       localStorage.setItem("refreshToken", data.completeLogin.refreshToken);
       localStorage.setItem("user", JSON.stringify(data.completeLogin.user));
+      setScopes(data.completeLogin.scopes ?? []);
+      localStorage.setItem("scopes", JSON.stringify(data.completeLogin.scopes ?? []));
     }
   }, [completeLoginMutation, client]);
 
@@ -74,6 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
+    localStorage.removeItem("scopes");
+    setScopes([]);
     await client.resetStore();
   }, [logoutMutation, client]);
 
@@ -87,6 +99,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAccessToken(data.refreshToken.accessToken);
         localStorage.setItem("accessToken", data.refreshToken.accessToken);
         localStorage.setItem("refreshToken", data.refreshToken.refreshToken);
+        if (data.refreshToken.scopes) {
+          setScopes(data.refreshToken.scopes);
+          localStorage.setItem("scopes", JSON.stringify(data.refreshToken.scopes));
+        }
         return true;
       }
     } catch {}
@@ -98,14 +114,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshSession]);
 
   const value = useMemo(() => ({
-    user, accessToken,
+    user, accessToken, scopes,
     isAuthenticated: !!user && !!accessToken,
     isAdmin: user?.role === "ADMIN",
     isSuperAdmin: user?.role === "SUPER_ADMIN",
     hasRole: (...roles: string[]) => !!user?.role && roles.includes(user.role),
-    can: (perm: string) => hasPermission(user?.role, perm as Permission),
+    can: (perm: string) =>
+      scopes.length > 0 ? scopes.includes(perm) : hasPermission(user?.role, perm as Permission),
     login, completeLogin, logout, refreshSession, ensureFreshToken,
-  }), [user, accessToken, login, completeLogin, logout, refreshSession, ensureFreshToken]);
+  }), [user, accessToken, scopes, login, completeLogin, logout, refreshSession, ensureFreshToken]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
