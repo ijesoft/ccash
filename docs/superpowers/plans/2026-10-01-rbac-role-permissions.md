@@ -451,16 +451,6 @@ async def test_non_super_admin_actor_is_rejected(session, make_account):
     admin.role = UserRole.ADMIN
     await session.commit()
 
-async def test_non_super_admin_actor_is_rejected(session, make_account):
-    from sqlalchemy import select
-
-    from app.domains.admin.role_permissions import RolePermission, RolePermissionService
-    from app.domains.auth.models import UserRole
-
-    admin, _wallet = await make_account()
-    admin.role = UserRole.ADMIN
-    await session.commit()
-
     with pytest.raises(ValidationError, match="Only a super admin"):
         await RolePermissionService(session).set_role_permissions(
             UserRole.MEMBER, ["users:read"], admin.id, admin.role
