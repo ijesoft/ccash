@@ -20,31 +20,23 @@ async def promote(session, user) -> None:
     await session.commit()
 
 
-def test_scopes_for_admin_include_admin():
-    from app.domains.auth.service import _scopes_for
+async def test_scopes_for_admin_include_admin(session, make_account):
+    from app.domains.auth.service import scopes_for_user
 
-    admin = User(
-        email="rbac-admin-unit@ccash.test",
-        phone="09189990001",
-        password_hash="x",
-        role=UserRole.ADMIN,
-    )
-    scopes = _scopes_for(admin)
+    admin, _wallet = await make_account()
+    await promote(session, admin)
+    scopes = await scopes_for_user(session, admin)
     assert scopes[:2] == ["wallet:read", "wallet:write"]
     assert "admin" in scopes
     assert "users:read" in scopes
     assert "platform:stats" in scopes
 
 
-def test_scopes_for_regular_user_has_no_admin():
-    from app.domains.auth.service import _scopes_for
+async def test_scopes_for_regular_user_has_no_admin(session, make_account):
+    from app.domains.auth.service import scopes_for_user
 
-    user = User(
-        email="rbac-user-unit@ccash.test",
-        phone="09189990002",
-        password_hash="x",
-    )  # column default MEMBER
-    assert _scopes_for(user) == ["wallet:read", "wallet:write"]
+    user, _wallet = await make_account()
+    assert await scopes_for_user(session, user) == ["wallet:read", "wallet:write"]
 
 
 def test_access_token_roundtrip_preserves_scopes():

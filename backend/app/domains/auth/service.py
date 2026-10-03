@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.errors import AuthenticationError, NotFoundError, ValidationError
-from app.core.rbac import permissions_for
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -34,9 +33,16 @@ _LOGIN_PENDING_TTL_SECONDS = 300
 INACTIVE_ACCOUNT_MESSAGE = "Account is inactive, please contact administrator."
 
 
-def _scopes_for(user: User) -> list[str]:
+async def scopes_for_user(session: AsyncSession, user: User) -> list[str]:
+    """JWT scopes for a user, read from the DB-backed role mapping.
+
+    Falls back to the ROLE_PERMISSIONS constants when the table is empty,
+    so login never breaks on a pre-009 database.
+    """
+    from app.core.rbac import permissions_for_role
+
     scopes = ["wallet:read", "wallet:write"]
-    scopes.extend(permissions_for(user.role))
+    scopes.extend(await permissions_for_role(session, user.role))
     if user.role in (UserRole.ADMIN, UserRole.SUPER_ADMIN) and "admin" not in scopes:
         scopes.append("admin")  # legacy shim, remove after frontend cutover
     return scopes
@@ -276,7 +282,9 @@ class AuthService:
 
         await self.redis.delete(f"login_pending:{email}")
 
-        access_token = create_access_token(str(user.id), scopes=_scopes_for(user), role=user.role.value)
+        access_token = create_access_token(
+            str(user.id), scopes=await scopes_for_user(self.session, user), role=user.role.value
+        )
         refresh_token, token_id = create_refresh_token(str(user.id))
 
         await self.redis.setex(f"refresh:{token_id}", settings.refresh_token_expire_days * 86400, str(user.id))
@@ -306,7 +314,9 @@ class AuthService:
 
         await self.redis.delete(f"refresh:{token_id}", self._activity_key(token_id))
 
-        new_access = create_access_token(user_id, scopes=_scopes_for(user), role=user.role.value)
+        new_access = create_access_token(
+            user_id, scopes=await scopes_for_user(self.session, user), role=user.role.value
+        )
         new_refresh, new_token_id = create_refresh_token(user_id)
         await self.redis.setex(f"refresh:{new_token_id}", settings.refresh_token_expire_days * 86400, user_id)
         await self._stamp_activity(new_token_id, user_id)

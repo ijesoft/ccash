@@ -8,7 +8,7 @@ from app.core.redis import get_redis
 from app.core.security import decode_token, generate_totp_secret
 from app.database import async_session_factory
 from app.domains.auth.models import User, UserStatus
-from app.domains.auth.service import AuthService
+from app.domains.auth.service import AuthService, scopes_for_user
 from app.graphql.middleware import AuthContext
 
 
@@ -52,6 +52,7 @@ class AuthPayload:
     access_token: str
     refresh_token: str
     user: UserType
+    scopes: list[str]
 
 
 @strawberry.type
@@ -149,10 +150,12 @@ class AuthMutations:
         service = await get_auth_service(info)
         try:
             access_token, refresh_token, user = await service.complete_login(email, id_no)
+            scopes = await scopes_for_user(service.session, user)
             return AuthPayload(
                 access_token=access_token,
                 refresh_token=refresh_token,
                 user=UserType.from_model(user),
+                scopes=scopes,
             )
         except (AuthenticationError, ValidationError, NotFoundError) as e:
             raise Exception(str(e))
@@ -166,10 +169,12 @@ class AuthMutations:
             access, new_refresh = await service.refresh_token(refresh_token)
             user_id = decode_token(new_refresh).get("sub")
             user = await service.repo.get_by_id(uuid.UUID(user_id))
+            scopes = await scopes_for_user(service.session, user) if user else []
             return AuthPayload(
                 access_token=access,
                 refresh_token=new_refresh,
                 user=UserType.from_model(user) if user else UserType(id="", email="", phone="", first_name=None, last_name=None, status="", kyc_level="", role="", is_2fa_enabled=False, is_verified=False, created_at=""),
+                scopes=scopes,
             )
         except AuthenticationError as e:
             raise Exception(str(e))
