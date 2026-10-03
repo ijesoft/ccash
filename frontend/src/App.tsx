@@ -24,6 +24,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import SuperAdminUsers from "./pages/SuperAdminUsers";
 import SuperAdminAuditLog from "./pages/SuperAdminAuditLog";
+import SuperAdminRoles from "./pages/SuperAdminRoles";
 import WalletBalances from "./pages/WalletBalances";
 import AccountDetail from "./pages/AccountDetail";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
@@ -57,6 +58,7 @@ export default function App() {
                 <Route path="/super-admin" element={<RequireSuperAdmin><SuperAdminDashboard /></RequireSuperAdmin>} />
                 <Route path="/super-admin/users" element={<RequireSuperAdmin><SuperAdminUsers /></RequireSuperAdmin>} />
                 <Route path="/super-admin/audit-log" element={<RequireSuperAdmin><SuperAdminAuditLog /></RequireSuperAdmin>} />
+                <Route path="/super-admin/roles" element={<RequireSuperAdmin><SuperAdminRoles /></RequireSuperAdmin>} />
                 <Route path="/admin/accounts/:id" element={<RequirePerm perm="users:read"><AccountDetail /></RequirePerm>} />
                 <Route path="/wallet-balances" element={<RequirePerm perm="platform:stats"><WalletBalances /></RequirePerm>} />
               </Route>
