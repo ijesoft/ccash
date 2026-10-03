@@ -1283,8 +1283,8 @@ git commit -m "feat: auth context prefers live server scopes"
 
 - [ ] **Step 1: Run the full backend suite**
 
-Run: `cd backend && ./.venv/bin/python -m pytest`
-Expected: PASS, 95 tests (88 existing including 2 converted + 7 new). If failures, fix before proceeding.
+Run: `cd backend && ./.venv/bin/python -m pytest` (with the Task 2 env prefix)
+Expected: PASS. Known host-environment caveat (verified during implementation): 4 tests in `tests/test_members_merchants.py` (`test_admin_reset_password_*`, `test_admin_create_member_*`) fail on host runs with `kombu OperationalError: Connection refused` because they call `send_email_notification.delay()` and this machine maps no host port for RabbitMQ. Those files/paths are untouched by this branch — confirm any failure is broker-connect-only (traceback ends in kombu connection refused, no mention of edited files) and treat it as pre-existing/environmental, not a regression. If failures mention `_scopes_for` or edited files, fix before proceeding.
 
 - [ ] **Step 2: Build the frontend**
 
