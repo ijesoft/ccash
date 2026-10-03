@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -76,7 +76,7 @@ interface RoleRow {
 }
 
 export default function SuperAdminRoles() {
-  const { data, loading, refetch } = useQuery<{ rolePermissions: RoleRow[] }>(GET_ROLE_PERMISSIONS);
+  const { data, loading, error } = useQuery<{ rolePermissions: RoleRow[] }>(GET_ROLE_PERMISSIONS);
   const [updateRole, { loading: saving }] = useMutation(UPDATE_ROLE_PERMISSIONS);
   const [draft, setDraft] = useState<Record<Role, string[]>>({ MEMBER: [], MERCHANT: [], ADMIN: [] });
   const [saved, setSaved] = useState<Record<Role, string[]>>({ MEMBER: [], MERCHANT: [], ADMIN: [] });
@@ -86,8 +86,11 @@ export default function SuperAdminRoles() {
     severity: "success",
   });
 
+  const initialized = useRef(false);
+
   useEffect(() => {
-    if (!data?.rolePermissions) return;
+    if (initialized.current || !data?.rolePermissions) return;
+    initialized.current = true;
     const next = { MEMBER: [] as string[], MERCHANT: [] as string[], ADMIN: [] as string[] };
     for (const row of data.rolePermissions) {
       if (row.role === "MEMBER" || row.role === "MERCHANT" || row.role === "ADMIN") {
@@ -121,7 +124,6 @@ export default function SuperAdminRoles() {
       await updateRole({ variables: { role, permissions: draft[role] } });
       setSaved((s) => ({ ...s, [role]: [...draft[role]] }));
       setSnackbar({ open: true, message: `${role} permissions saved — applies on next login`, severity: "success" });
-      refetch();
     } catch (err: unknown) {
       setSnackbar({ open: true, message: err instanceof Error ? err.message : "Save failed", severity: "error" });
     }
@@ -205,6 +207,11 @@ export default function SuperAdminRoles() {
           </TableBody>
         </Table>
       </Paper>
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          Failed to load permissions: {error.message}
+        </Alert>
+      )}
       {loading && (
         <Typography variant="body2" color="text.secondary" mt={2}>Loading permissions…</Typography>
       )}
