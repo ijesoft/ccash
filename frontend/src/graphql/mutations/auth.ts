@@ -90,6 +90,10 @@ export const REFRESH_TOKEN = gql`
       accessToken
       refreshToken
       scopes
+      user {
+        id
+        role
+      }
     }
   }
 `;

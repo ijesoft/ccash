@@ -103,6 +103,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setScopes(data.refreshToken.scopes);
           localStorage.setItem("scopes", JSON.stringify(data.refreshToken.scopes));
         }
+        if (data.refreshToken.user?.role) {
+          try {
+            const stored = JSON.parse(localStorage.getItem("user") ?? "null");
+            if (stored) {
+              const nextUser = { ...stored, role: data.refreshToken.user.role };
+              localStorage.setItem("user", JSON.stringify(nextUser));
+              setUser(nextUser);
+            }
+          } catch {
+            /* corrupted stored user — leave for next login */
+          }
+        }
         return true;
       }
     } catch {}

@@ -23,6 +23,7 @@ const sessionErrorLink = onError(({ graphQLErrors }) => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
+    localStorage.removeItem("scopes");
     if (!window.location.pathname.startsWith("/login")) {
       window.location.href = "/login?reason=session-expired";
     }
