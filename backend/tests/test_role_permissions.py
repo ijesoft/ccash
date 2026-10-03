@@ -123,3 +123,91 @@ async def test_permissions_for_role_reads_db_then_falls_back(session, make_accou
         "platform:stats",
         "users:read",
     ]
+
+
+async def test_non_super_admin_actor_is_rejected(session, make_account):
+    from sqlalchemy import select
+
+    from app.domains.admin.role_permissions import (
+        RolePermission,
+        RolePermissionService,
+    )
+    from app.domains.auth.models import UserRole
+
+    admin, _wallet = await make_account()
+    admin.role = UserRole.ADMIN
+    await session.commit()
+
+    with pytest.raises(ValidationError, match="Only a super admin"):
+        await RolePermissionService(session).set_role_permissions(
+            UserRole.MEMBER, ["users:read"], admin.id, admin.role
+        )
+
+    rows = (
+        await session.execute(
+            select(RolePermission).where(RolePermission.role == "MEMBER")
+        )
+    ).scalars().all()
+    assert rows == []
+
+
+async def test_unknown_permission_rejected_with_no_partial_write(session, make_account):
+    from sqlalchemy import select
+
+    from app.domains.admin.role_permissions import RolePermission, RolePermissionService
+    from app.domains.auth.models import UserRole
+
+    actor = await make_super_admin(session, make_account)
+
+    with pytest.raises(ValidationError, match="Unknown permissions: bogus:perm"):
+        await RolePermissionService(session).set_role_permissions(
+            UserRole.MEMBER, ["users:read", "bogus:perm"], actor.id, actor.role
+        )
+
+    rows = (
+        await session.execute(
+            select(RolePermission).where(RolePermission.role == "MEMBER")
+        )
+    ).scalars().all()
+    assert rows == []
+
+
+async def test_super_admin_role_edit_is_rejected(session, make_account):
+    from app.domains.admin.role_permissions import RolePermissionService
+    from app.domains.auth.models import UserRole
+
+    actor = await make_super_admin(session, make_account)
+
+    with pytest.raises(ValidationError, match="cannot be changed"):
+        await RolePermissionService(session).set_role_permissions(
+            UserRole.SUPER_ADMIN, [], actor.id, actor.role
+        )
+
+
+async def test_revoked_permission_blocks_require_perms(session, make_account):
+    import uuid
+
+    from app.core.rbac import Permission, permissions_for_role
+    from app.domains.admin.role_permissions import RolePermissionService
+    from app.domains.auth.models import UserRole
+    from app.graphql.middleware import AuthContext, require_perms
+
+    actor = await make_super_admin(session, make_account)
+    service = RolePermissionService(session)
+
+    full = await permissions_for_role(session, UserRole.ADMIN)
+    assert "users:read" in full
+    reduced = sorted(p for p in full if p != "users:read")
+    await service.set_role_permissions(UserRole.ADMIN, reduced, actor.id, actor.role)
+
+    ctx = AuthContext()
+    ctx.user_id = uuid.uuid4()
+    ctx.scopes = ["wallet:read", "wallet:write"] + await permissions_for_role(
+        session, UserRole.ADMIN
+    )
+    try:
+        require_perms(ctx, Permission.USERS_READ)
+    except Exception as e:
+        assert str(e) == "Not authorized"
+    else:
+        raise AssertionError("revoked users:read must be rejected")
