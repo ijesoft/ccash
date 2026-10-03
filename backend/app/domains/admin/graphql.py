@@ -8,6 +8,7 @@ from app.core.errors import NotFoundError, ValidationError
 from app.database import async_session_factory
 from app.domains.admin.branding_service import BASE_DIR, read_branding
 from app.domains.admin.service import AdminService
+from app.domains.admin.role_permissions import RolePermissionService
 from app.domains.auth.graphql import UserType
 from app.domains.auth.models import UserRole
 from app.domains.merchants.graphql import MerchantProfileType
@@ -72,6 +73,12 @@ class BrandingType:
     logo_url: str
     version: int
     updated_at: str
+
+
+@strawberry.type
+class RolePermissionsType:
+    role: str
+    permissions: list[str]
 
 
 @strawberry.input
@@ -182,6 +189,20 @@ class AdminQueries:
             return total
         finally:
             await service.session.close()
+
+    @strawberry.field
+    async def role_permissions(self, info: Info) -> list[RolePermissionsType]:
+        """Super-admin-only role → permission matrix for the Roles page."""
+        require_roles(info.context, UserRole.SUPER_ADMIN)
+        session = async_session_factory()
+        try:
+            matrix = await RolePermissionService(session).get_matrix()
+            return [
+                RolePermissionsType(role=role, permissions=perms)
+                for role, perms in sorted(matrix.items())
+            ]
+        finally:
+            await session.close()
 
     @strawberry.field
     async def admin_users_count(
@@ -428,3 +449,25 @@ class AdminMutations:
             raise Exception(str(e))
         finally:
             await service.session.close()
+
+    @strawberry.mutation
+    async def update_role_permissions(
+        self, info: Info, role: UserRoleEnum, permissions: list[str]
+    ) -> list[str]:
+        """Replace a role's permission set (SUPER_ADMIN itself is locked)."""
+        require_roles(info.context, UserRole.SUPER_ADMIN)
+        session = async_session_factory()
+        try:
+            actor_role = (
+                UserRole(info.context.role) if info.context.role else None
+            )
+            return await RolePermissionService(session).set_role_permissions(
+                UserRole(role.value),
+                permissions,
+                info.context.user_id,
+                actor_role,
+            )
+        except ValidationError as e:
+            raise Exception(str(e))
+        finally:
+            await session.close()
