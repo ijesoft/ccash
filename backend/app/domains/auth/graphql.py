@@ -202,6 +202,20 @@ class AuthMutations:
             await service.session.close()
 
     @strawberry.mutation
+    async def change_password(self, info: Info, current_password: str, new_password: str) -> bool:
+        context: AuthContext = info.context
+        if not context.user_id:
+            raise Exception("Not authenticated")
+
+        service = await get_auth_service(info)
+        try:
+            return await service.change_password(context.user_id, current_password, new_password)
+        except (AuthenticationError, ValidationError, NotFoundError) as e:
+            raise Exception(str(e))
+        finally:
+            await service.session.close()
+
+    @strawberry.mutation
     async def logout(self, info: Info, refresh_token: str) -> bool:
         service = await get_auth_service(info)
         try:
