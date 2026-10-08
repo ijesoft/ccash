@@ -1,4 +1,4 @@
-export type Role = "MEMBER" | "MERCHANT" | "ADMIN" | "SUPER_ADMIN";
+export type Role = "MEMBER" | "MERCHANT" | "ADMIN" | "SUPER_ADMIN" | "AUDITOR";
 
 export const PERMISSIONS = {
   PLATFORM_STATS: "platform:stats",
@@ -20,6 +20,7 @@ export const PERMISSIONS = {
   MASTERLIST_WRITE: "masterlist:write",
   BRANDING_WRITE: "branding:write",
   KYC_REVIEW: "kyc:review",
+  AUDIT_READ: "audit:read",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -31,6 +32,13 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   MERCHANT: [],
   ADMIN: [...ALL],
   SUPER_ADMIN: [...ALL],
+  AUDITOR: [
+    PERMISSIONS.PLATFORM_STATS,
+    PERMISSIONS.USERS_READ,
+    PERMISSIONS.MERCHANTS_READ,
+    PERMISSIONS.TX_READ_ALL,
+    PERMISSIONS.AUDIT_READ,
+  ],
 };
 
 export function hasPermission(role: string | null | undefined, perm: Permission): boolean {

@@ -30,6 +30,7 @@ class Permission(str, enum.Enum):
     MASTERLIST_WRITE = "masterlist:write"
     BRANDING_WRITE = "branding:write"
     KYC_REVIEW = "kyc:review"
+    AUDIT_READ = "audit:read"
 
 
 _ALL = frozenset(Permission)
@@ -39,6 +40,15 @@ ROLE_PERMISSIONS: dict[UserRole, frozenset[Permission]] = {
     UserRole.MERCHANT: frozenset(),
     UserRole.ADMIN: _ALL,
     UserRole.SUPER_ADMIN: _ALL,
+    UserRole.AUDITOR: frozenset(
+        {
+            Permission.PLATFORM_STATS,
+            Permission.USERS_READ,
+            Permission.MERCHANTS_READ,
+            Permission.TX_READ_ALL,
+            Permission.AUDIT_READ,
+        }
+    ),
 }
 
 
