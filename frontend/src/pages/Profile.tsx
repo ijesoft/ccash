@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Typography, TextField, Button, Alert, Card, CardContent, Chip, Stack, Divider } from "@mui/material";
+import { Box, Typography, TextField, Button, Alert, Card, CardContent, Chip, Stack, Divider, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 import { useMutation } from "@apollo/client";
 import { gql } from "@apollo/client";
 import { useAuth } from "../context/AuthContext";
@@ -19,6 +19,12 @@ const ENABLE_2FA = gql`
   }
 `;
 
+const CHANGE_PASSWORD = gql`
+  mutation ChangePassword($currentPassword: String!, $newPassword: String!) {
+    changePassword(currentPassword: $currentPassword, newPassword: $newPassword)
+  }
+`;
+
 function qrImageUrl(payload: string, size = 180) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}`;
 }
@@ -30,6 +36,13 @@ export default function Profile() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [changePassword] = useMutation(CHANGE_PASSWORD);
+  const [cpOpen, setCpOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [cpError, setCpError] = useState("");
+  const [cpSuccess, setCpSuccess] = useState("");
 
   const handleSetup2fa = async () => {
     try {
@@ -49,6 +62,29 @@ export default function Profile() {
       setCode("");
     } catch (err: any) {
       setError(err.message);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCpError("");
+    setCpSuccess("");
+    if (newPassword !== confirmPassword) {
+      setCpError("Passwords do not match");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setCpError("Password must be at least 8 characters");
+      return;
+    }
+    try {
+      await changePassword({ variables: { currentPassword, newPassword } });
+      setCpSuccess("Password changed successfully");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      setCpError(err.message);
     }
   };
 
@@ -81,6 +117,9 @@ export default function Profile() {
             </Box>
             <InfoRow label="2FA" value={user?.is2faEnabled ? "Enabled" : "Disabled"} />
           </Stack>
+          <Button variant="outlined" onClick={() => { setCpOpen(true); setCpError(""); setCpSuccess(""); }} sx={{ mt: 2, minHeight: 44 }}>
+            Change Password
+          </Button>
         </CardContent>
       </Card>
 
@@ -139,6 +178,23 @@ export default function Profile() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={cpOpen} onClose={() => setCpOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Change Password</DialogTitle>
+        <Box component="form" onSubmit={handleChangePassword}>
+          <DialogContent>
+            <TextField fullWidth label="Current Password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required margin="normal" autoComplete="current-password" />
+            <TextField fullWidth label="New Password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required margin="normal" helperText="At least 8 characters" autoComplete="new-password" />
+            <TextField fullWidth label="Confirm New Password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required margin="normal" autoComplete="new-password" />
+            {cpError && <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>{cpError}</Alert>}
+            {cpSuccess && <Alert severity="success" sx={{ mt: 2, borderRadius: 2 }}>{cpSuccess}</Alert>}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setCpOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="contained">Save New Password</Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Box>
   );
 }

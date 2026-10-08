@@ -130,3 +130,9 @@ export const ENABLE_2FA = gql`
     enable2fa(secret: $secret, code: $code)
   }
 `;
+
+export const CHANGE_PASSWORD = gql`
+  mutation ChangePassword($currentPassword: String!, $newPassword: String!) {
+    changePassword(currentPassword: $currentPassword, newPassword: $newPassword)
+  }
+`;
