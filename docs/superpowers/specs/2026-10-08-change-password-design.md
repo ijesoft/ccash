@@ -78,8 +78,9 @@ Add `CHANGE_PASSWORD` gql document (see above).
   Current (`autoComplete="current-password"`), New + Confirm (`autoComplete="new-password"`).
 - Local state: `currentPassword, newPassword, confirmPassword, cpError, cpSuccess, cpOpen`.
 - Submit: if `newPassword !== confirmPassword` → `"Passwords do not match"`, no request.
-  Else call mutation; on success show Alert, clear fields, close dialog; on error show
-  GraphQL message in Alert.
+  Else call mutation; on success show Alert and clear fields (dialog stays open so the
+  confirmation is visible; closing via Cancel/backdrop/Escape resets all dialog state);
+  on error show GraphQL message in Alert. Save is disabled while the request is in flight.
 - Strict TS: no unused locals/params.
 
 ## 5. Data flow
