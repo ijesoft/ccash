@@ -386,6 +386,25 @@ class AuthService:
 
         return True
 
+    async def change_password(
+        self, user_id: uuid.UUID, current_password: str, new_password: str
+    ) -> bool:
+        user = await self.repo.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User not found")
+
+        if not verify_password(current_password, user.password_hash):
+            raise AuthenticationError("Current password is incorrect")
+
+        if len(new_password) < 8:
+            raise ValidationError("Password must be at least 8 characters")
+
+        user.password_hash = hash_password(new_password)
+        await self.repo.update(user)
+        await self.session.commit()
+
+        return True
+
     async def logout(self, refresh_token: str) -> None:
         try:
             payload = decode_token(refresh_token)
