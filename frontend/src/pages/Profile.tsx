@@ -36,13 +36,22 @@ export default function Profile() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [changePassword] = useMutation(CHANGE_PASSWORD);
+  const [changePassword, { loading: cpLoading }] = useMutation(CHANGE_PASSWORD);
   const [cpOpen, setCpOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [cpError, setCpError] = useState("");
   const [cpSuccess, setCpSuccess] = useState("");
+
+  const closeCpDialog = () => {
+    setCpOpen(false);
+    setCpError("");
+    setCpSuccess("");
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  };
 
   const handleSetup2fa = async () => {
     try {
@@ -179,7 +188,7 @@ export default function Profile() {
         </CardContent>
       </Card>
 
-      <Dialog open={cpOpen} onClose={() => setCpOpen(false)} fullWidth maxWidth="xs">
+      <Dialog open={cpOpen} onClose={closeCpDialog} fullWidth maxWidth="xs">
         <DialogTitle>Change Password</DialogTitle>
         <Box component="form" onSubmit={handleChangePassword}>
           <DialogContent>
@@ -190,8 +199,8 @@ export default function Profile() {
             {cpSuccess && <Alert severity="success" sx={{ mt: 2, borderRadius: 2 }}>{cpSuccess}</Alert>}
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setCpOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained">Save New Password</Button>
+            <Button type="button" onClick={closeCpDialog}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={cpLoading}>Save New Password</Button>
           </DialogActions>
         </Box>
       </Dialog>
