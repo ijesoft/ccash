@@ -30,7 +30,7 @@ class RolePermissionService:
         self.session = session
 
     async def get_matrix(self) -> dict[str, list[str]]:
-        """{role: sorted permissions} for all four roles.
+        """{role: sorted permissions} for all five roles.
 
         Falls back to the ROLE_PERMISSIONS constants when the table is empty
         (fresh DB before migration 009, or tests that truncate between cases).
