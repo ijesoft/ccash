@@ -69,3 +69,59 @@ async def test_change_password_rejects_unknown_user(session, redis):
 
     with pytest.raises(NotFoundError):
         await service.change_password(uuid.uuid4(), OLD_PASSWORD, NEW_PASSWORD)
+
+
+async def test_change_password_rejects_too_long_new_password(session, redis):
+    user = await _make_user(session)
+    service = AuthService(session, redis)
+
+    with pytest.raises(ValidationError):
+        await service.change_password(user.id, OLD_PASSWORD, "x" * 129)
+
+    await session.refresh(user)
+    assert verify_password(OLD_PASSWORD, user.password_hash) is True
+
+
+async def test_change_password_resolver_rejects_unauthenticated(session, redis):
+    import app.domains.auth.graphql as auth_gql
+    from app.graphql.middleware import AuthContext
+
+    class FakeInfo:
+        context = AuthContext()
+
+    with pytest.raises(Exception, match="Not authenticated"):
+        await auth_gql.AuthMutations().change_password(FakeInfo(), "x", "y")  # type: ignore
+
+
+async def test_change_password_resolver_maps_service_errors(session, redis, monkeypatch):
+    import app.domains.auth.graphql as auth_gql
+    from app.graphql.middleware import AuthContext
+
+    user = await _make_user(session)
+
+    async def fake_get_auth_service(info):
+        return AuthService(session, redis)
+
+    monkeypatch.setattr(auth_gql, "get_auth_service", fake_get_auth_service)
+
+    class FakeInfo:
+        context = AuthContext()
+
+    FakeInfo.context.user_id = user.id
+    user_id = user.id
+
+    assert await auth_gql.AuthMutations().change_password(FakeInfo(), OLD_PASSWORD, NEW_PASSWORD) is True  # type: ignore
+    # Resolver closes the service session in `finally`, detaching `user`;
+    # re-fetch instead of refresh.
+    fresh = await session.get(User, user_id)
+    assert fresh is not None
+    assert verify_password(NEW_PASSWORD, fresh.password_hash) is True
+
+    with pytest.raises(Exception, match="Current password is incorrect"):
+        await auth_gql.AuthMutations().change_password(FakeInfo(), "WrongPass999", NEW_PASSWORD)  # type: ignore
+
+
+def test_change_password_in_schema():
+    from app.graphql.schema import schema
+
+    assert "changePassword" in str(schema)

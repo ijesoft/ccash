@@ -399,6 +399,9 @@ class AuthService:
         if len(new_password) < 8:
             raise ValidationError("Password must be at least 8 characters")
 
+        if len(new_password) > 128:
+            raise ValidationError("Password must be at most 128 characters")
+
         user.password_hash = hash_password(new_password)
         await self.repo.update(user)
         await self.session.commit()
