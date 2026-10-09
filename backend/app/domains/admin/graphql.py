@@ -170,8 +170,8 @@ class AdminQueries:
         action: str | None = None,
         search: str | None = None,
     ) -> list[AuditLogType]:
-        """Super-admin-only audit trail (money movements + admin actions)."""
-        require_roles(info.context, UserRole.SUPER_ADMIN)
+        """Audit trail (money movements + admin actions). Requires audit:read (SUPER_ADMIN + AUDITOR)."""
+        require_perms(info.context, Permission.AUDIT_READ)
         service = await get_admin_service(info)
         try:
             items, _ = await service.list_audit_logs(limit, offset, action, search)
@@ -183,7 +183,7 @@ class AdminQueries:
     async def audit_logs_count(
         self, info: Info, action: str | None = None, search: str | None = None
     ) -> int:
-        require_roles(info.context, UserRole.SUPER_ADMIN)
+        require_perms(info.context, Permission.AUDIT_READ)
         service = await get_admin_service(info)
         try:
             _, total = await service.list_audit_logs(1, 0, action, search)

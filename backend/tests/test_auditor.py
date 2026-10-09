@@ -56,3 +56,73 @@ async def test_auditor_has_no_wallet(session):
         await WalletService(session).get_or_create_wallet_for_role(auditor.id, auditor.role)
     with pytest.raises(ValidationError, match="Super admin"):
         await WalletService(session).get_or_create_wallet(auditor.id)
+
+
+async def test_auditor_can_read_audit_logs(session, monkeypatch):
+    """AUDITOR carries audit:read, so the auditLogs resolvers must let them through.
+
+    Pattern: no GraphQL-client fixture exists in this repo (see
+    tests/test_audit_log.py + tests/test_auth_change_password.py) — tests call
+    the service for data and the strawberry resolver directly with a FakeInfo
+    carrying an AuthContext. get_admin_service is monkeypatched to reuse the
+    test session instead of opening a real pool session.
+    """
+    import uuid
+
+    import app.domains.admin.graphql as admin_gql
+    from app.core.rbac import permissions_for
+    from app.domains.admin.service import AdminService
+    from app.graphql.middleware import AuthContext
+
+    async def fake_get_admin_service(info):
+        return AdminService(session)
+
+    monkeypatch.setattr(admin_gql, "get_admin_service", fake_get_admin_service)
+
+    class FakeInfo:
+        context = AuthContext()
+
+    FakeInfo.context.user_id = uuid.uuid4()
+    FakeInfo.context.role = UserRole.AUDITOR.value
+    FakeInfo.context.scopes = ["wallet:read", "wallet:write"] + permissions_for(
+        UserRole.AUDITOR
+    )
+    assert "audit:read" in FakeInfo.context.scopes
+
+    result = await admin_gql.AdminQueries().audit_logs(FakeInfo(), limit=1)  # type: ignore
+    assert isinstance(result, list)
+
+    total = await admin_gql.AdminQueries().audit_logs_count(FakeInfo())  # type: ignore
+    assert isinstance(total, int)
+
+
+async def test_admin_still_blocked_from_audit_logs(session, monkeypatch):
+    """ADMIN rows (migration 009) have no audit:read, so auditLogs must reject them."""
+    import uuid
+
+    import pytest
+
+    import app.domains.admin.graphql as admin_gql
+    from app.domains.admin.service import AdminService
+    from app.graphql.middleware import AuthContext
+
+    async def fake_get_admin_service(info):
+        return AdminService(session)
+
+    monkeypatch.setattr(admin_gql, "get_admin_service", fake_get_admin_service)
+
+    class FakeInfo:
+        context = AuthContext()
+
+    FakeInfo.context.user_id = uuid.uuid4()
+    FakeInfo.context.role = UserRole.ADMIN.value
+    # Mirrors DB-backed ADMIN scopes: broad but without audit:read (009 seeds
+    # no audit:read row for ADMIN; SUPER_ADMIN is synthesized, ADMIN is not).
+    FakeInfo.context.scopes = ["wallet:read", "wallet:write", "users:read", "admin"]
+    assert "audit:read" not in FakeInfo.context.scopes
+
+    with pytest.raises(Exception, match="Not authorized"):
+        await admin_gql.AdminQueries().audit_logs(FakeInfo(), limit=1)  # type: ignore
+
+    with pytest.raises(Exception, match="Not authorized"):
+        await admin_gql.AdminQueries().audit_logs_count(FakeInfo())  # type: ignore
