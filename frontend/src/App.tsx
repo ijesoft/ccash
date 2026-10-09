@@ -5,7 +5,7 @@ import { AuthProvider } from "./context/AuthContext";
 import client from "./graphql/client";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { RequirePerm, RequireSuperAdmin } from "./components/AdminRoute";
+import { RequirePerm, RequireRole, RequireSuperAdmin } from "./components/AdminRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import MerchantRegister from "./pages/MerchantRegister";
@@ -26,6 +26,9 @@ import SuperAdminUsers from "./pages/SuperAdminUsers";
 import SuperAdminAuditLog from "./pages/SuperAdminAuditLog";
 import SuperAdminRoles from "./pages/SuperAdminRoles";
 import WalletBalances from "./pages/WalletBalances";
+import AuditorDashboard from "./pages/AuditorDashboard";
+import AuditorTransactions from "./pages/AuditorTransactions";
+import AuditorAuditLog from "./pages/AuditorAuditLog";
 import AccountDetail from "./pages/AccountDetail";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import SessionGuard from "./components/SessionGuard";
@@ -61,6 +64,9 @@ export default function App() {
                 <Route path="/super-admin/roles" element={<RequireSuperAdmin><SuperAdminRoles /></RequireSuperAdmin>} />
                 <Route path="/admin/accounts/:id" element={<RequirePerm perm="users:read"><AccountDetail /></RequirePerm>} />
                 <Route path="/wallet-balances" element={<RequirePerm perm="platform:stats"><WalletBalances /></RequirePerm>} />
+                <Route path="/auditor" element={<RequireRole roles={["AUDITOR"]}><AuditorDashboard /></RequireRole>} />
+                <Route path="/auditor/transactions" element={<RequireRole roles={["AUDITOR"]}><AuditorTransactions /></RequireRole>} />
+                <Route path="/auditor/audit-log" element={<RequireRole roles={["AUDITOR"]}><AuditorAuditLog /></RequireRole>} />
               </Route>
             </Routes>
             <PwaInstallPrompt />

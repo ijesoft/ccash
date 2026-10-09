@@ -65,7 +65,7 @@ export default function Login() {
       await completeLogin(pendingEmail, normalizedIdNo);
       const raw = localStorage.getItem("user");
       const role = raw ? (JSON.parse(raw).role as string) : "";
-      navigate(role === "SUPER_ADMIN" ? "/super-admin" : "/");
+      navigate(role === "SUPER_ADMIN" ? "/super-admin" : role === "AUDITOR" ? "/auditor" : "/");
     } catch (err: any) {
       setIdError(err.message || "Could not verify ID No.");
     } finally {

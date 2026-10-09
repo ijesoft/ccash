@@ -16,6 +16,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  isAuditor: boolean;
   hasRole: (...roles: string[]) => boolean;
   can: (perm: string) => boolean;
   scopes: string[];
@@ -130,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user && !!accessToken,
     isAdmin: user?.role === "ADMIN",
     isSuperAdmin: user?.role === "SUPER_ADMIN",
+    isAuditor: user?.role === "AUDITOR",
     hasRole: (...roles: string[]) => !!user?.role && roles.includes(user.role),
     can: (perm: string) =>
       scopes.length > 0 ? scopes.includes(perm) : hasPermission(user?.role, perm as Permission),

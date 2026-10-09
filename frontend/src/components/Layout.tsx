@@ -54,7 +54,7 @@ const primaryNav: { label: string; icon: React.ReactNode; path: string; perm?: s
   { label: "Master List", icon: <ListAltIcon />, path: "/master-list", perm: "masterlist:read" },
 ];
 
-const secondaryNav: { label: string; icon: React.ReactNode; path: string; superOnly?: boolean }[] = [
+const secondaryNav: { label: string; icon: React.ReactNode; path: string; superOnly?: boolean; auditorOnly?: boolean }[] = [
   { label: "Cash In", icon: <CallReceivedIcon />, path: "/cash-in" },
   { label: "Cash Out", icon: <CallMadeIcon />, path: "/cash-out" },
   { label: "Admin", icon: <AdminPanelSettingsIcon />, path: "/admin" },
@@ -62,23 +62,29 @@ const secondaryNav: { label: string; icon: React.ReactNode; path: string; superO
   { label: "Users", icon: <PeopleIcon />, path: "/super-admin/users", superOnly: true },
   { label: "Audit Log", icon: <ReceiptIcon />, path: "/super-admin/audit-log", superOnly: true },
   { label: "Roles", icon: <SecurityIcon />, path: "/super-admin/roles", superOnly: true },
+  { label: "Auditor Home", icon: <DashboardIcon />, path: "/auditor", auditorOnly: true },
+  { label: "Ledger", icon: <ReceiptIcon />, path: "/auditor/transactions", auditorOnly: true },
+  { label: "Audit Log", icon: <SecurityIcon />, path: "/auditor/audit-log", auditorOnly: true },
   { label: "Notifications", icon: <NotificationsNoneIcon />, path: "/notifications" },
   { label: "Profile", icon: <PersonIcon />, path: "/profile" },
 ];
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, isAdmin, isSuperAdmin, can, logout } = useAuth();
+  const { user, isAdmin, isSuperAdmin, can, hasRole, logout } = useAuth();
+  const isAuditor = hasRole("AUDITOR");
   const visibleSecondaryNav = secondaryNav.filter((item) => {
+    if (item.auditorOnly) return isAuditor;
     if (item.superOnly) return isSuperAdmin;
     if (isSuperAdmin) return item.path === "/notifications" || item.path === "/profile";
+    if (isAuditor) return item.path === "/notifications" || item.path === "/profile";
     if (item.path === "/cash-in" || item.path === "/cash-out") return can("cash:operate");
     if (item.path === "/admin") return can("users:read");
     return true;
   });
   const visiblePrimaryNav = primaryNav.filter(
     (item) => (!item.perm || can(item.perm)) && (!item.adminOnly || isAdmin),
-  ).filter(() => !isSuperAdmin);
+  ).filter(() => !isSuperAdmin && !isAuditor);
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();

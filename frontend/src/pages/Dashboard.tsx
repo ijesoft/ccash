@@ -33,9 +33,10 @@ const ADMIN_ONLY_PATHS = ["/cash-in", "/cash-out"];
 export default function Dashboard() {
   const { wallet, loading } = useWallet();
   const { transactions, loading: txLoading } = useTransactions(5, 0);
-  const { user, isAdmin, isSuperAdmin } = useAuth();
+  const { user, isAdmin, isSuperAdmin, hasRole } = useAuth();
   const navigate = useNavigate();
   useEffect(() => { if (isSuperAdmin) navigate("/super-admin", { replace: true }); }, [isSuperAdmin, navigate]);
+  useEffect(() => { if (hasRole("AUDITOR")) navigate("/auditor", { replace: true }); }, [hasRole, navigate]);
   const [selected, setSelected] = useState<Transaction | null>(null);
 
   const actions = isAdmin ? allActions : allActions.filter((a) => !ADMIN_ONLY_PATHS.includes(a.path));
