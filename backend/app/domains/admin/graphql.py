@@ -190,24 +190,33 @@ class AdminQueries:
         offset: int = 0,
         action: str | None = None,
         search: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
     ) -> list[AuditLogType]:
         """Audit trail (money movements + admin actions). Requires audit:read (SUPER_ADMIN + AUDITOR)."""
         require_perms(info.context, Permission.AUDIT_READ)
         service = await get_admin_service(info)
         try:
-            items, _ = await service.list_audit_logs(limit, offset, action, search)
+            items, _ = await service.list_audit_logs(
+                limit, offset, action, search, from_date, to_date
+            )
             return [AuditLogType(**item) for item in items]
         finally:
             await service.session.close()
 
     @strawberry.field
     async def audit_logs_count(
-        self, info: Info, action: str | None = None, search: str | None = None
+        self,
+        info: Info,
+        action: str | None = None,
+        search: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
     ) -> int:
         require_perms(info.context, Permission.AUDIT_READ)
         service = await get_admin_service(info)
         try:
-            _, total = await service.list_audit_logs(1, 0, action, search)
+            _, total = await service.list_audit_logs(1, 0, action, search, from_date, to_date)
             return total
         finally:
             await service.session.close()

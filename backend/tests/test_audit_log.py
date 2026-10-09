@@ -111,3 +111,53 @@ async def test_audit_logs_query_rejects_non_super_admin():
         ctx.role = role
         with pytest.raises(Exception, match="Not authorized"):
             require_roles(ctx, UserRole.SUPER_ADMIN)
+
+
+async def _seed_audit_rows_on_dates(session, days):
+    from datetime import datetime, timezone
+
+    for day in days:
+        dt = datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        session.add(
+            AuditLog(action="transaction.send", resource_type="transaction", created_at=dt)
+        )
+    await session.commit()
+
+
+async def test_list_audit_logs_date_range_narrows_to_june_only(session):
+    from app.domains.admin.service import AdminService
+
+    await _seed_audit_rows_on_dates(session, ("2026-01-01", "2026-06-15", "2026-12-31"))
+
+    items, total = await AdminService(session).list_audit_logs(
+        from_date="2026-06-01", to_date="2026-06-30"
+    )
+    assert total == 1
+    assert len(items) == 1
+    assert "2026-06-15" in items[0]["created_at"]
+
+
+async def test_list_audit_logs_open_date_bounds(session):
+    from app.domains.admin.service import AdminService
+
+    await _seed_audit_rows_on_dates(session, ("2026-01-01", "2026-06-15", "2026-12-31"))
+
+    from_items, from_total = await AdminService(session).list_audit_logs(
+        from_date="2026-06-01"
+    )
+    assert from_total == 2
+    assert len(from_items) == 2
+
+    to_items, to_total = await AdminService(session).list_audit_logs(
+        to_date="2026-06-30"
+    )
+    assert to_total == 2
+    assert len(to_items) == 2
+
+
+async def test_list_audit_logs_invalid_from_date_format(session):
+    from app.core.errors import ValidationError
+    from app.domains.admin.service import AdminService
+
+    with pytest.raises(ValidationError, match="YYYY-MM-DD"):
+        await AdminService(session).list_audit_logs(from_date="15-06-2026")

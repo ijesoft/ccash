@@ -1,6 +1,6 @@
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,20 @@ def display_name_for(user: User, merchant_profile=None) -> str:
         return merchant_profile.company_name
     full_name = " ".join(p for p in (user.first_name, user.last_name) if p).strip()
     return full_name or user.email
+
+
+def _day_start(day: str) -> datetime:
+    try:
+        return datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise ValidationError(f"Invalid from_date '{day}': expected YYYY-MM-DD")
+
+
+def _day_after(day: str) -> datetime:
+    try:
+        return (datetime.strptime(day, "%Y-%m-%d") + timedelta(days=1)).replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise ValidationError(f"Invalid to_date '{day}': expected YYYY-MM-DD")
 
 
 class AdminService:
@@ -117,6 +131,8 @@ class AdminService:
         offset: int = 0,
         action: str | None = None,
         search: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
     ) -> tuple[list[dict], int]:
         filters = [AuditLog.action == action] if action else []
         if search:
@@ -126,6 +142,10 @@ class AdminService:
                 | (AuditLog.action.ilike(like))
                 | (AuditLog.resource_id.ilike(like))
             )
+        if from_date:
+            filters.append(AuditLog.created_at >= _day_start(from_date))
+        if to_date:
+            filters.append(AuditLog.created_at < _day_after(to_date))
 
         base = (
             select(func.count(AuditLog.id))
