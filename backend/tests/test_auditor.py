@@ -203,3 +203,219 @@ async def test_member_blocked_from_all_transactions(session, make_account, monke
         await admin_gql.AdminQueries().admin_all_transactions(  # type: ignore
             FakeInfo(), limit=5, offset=0
         )
+
+
+async def test_auditor_can_read_platform_stats(session, monkeypatch):
+    """Control: AUDITOR carries platform:stats, so platform_stats must succeed."""
+    import uuid
+
+    import app.domains.admin.graphql as admin_gql
+    from app.core.rbac import permissions_for
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+    from app.graphql.middleware import AuthContext
+
+    async def fake_get_admin_service(info):
+        return AdminService(session)
+
+    monkeypatch.setattr(admin_gql, "get_admin_service", fake_get_admin_service)
+
+    class FakeInfo:
+        context = AuthContext()
+
+    FakeInfo.context.user_id = uuid.uuid4()
+    FakeInfo.context.role = UserRole.AUDITOR.value
+    FakeInfo.context.scopes = ["wallet:read", "wallet:write"] + permissions_for(
+        UserRole.AUDITOR
+    )
+    assert "platform:stats" in FakeInfo.context.scopes
+
+    result = await admin_gql.AdminQueries().platform_stats(FakeInfo())  # type: ignore
+    assert result.total_users >= 0
+    assert result.total_wallet_balance_cents >= 0
+
+
+async def test_auditor_cannot_send_money(session, make_account, monkeypatch):
+    """AUDITOR has no wallet (Task 3), so send_money must fail even though the
+    resolver itself carries no perm guard — denial comes from the missing
+    sender wallet."""
+    import uuid
+
+    import pytest
+
+    import app.domains.transactions.graphql as tx_gql
+    from app.core.rbac import permissions_for
+    from app.core.security import hash_password
+    from app.domains.auth.models import User, UserRole, UserStatus
+    from app.domains.transactions.service import TransactionService
+    from app.graphql.middleware import AuthContext
+
+    auditor = User(
+        email="auditor-send@ccash.test",
+        phone="09180009991",
+        password_hash=hash_password("Test123!"),
+        status=UserStatus.ACTIVE,
+        is_verified=True,
+        role=UserRole.AUDITOR,
+    )
+    session.add(auditor)
+    await session.flush()
+    _, receiver_wallet = await make_account(balance_cents=250_000)
+
+    async def fake_get_tx_service(info):
+        return TransactionService(session)
+
+    monkeypatch.setattr(tx_gql, "get_tx_service", fake_get_tx_service)
+
+    class FakeInfo:
+        context = AuthContext()
+
+    FakeInfo.context.user_id = auditor.id
+    FakeInfo.context.role = UserRole.AUDITOR.value
+    FakeInfo.context.scopes = ["wallet:read", "wallet:write"] + permissions_for(
+        UserRole.AUDITOR
+    )
+    assert "cash:operate" not in FakeInfo.context.scopes
+
+    with pytest.raises(Exception, match="Sender wallet not found"):
+        await tx_gql.TransactionMutations().send_money(  # type: ignore
+            FakeInfo(),
+            tx_gql.SendMoneyInput(
+                receiver_wallet_id=str(receiver_wallet.id),
+                amount_cents=5_000,
+                idempotency_key=str(uuid.uuid4()),
+            ),
+        )
+
+
+async def test_auditor_cannot_cash_in(monkeypatch):
+    """cash_in requires cash:operate, which AUDITOR lacks."""
+    import uuid
+
+    import pytest
+
+    import app.domains.transactions.graphql as tx_gql
+    from app.core.rbac import permissions_for
+    from app.domains.auth.models import UserRole
+    from app.graphql.middleware import AuthContext
+
+    class FakeInfo:
+        context = AuthContext()
+
+    FakeInfo.context.user_id = uuid.uuid4()
+    FakeInfo.context.role = UserRole.AUDITOR.value
+    FakeInfo.context.scopes = ["wallet:read", "wallet:write"] + permissions_for(
+        UserRole.AUDITOR
+    )
+    assert "cash:operate" not in FakeInfo.context.scopes
+
+    with pytest.raises(Exception, match="Not authorized"):
+        await tx_gql.TransactionMutations().cash_in(  # type: ignore
+            FakeInfo(),
+            tx_gql.CashInInput(
+                amount_cents=5_000, idempotency_key=str(uuid.uuid4())
+            ),
+        )
+
+
+async def test_auditor_cannot_suspend_user(session, make_account, monkeypatch):
+    """suspend_user requires users:suspend, which AUDITOR lacks."""
+    import pytest
+
+    import app.domains.admin.graphql as admin_gql
+    from app.core.rbac import permissions_for
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+    from app.graphql.middleware import AuthContext
+    import uuid
+
+    target, _ = await make_account()
+
+    async def fake_get_admin_service(info):
+        return AdminService(session)
+
+    monkeypatch.setattr(admin_gql, "get_admin_service", fake_get_admin_service)
+
+    class FakeInfo:
+        context = AuthContext()
+
+    FakeInfo.context.user_id = uuid.uuid4()
+    FakeInfo.context.role = UserRole.AUDITOR.value
+    FakeInfo.context.scopes = ["wallet:read", "wallet:write"] + permissions_for(
+        UserRole.AUDITOR
+    )
+    assert "users:suspend" not in FakeInfo.context.scopes
+
+    with pytest.raises(Exception, match="Not authorized"):
+        await admin_gql.AdminMutations().suspend_user(  # type: ignore
+            FakeInfo(), user_id=str(target.id)
+        )
+
+
+async def test_auditor_cannot_update_user_role(session, make_account, monkeypatch):
+    """update_user_role requires users:change-role, which AUDITOR lacks."""
+    import uuid
+
+    import pytest
+
+    import app.domains.admin.graphql as admin_gql
+    from app.core.rbac import permissions_for
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+    from app.graphql.middleware import AuthContext
+
+    target, _ = await make_account()
+
+    async def fake_get_admin_service(info):
+        return AdminService(session)
+
+    monkeypatch.setattr(admin_gql, "get_admin_service", fake_get_admin_service)
+
+    class FakeInfo:
+        context = AuthContext()
+
+    FakeInfo.context.user_id = uuid.uuid4()
+    FakeInfo.context.role = UserRole.AUDITOR.value
+    FakeInfo.context.scopes = ["wallet:read", "wallet:write"] + permissions_for(
+        UserRole.AUDITOR
+    )
+    assert "users:change-role" not in FakeInfo.context.scopes
+
+    with pytest.raises(Exception, match="Not authorized"):
+        await admin_gql.AdminMutations().update_user_role(  # type: ignore
+            FakeInfo(),
+            user_id=str(target.id),
+            role=admin_gql.UserRoleEnum.MEMBER,
+        )
+
+
+async def test_auditor_cannot_review_kyc(monkeypatch):
+    """approve_kyc/reject_kyc require kyc:review, which AUDITOR lacks."""
+    import uuid
+
+    import pytest
+
+    import app.domains.users.graphql as kyc_gql
+    from app.core.rbac import permissions_for
+    from app.domains.auth.models import UserRole
+    from app.graphql.middleware import AuthContext
+
+    class FakeInfo:
+        context = AuthContext()
+
+    FakeInfo.context.user_id = uuid.uuid4()
+    FakeInfo.context.role = UserRole.AUDITOR.value
+    FakeInfo.context.scopes = ["wallet:read", "wallet:write"] + permissions_for(
+        UserRole.AUDITOR
+    )
+    assert "kyc:review" not in FakeInfo.context.scopes
+
+    with pytest.raises(Exception, match="Not authorized"):
+        await kyc_gql.KycMutations().approve_kyc(  # type: ignore
+            FakeInfo(), document_id=str(uuid.uuid4())
+        )
+
+    with pytest.raises(Exception, match="Not authorized"):
+        await kyc_gql.KycMutations().reject_kyc(  # type: ignore
+            FakeInfo(), document_id=str(uuid.uuid4()), reason="probe"
+        )
