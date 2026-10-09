@@ -264,21 +264,27 @@ class AuthService:
             raise AuthenticationError("Session expired, please sign in again")
 
         id_no = (id_no or "").strip()
-        expected = await self._expected_id_no(user)
 
-        if expected is None:
-            # First login since this account gained the ID No. requirement:
-            # the member sets their own permanent ID No. here.
-            if not re.fullmatch(r"\d{9}", id_no):
-                raise ValidationError("ID No. must be exactly 9 digits (numbers only)")
-            existing = await self.repo.get_by_id_no(id_no)
-            if existing and existing.id != user.id:
-                raise ValidationError("ID No. already in use")
-            user.id_no = id_no
-            await self.repo.update(user)
-            await self.session.commit()
-        elif id_no != expected:
-            raise AuthenticationError("Invalid credentials")
+        # The ID No. prompt is disabled in the UI: an empty id skips the
+        # check entirely (password + 2FA alone complete the login). A
+        # non-empty id still goes through the original verification so an
+        # API client that sends one gets the hardened behaviour.
+        if id_no:
+            expected = await self._expected_id_no(user)
+
+            if expected is None:
+                # First login since this account gained the ID No. requirement:
+                # the member sets their own permanent ID No. here.
+                if not re.fullmatch(r"\d{9}", id_no):
+                    raise ValidationError("ID No. must be exactly 9 digits (numbers only)")
+                existing = await self.repo.get_by_id_no(id_no)
+                if existing and existing.id != user.id:
+                    raise ValidationError("ID No. already in use")
+                user.id_no = id_no
+                await self.repo.update(user)
+                await self.session.commit()
+            elif id_no != expected:
+                raise AuthenticationError("Invalid credentials")
 
         await self.redis.delete(f"login_pending:{email}")
 

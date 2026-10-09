@@ -93,6 +93,20 @@ async def test_complete_login_rejects_wrong_id(session, redis):
         await service.complete_login(user.email, "999999999")
 
 
+async def test_complete_login_with_empty_id_skips_verification(session, redis):
+    """The UI no longer prompts for the ID No. and sends an empty string;
+    login then completes on password (+2FA) alone."""
+    user = await _make_user(session, id_no="111111116")
+    service = _service(session, redis)
+
+    await service.login(user.email, PASSWORD)
+    access, refresh, logged_in_user = await service.complete_login(user.email, "")
+
+    assert access
+    assert refresh
+    assert logged_in_user.id == user.id
+
+
 async def test_complete_login_without_prior_login_is_rejected(session, redis):
     user = await _make_user(session, id_no="111111114")
     service = _service(session, redis)
