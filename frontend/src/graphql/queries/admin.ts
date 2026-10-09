@@ -77,8 +77,8 @@ export const ADMIN_CREATE_MEMBER = gql`
 `;
 
 export const GET_AUDIT_LOGS = gql`
-  query AuditLogs($limit: Int, $offset: Int, $action: String, $search: String) {
-    auditLogs(limit: $limit, offset: $offset, action: $action, search: $search) {
+  query AuditLogs($limit: Int, $offset: Int, $action: String, $search: String, $fromDate: String, $toDate: String) {
+    auditLogs(limit: $limit, offset: $offset, action: $action, search: $search, fromDate: $fromDate, toDate: $toDate) {
       id
       actorEmail
       action
@@ -91,8 +91,8 @@ export const GET_AUDIT_LOGS = gql`
 `;
 
 export const GET_AUDIT_LOG_COUNT = gql`
-  query AuditLogCount($action: String, $search: String) {
-    auditLogsCount(action: $action, search: $search)
+  query AuditLogCount($action: String, $search: String, $fromDate: String, $toDate: String) {
+    auditLogsCount(action: $action, search: $search, fromDate: $fromDate, toDate: $toDate)
   }
 `;
 
