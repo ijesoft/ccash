@@ -70,6 +70,27 @@ class AdminMemberType:
 
 
 @strawberry.type
+class AdminLedgerRow:
+    id: str
+    created_at: str
+    reference: str | None
+    type: str
+    status: str
+    sender: str | None = None
+    receiver: str | None = None
+    amount_cents: int = 0
+    fee_cents: int = 0
+    net_amount_cents: int = 0
+    description: str | None = None
+
+
+@strawberry.type
+class AdminLedgerConnection:
+    items: list[AdminLedgerRow]
+    total: int
+
+
+@strawberry.type
 class BrandingType:
     logo_url: str
     version: int
@@ -250,6 +271,43 @@ class AdminQueries:
             return [TransactionType.from_view(v) for v in views]
         finally:
             await session.close()
+
+    @strawberry.field
+    async def admin_all_transactions(
+        self,
+        info: Info,
+        limit: int = 20,
+        offset: int = 0,
+        tx_type: str | None = None,
+        status: str | None = None,
+        search: str | None = None,
+    ) -> AdminLedgerConnection:
+        """Platform-wide ledger feed for auditors. Requires transactions:read-all."""
+        require_perms(info.context, Permission.TX_READ_ALL)
+        service = await get_admin_service(info)
+        try:
+            rows, total = await service.list_all_transactions_paginated(limit, offset, tx_type, status, search)
+            return AdminLedgerConnection(
+                items=[
+                    AdminLedgerRow(
+                        id=r["id"],
+                        created_at=r["created_at"],
+                        reference=r["reference"],
+                        type=r["type"],
+                        status=r["status"],
+                        sender=r["from"],
+                        receiver=r["to"],
+                        amount_cents=r["amount_cents"],
+                        fee_cents=r["fee_cents"],
+                        net_amount_cents=r["net_amount_cents"],
+                        description=r["description"],
+                    )
+                    for r in rows
+                ],
+                total=total,
+            )
+        finally:
+            await service.session.close()
 
     @strawberry.field
     async def admin_account_detail(self, info: Info, user_id: str) -> AdminAccountDetailType:

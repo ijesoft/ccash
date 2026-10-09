@@ -247,3 +247,24 @@ export const UPDATE_ROLE_PERMISSIONS = gql`
     updateRolePermissions(role: $role, permissions: $permissions)
   }
 `;
+
+export const GET_ALL_TRANSACTIONS = gql`
+  query AdminAllTransactions($limit: Int, $offset: Int, $txType: String, $status: String, $search: String) {
+    adminAllTransactions(limit: $limit, offset: $offset, txType: $txType, status: $status, search: $search) {
+      items {
+        id
+        createdAt
+        reference
+        type
+        status
+        sender
+        receiver
+        amountCents
+        feeCents
+        netAmountCents
+        description
+      }
+      total
+    }
+  }
+`;

@@ -285,6 +285,73 @@ class AdminService:
             })
         return rows
 
+    async def list_all_transactions_paginated(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        tx_type: str | None = None,
+        status: str | None = None,
+        search: str | None = None,
+    ) -> tuple[list[dict], int]:
+        """Paginated platform-wide ledger for the auditor feed. Same both-side
+        labels as list_all_transactions_for_report, plus filters."""
+        from app.domains.transactions.models import TransactionType
+
+        filters = []
+        if tx_type:
+            filters.append(Transaction.type == TransactionType(tx_type))
+        if status:
+            filters.append(Transaction.status == TransactionStatus(status))
+        if search:
+            like = f"%{search}%"
+            filters.append(
+                Transaction.reference.ilike(like)
+                | Transaction.description.ilike(like)
+            )
+
+        count_result = await self.session.execute(
+            select(func.count(Transaction.id)).where(*filters)
+        )
+        total = count_result.scalar() or 0
+
+        result = await self.session.execute(
+            select(Transaction)
+            .where(*filters)
+            .order_by(Transaction.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        txs = list(result.scalars().all())
+
+        wallet_ids = {w for tx in txs for w in (tx.sender_wallet_id, tx.receiver_wallet_id) if w}
+        owners = await self.wallet_repo.get_owners_by_wallet_ids(wallet_ids)
+        merchant_profiles = await self.merchant_repo.get_by_user_ids(
+            {u.id for u in owners.values() if u.role == UserRole.MERCHANT}
+        )
+
+        def label_for(wallet_id: uuid.UUID | None) -> str | None:
+            user = owners.get(wallet_id) if wallet_id else None
+            if not user:
+                return None
+            return display_name_for(user, merchant_profiles.get(user.id))
+
+        rows = []
+        for tx in txs:
+            rows.append({
+                "id": str(tx.id),
+                "created_at": tx.created_at.strftime("%Y-%m-%d %H:%M") if tx.created_at else "",
+                "reference": tx.reference,
+                "type": tx.type.value,
+                "status": tx.status.value,
+                "from": label_for(tx.sender_wallet_id) or ("Cash" if tx.sender_wallet_id is None else None),
+                "to": label_for(tx.receiver_wallet_id) or ("Cash" if tx.receiver_wallet_id is None else None),
+                "amount_cents": tx.amount_cents,
+                "fee_cents": tx.fee_cents,
+                "net_amount_cents": tx.net_amount_cents,
+                "description": tx.description,
+            })
+        return rows, total
+
     async def suspend_user(self, user_id: uuid.UUID) -> User | None:
         user = await self.user_repo.get_by_id(user_id)
         if user:

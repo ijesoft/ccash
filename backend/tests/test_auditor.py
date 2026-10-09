@@ -126,3 +126,80 @@ async def test_admin_still_blocked_from_audit_logs(session, monkeypatch):
 
     with pytest.raises(Exception, match="Not authorized"):
         await admin_gql.AdminQueries().audit_logs_count(FakeInfo())  # type: ignore
+
+
+async def test_admin_all_transactions_returns_platform_feed(session, make_account, monkeypatch):
+    """AUDITOR with transactions:read-all sees the platform-wide ledger with
+    both-side labels."""
+    import uuid
+
+    import app.domains.admin.graphql as admin_gql
+    from app.core.rbac import permissions_for
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+    from app.domains.transactions.service import TransactionService
+    from app.graphql.middleware import AuthContext
+
+    _, sender_wallet = await make_account(balance_cents=500_000)
+    _, receiver_wallet = await make_account(balance_cents=250_000)
+    service = TransactionService(session)
+    await service.send_money(
+        sender_wallet.user_id, receiver_wallet.id, 5_000, str(uuid.uuid4())
+    )
+
+    async def fake_get_admin_service(info):
+        return AdminService(session)
+
+    monkeypatch.setattr(admin_gql, "get_admin_service", fake_get_admin_service)
+
+    class FakeInfo:
+        context = AuthContext()
+
+    FakeInfo.context.user_id = uuid.uuid4()
+    FakeInfo.context.role = UserRole.AUDITOR.value
+    FakeInfo.context.scopes = ["wallet:read", "wallet:write"] + permissions_for(
+        UserRole.AUDITOR
+    )
+    assert "transactions:read-all" in FakeInfo.context.scopes
+
+    result = await admin_gql.AdminQueries().admin_all_transactions(  # type: ignore
+        FakeInfo(), limit=5, offset=0
+    )
+    assert result.total >= 1
+    assert len(result.items) >= 1
+    row = result.items[0]
+    assert row.reference
+    assert row.type
+    assert row.status
+    assert row.sender
+    assert row.receiver
+
+
+async def test_member_blocked_from_all_transactions(session, make_account, monkeypatch):
+    """MEMBER has no transactions:read-all, so the ledger must reject them."""
+    import uuid
+
+    import pytest
+
+    import app.domains.admin.graphql as admin_gql
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+    from app.graphql.middleware import AuthContext
+
+    async def fake_get_admin_service(info):
+        return AdminService(session)
+
+    monkeypatch.setattr(admin_gql, "get_admin_service", fake_get_admin_service)
+
+    class FakeInfo:
+        context = AuthContext()
+
+    FakeInfo.context.user_id = uuid.uuid4()
+    FakeInfo.context.role = UserRole.MEMBER.value
+    FakeInfo.context.scopes = ["wallet:read", "wallet:write"]
+    assert "transactions:read-all" not in FakeInfo.context.scopes
+
+    with pytest.raises(Exception, match="Not authorized"):
+        await admin_gql.AdminQueries().admin_all_transactions(  # type: ignore
+            FakeInfo(), limit=5, offset=0
+        )
