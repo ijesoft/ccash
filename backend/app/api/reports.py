@@ -16,12 +16,12 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
-from app.core.errors import NotFoundError
+from app.core.errors import NotFoundError, ValidationError
 from app.core.rbac import Permission
 from app.core.rest_auth import require_perms_token, require_user_token
 from app.database import async_session_factory
-from app.domains.admin.reports import generate_all_transactions_excel, generate_all_transactions_pdf
-from app.domains.admin.service import AdminService
+from app.domains.admin.reports import generate_all_transactions_excel, generate_all_transactions_pdf, generate_audit_log_excel
+from app.domains.admin.service import AdminService, REPORT_ROW_LIMIT
 from app.domains.auth.repository import UserRepository
 from app.domains.transactions.reports import generate_transaction_history_excel, generate_transaction_history_pdf
 from app.domains.transactions.service import TransactionService
@@ -157,5 +157,27 @@ async def download_account_transactions_excel(account_id: str, _actor: uuid.UUID
         return _download(xlsx_bytes, XLSX_MEDIA_TYPE, f"ccash-transactions-{account_id}-{_timestamp()}.xlsx")
     except (NotFoundError, ValueError) as e:
         raise HTTPException(status_code=404, detail=str(e))
+    finally:
+        await session.close()
+
+
+@admin_router.get("/audit-log.xlsx")
+async def download_audit_log_excel(
+    action: str | None = None,
+    search: str | None = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
+    _actor: uuid.UUID = Depends(require_perms_token(Permission.AUDIT_EXPORT)),
+):
+    """Filtered audit-log export. Same filters as the auditLogs query."""
+    session = async_session_factory()
+    try:
+        rows, _total = await AdminService(session).list_audit_logs(
+            REPORT_ROW_LIMIT, 0, action, search, from_date, to_date
+        )
+        xlsx_bytes = generate_audit_log_excel(rows)
+        return _download(xlsx_bytes, XLSX_MEDIA_TYPE, f"ccash-audit-log-{_timestamp()}.xlsx")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     finally:
         await session.close()

@@ -105,3 +105,47 @@ def generate_all_transactions_excel(rows: list[dict]) -> bytes:
     buffer = io.BytesIO()
     wb.save(buffer)
     return buffer.getvalue()
+
+
+AUDIT_COLUMN_HEADERS = ["Time", "Actor", "Action", "Resource", "Details"]
+
+
+def _audit_row_for(row: dict) -> list[str]:
+    return [
+        row["created_at"],
+        row["actor_email"] or "-",
+        row["action"],
+        row["resource_type"] or "-",
+        row["summary"] or "",
+    ]
+
+
+def generate_audit_log_excel(rows: list[dict]) -> bytes:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Audit Log"
+
+    ws.append(["Campe Wallet Audit Log"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([f"Generated: {_generated_at()}"])
+    ws.append([f"Total entries: {len(rows)}"])
+    ws.append([])
+
+    header_row_index = ws.max_row + 1
+    ws.append(AUDIT_COLUMN_HEADERS)
+    for cell in ws[header_row_index]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="0F6ECD")
+
+    if rows:
+        for row in rows:
+            ws.append(_audit_row_for(row))
+    else:
+        ws.append(["No audit entries found for the selected filters."])
+
+    for i in range(1, len(AUDIT_COLUMN_HEADERS) + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 24
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
