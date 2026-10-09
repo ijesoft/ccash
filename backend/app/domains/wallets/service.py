@@ -19,7 +19,7 @@ class WalletService:
 
     async def get_or_create_wallet(self, user_id: uuid.UUID) -> Wallet:
         owner = await UserRepository(self.session).get_by_id(user_id)
-        if owner is not None and owner.role == UserRole.SUPER_ADMIN:
+        if owner is not None and owner.role in (UserRole.SUPER_ADMIN, UserRole.AUDITOR):
             raise ValidationError("Super admin accounts do not have wallets")
         wallet = await self.repo.get_by_user_id(user_id)
         if not wallet:
@@ -28,7 +28,7 @@ class WalletService:
         return wallet
 
     async def get_or_create_wallet_for_role(self, user_id: uuid.UUID, role: UserRole) -> Wallet:
-        if role == UserRole.SUPER_ADMIN:
+        if role in (UserRole.SUPER_ADMIN, UserRole.AUDITOR):
             raise ValidationError("Super admin accounts do not have wallets")
         return await self.get_or_create_wallet(user_id)
 

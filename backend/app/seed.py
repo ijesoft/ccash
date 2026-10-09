@@ -74,8 +74,20 @@ async def seed():
             is_verified=True,
             role=UserRole.SUPER_ADMIN,
         )
+        auditor = User(
+            id=uuid.uuid4(),
+            email="auditor@ccash.ph",
+            phone="09180000005",
+            id_no="000000005",
+            first_name="Audit",
+            last_name="Or",
+            password_hash=hash_password("Auditor123!"),
+            status=UserStatus.ACTIVE,
+            is_verified=True,
+            role=UserRole.AUDITOR,
+        )
 
-        session.add_all([admin, superadmin, user1, user2, merchant_user])
+        session.add_all([admin, superadmin, auditor, user1, user2, merchant_user])
         await session.flush()
 
         merchant_profile = MerchantProfile(
@@ -148,6 +160,7 @@ async def seed():
         print(f"  Bob (member): bob@ccash.ph / Bob123!")
         print(f"  Merchant: merchant@ccash.ph / Merchant123!")
         print(f"  SuperAdmin (no wallet): superadmin@ccash.ph / SuperAdmin123!")
+        print(f"  Auditor (no wallet): auditor@ccash.ph / Auditor123!")
 
 
 if __name__ == "__main__":

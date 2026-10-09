@@ -33,3 +33,24 @@ def test_auditor_permission_rows_seeded():
     for perm in expected:
         assert perm in text
     assert "AUDITOR" in text
+
+
+async def test_auditor_has_no_wallet(session):
+    from app.core.errors import ValidationError
+    from app.core.security import hash_password
+    from app.domains.auth.models import User, UserStatus
+    from app.domains.wallets.service import WalletService
+    import pytest
+
+    auditor = User(
+        email="auditor@ccash.test",
+        phone="09180009999",
+        password_hash=hash_password("Test123!"),
+        status=UserStatus.ACTIVE,
+        is_verified=True,
+        role=UserRole.AUDITOR,
+    )
+    session.add(auditor)
+    await session.flush()
+    with pytest.raises(ValidationError):
+        await WalletService(session).get_or_create_wallet_for_role(auditor.id, auditor.role)

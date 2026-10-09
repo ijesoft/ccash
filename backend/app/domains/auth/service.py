@@ -158,7 +158,7 @@ class AuthService:
         await self.repo.update(user)
 
         wallet_repo = WalletRepository(self.session)
-        if user.role != UserRole.SUPER_ADMIN:
+        if user.role not in (UserRole.SUPER_ADMIN, UserRole.AUDITOR):
             existing_wallet = await wallet_repo.get_by_user_id(user.id)
             if not existing_wallet:
                 await wallet_repo.create(user.id)
