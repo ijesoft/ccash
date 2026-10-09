@@ -236,9 +236,8 @@ async def test_auditor_can_read_platform_stats(session, monkeypatch):
 
 
 async def test_auditor_cannot_send_money(session, make_account, monkeypatch):
-    """AUDITOR has no wallet (Task 3), so send_money must fail even though the
-    resolver itself carries no perm guard — denial comes from the missing
-    sender wallet."""
+    """AUDITOR is strictly read-only: send_money must fail at the service-layer
+    role guard — even if a wallet row were ever present (legacy/manual data)."""
     import uuid
 
     import pytest
@@ -277,7 +276,7 @@ async def test_auditor_cannot_send_money(session, make_account, monkeypatch):
     )
     assert "cash:operate" not in FakeInfo.context.scopes
 
-    with pytest.raises(Exception, match="Sender wallet not found"):
+    with pytest.raises(Exception, match="Super admin"):
         await tx_gql.TransactionMutations().send_money(  # type: ignore
             FakeInfo(),
             tx_gql.SendMoneyInput(
@@ -419,3 +418,71 @@ async def test_auditor_cannot_review_kyc(monkeypatch):
         await kyc_gql.KycMutations().reject_kyc(  # type: ignore
             FakeInfo(), document_id=str(uuid.uuid4()), reason="probe"
         )
+
+
+async def test_auditor_with_wallet_cannot_send_money(session, make_account):
+    """Regression: an AUDITOR row with a directly-inserted wallet (legacy /
+    manual data, bypassing WalletService) must still be rejected at the
+    service layer — strictly read-only means no transacting even when a
+    wallet row exists."""
+    import uuid
+
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.core.security import hash_password
+    from app.domains.auth.models import User, UserRole, UserStatus
+    from app.domains.transactions.service import TransactionService
+    from app.domains.wallets.models import Wallet
+
+    auditor = User(
+        email="auditor-wallet-send@ccash.test",
+        phone="09180998011",
+        password_hash=hash_password("Test123!"),
+        status=UserStatus.ACTIVE,
+        is_verified=True,
+        role=UserRole.AUDITOR,
+    )
+    session.add(auditor)
+    await session.flush()
+    # Bypass WalletService (which refuses auditor wallets): legacy/manual row.
+    session.add(Wallet(user_id=auditor.id, balance_cents=100_000))
+    await session.flush()
+
+    _, receiver_wallet = await make_account(balance_cents=250_000)
+
+    service = TransactionService(session)
+    with pytest.raises(ValidationError, match="Super admin"):
+        await service.send_money(
+            auditor.id, receiver_wallet.id, 5_000, str(uuid.uuid4())
+        )
+
+
+async def test_auditor_with_wallet_cannot_cash_in(session):
+    """Same hole via cash_in: auditor-with-wallet must be rejected."""
+    import uuid
+
+    import pytest
+
+    from app.core.errors import ValidationError
+    from app.core.security import hash_password
+    from app.domains.auth.models import User, UserRole, UserStatus
+    from app.domains.transactions.service import TransactionService
+    from app.domains.wallets.models import Wallet
+
+    auditor = User(
+        email="auditor-wallet-cashin@ccash.test",
+        phone="09180998012",
+        password_hash=hash_password("Test123!"),
+        status=UserStatus.ACTIVE,
+        is_verified=True,
+        role=UserRole.AUDITOR,
+    )
+    session.add(auditor)
+    await session.flush()
+    session.add(Wallet(user_id=auditor.id, balance_cents=100_000))
+    await session.flush()
+
+    service = TransactionService(session)
+    with pytest.raises(ValidationError, match="Super admin"):
+        await service.cash_in(auditor.id, 5_000, str(uuid.uuid4()))

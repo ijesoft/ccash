@@ -52,7 +52,7 @@ class TransactionService:
         transaction_type: TransactionType = TransactionType.SEND,
     ) -> TransactionView:
         caller = await UserRepository(self.session).get_by_id(sender_user_id)
-        if caller is not None and caller.role == UserRole.SUPER_ADMIN:
+        if caller is not None and caller.role in (UserRole.SUPER_ADMIN, UserRole.AUDITOR):
             raise ValidationError("Super admin accounts cannot transact (no wallet)")
 
         import re as _re
@@ -90,7 +90,7 @@ class TransactionService:
             user = await self._find_user_by_mobile(receiver_mobile)
             if not user:
                 raise NotFoundError("Recipient not found")
-            if user.role == UserRole.SUPER_ADMIN:
+            if user.role in (UserRole.SUPER_ADMIN, UserRole.AUDITOR):
                 raise ValidationError("Super admin accounts cannot receive money (no wallet)")
             receiver_wallet = await self.wallet_repo.get_by_user_id(user.id)
             if not receiver_wallet:
@@ -108,7 +108,10 @@ class TransactionService:
             recipient_user = await UserRepository(self.session).get_by_id(
                 receiver_wallet_pre.user_id
             )
-            if recipient_user is not None and recipient_user.role == UserRole.SUPER_ADMIN:
+            if recipient_user is not None and recipient_user.role in (
+                UserRole.SUPER_ADMIN,
+                UserRole.AUDITOR,
+            ):
                 raise ValidationError("Super admin accounts cannot receive money (no wallet)")
 
         if sender_wallet.id == resolved_receiver_wallet_id:
@@ -331,7 +334,7 @@ class TransactionService:
         description: str | None = None,
     ) -> TransactionView:
         caller = await UserRepository(self.session).get_by_id(user_id)
-        if caller is not None and caller.role == UserRole.SUPER_ADMIN:
+        if caller is not None and caller.role in (UserRole.SUPER_ADMIN, UserRole.AUDITOR):
             raise ValidationError("Super admin accounts cannot transact (no wallet)")
 
         validate_amount(amount_cents)
@@ -380,7 +383,7 @@ class TransactionService:
         description: str | None = None,
     ) -> TransactionView:
         caller = await UserRepository(self.session).get_by_id(user_id)
-        if caller is not None and caller.role == UserRole.SUPER_ADMIN:
+        if caller is not None and caller.role in (UserRole.SUPER_ADMIN, UserRole.AUDITOR):
             raise ValidationError("Super admin accounts cannot transact (no wallet)")
 
         validate_amount(amount_cents)
@@ -625,7 +628,7 @@ class TransactionService:
         description: str | None = None,
     ) -> TransactionView:
         caller = await UserRepository(self.session).get_by_id(sender_user_id)
-        if caller is not None and caller.role == UserRole.SUPER_ADMIN:
+        if caller is not None and caller.role in (UserRole.SUPER_ADMIN, UserRole.AUDITOR):
             raise ValidationError("Super admin accounts cannot transact (no wallet)")
 
         validate_amount(amount_cents)
@@ -681,7 +684,7 @@ class TransactionService:
         approve: bool,
     ) -> TransactionView:
         caller = await UserRepository(self.session).get_by_id(user_id)
-        if caller is not None and caller.role == UserRole.SUPER_ADMIN:
+        if caller is not None and caller.role in (UserRole.SUPER_ADMIN, UserRole.AUDITOR):
             raise ValidationError("Super admin accounts cannot transact (no wallet)")
 
         tx = await self.tx_repo.get_by_id(tx_id)
