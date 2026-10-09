@@ -21,6 +21,7 @@ export const PERMISSIONS = {
   BRANDING_WRITE: "branding:write",
   KYC_REVIEW: "kyc:review",
   AUDIT_READ: "audit:read",
+  AUDIT_EXPORT: "audit:export",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -38,6 +39,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.MERCHANTS_READ,
     PERMISSIONS.TX_READ_ALL,
     PERMISSIONS.AUDIT_READ,
+    PERMISSIONS.AUDIT_EXPORT,
   ],
 };
 

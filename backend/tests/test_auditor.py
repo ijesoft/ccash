@@ -15,7 +15,18 @@ def test_auditor_permission_set_is_exact():
         "merchants:read",
         "transactions:read-all",
         "audit:read",
+        "audit:export",
     }
+
+
+def test_audit_export_permission_rows_seeded():
+    import pathlib
+
+    text = pathlib.Path("migrations/versions/011_add_audit_export.py").read_text()
+    assert "audit:export" in text
+    assert "AUDITOR" in text
+    assert "011" in text
+    assert "010" in text
 
 
 def test_auditor_permission_rows_seeded():
