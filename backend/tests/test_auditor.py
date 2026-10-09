@@ -52,5 +52,7 @@ async def test_auditor_has_no_wallet(session):
     )
     session.add(auditor)
     await session.flush()
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="do not have wallets"):
         await WalletService(session).get_or_create_wallet_for_role(auditor.id, auditor.role)
+    with pytest.raises(ValidationError, match="do not have wallets"):
+        await WalletService(session).get_or_create_wallet(auditor.id)
