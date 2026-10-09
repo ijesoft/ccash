@@ -71,8 +71,7 @@ const secondaryNav: { label: string; icon: React.ReactNode; path: string; superO
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, isAdmin, isSuperAdmin, can, hasRole, logout } = useAuth();
-  const isAuditor = hasRole("AUDITOR");
+  const { user, isAdmin, isSuperAdmin, isAuditor, can, logout } = useAuth();
   const visibleSecondaryNav = secondaryNav.filter((item) => {
     if (item.auditorOnly) return isAuditor;
     if (item.superOnly) return isSuperAdmin;
