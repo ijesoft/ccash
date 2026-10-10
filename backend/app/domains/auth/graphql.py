@@ -216,6 +216,32 @@ class AuthMutations:
             await service.session.close()
 
     @strawberry.mutation
+    async def request_password_reset(self, info: Info, email: str) -> bool:
+        from app.domains.auth.password_recovery import RecoveryService
+        session = async_session_factory()
+        try:
+            await RecoveryService(session).submit_request(email)
+            return True
+        except (NotFoundError, ValidationError) as e:
+            raise Exception(str(e))
+        finally:
+            await session.close()
+
+    @strawberry.mutation
+    async def reset_password_with_code(self, info: Info, code: str, new_password: str, confirm_password: str) -> bool:
+        from app.domains.auth.password_recovery import RecoveryService
+        if new_password != confirm_password:
+            raise Exception("Passwords do not match")
+        session = async_session_factory()
+        try:
+            await RecoveryService(session).consume_code(code, new_password)
+            return True
+        except (NotFoundError, ValidationError) as e:
+            raise Exception(str(e))
+        finally:
+            await session.close()
+
+    @strawberry.mutation
     async def logout(self, info: Info, refresh_token: str) -> bool:
         service = await get_auth_service(info)
         try:
