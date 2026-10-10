@@ -67,6 +67,7 @@ class RecoveryService:
             )
         ).scalars().all()
         for row in prior:
+            old_status = row.status
             row.status = RecoveryStatus.CANCELLED.value
             self.session.add(
                 AuditLog(
@@ -74,7 +75,7 @@ class RecoveryService:
                     action="password_recovery.cancel",
                     resource_type="password_reset_request",
                     resource_id=str(row.id),
-                    old_values={"status": row.status},
+                    old_values={"status": old_status},
                     new_values={"status": "cancelled", "reason": "superseded"},
                 )
             )
