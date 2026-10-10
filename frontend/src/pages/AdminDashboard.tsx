@@ -32,7 +32,6 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import BadgeIcon from "@mui/icons-material/Badge";
-import LockResetIcon from "@mui/icons-material/LockReset";
 import {
   GET_ADMIN_STATS,
   GET_ADMIN_MEMBERS,
@@ -49,7 +48,6 @@ import MerchantsTable from "../components/MerchantsTable";
 import AddMemberDialog from "../components/AddMemberDialog";
 import BatchUploadDialog from "../components/BatchUploadDialog";
 import SetIdDialog from "../components/SetIdDialog";
-import ResetPasswordDialog from "../components/ResetPasswordDialog";
 
 type AccountRow = { id: string; email: string; status: string; role: string; idNo: string | null };
 
@@ -63,7 +61,6 @@ export default function AdminDashboard() {
   const [batchUploadOpen, setBatchUploadOpen] = useState(false);
   const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
   const [setIdTarget, setSetIdTarget] = useState<AccountRow | null>(null);
-  const [resetPasswordTarget, setResetPasswordTarget] = useState<AccountRow | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false,
     message: "",
@@ -109,11 +106,6 @@ export default function AdminDashboard() {
 
   const handleOpenSetId = () => {
     if (selectedUser) setSetIdTarget(selectedUser);
-    handleMenuClose();
-  };
-
-  const handleOpenResetPassword = () => {
-    if (selectedUser) setResetPasswordTarget(selectedUser);
     handleMenuClose();
   };
 
@@ -421,12 +413,6 @@ export default function AdminDashboard() {
             <ListItemText>{selectedUser?.idNo ? "Change ID No." : "Set ID No."}</ListItemText>
           </MenuItem>
         )}
-        <MenuItem onClick={handleOpenResetPassword}>
-          <ListItemIcon>
-            <LockResetIcon fontSize="small" color="warning" />
-          </ListItemIcon>
-          <ListItemText>Reset Password</ListItemText>
-        </MenuItem>
       </Menu>
 
       <SetIdDialog
@@ -446,15 +432,6 @@ export default function AdminDashboard() {
           setSnackbar({ open: true, message: `ID No. set for ${setIdTarget.email}`, severity: "success" });
         }}
       />
-
-      {resetPasswordTarget && (
-        <ResetPasswordDialog
-          open={Boolean(resetPasswordTarget)}
-          onClose={() => setResetPasswordTarget(null)}
-          userId={resetPasswordTarget.id}
-          email={resetPasswordTarget.email}
-        />
-      )}
 
       {/* Snackbar for feedback */}
       <Snackbar

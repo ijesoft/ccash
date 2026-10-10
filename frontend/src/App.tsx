@@ -26,6 +26,7 @@ import SuperAdminUsers from "./pages/SuperAdminUsers";
 import SuperAdminAuditLog from "./pages/SuperAdminAuditLog";
 import SuperAdminRoles from "./pages/SuperAdminRoles";
 import WalletBalances from "./pages/WalletBalances";
+import RecoveryRequests from "./pages/RecoveryRequests";
 import AuditorDashboard from "./pages/AuditorDashboard";
 import AuditorTransactions from "./pages/AuditorTransactions";
 import AuditorAuditLog from "./pages/AuditorAuditLog";
@@ -58,6 +59,7 @@ export default function App() {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/admin" element={<RequirePerm perm="users:read"><AdminDashboard /></RequirePerm>} />
+                <Route path="/admin/recovery" element={<RequirePerm perm="users:recover-password"><RecoveryRequests /></RequirePerm>} />
                 <Route path="/super-admin" element={<RequireSuperAdmin><SuperAdminDashboard /></RequireSuperAdmin>} />
                 <Route path="/super-admin/users" element={<RequireSuperAdmin><SuperAdminUsers /></RequireSuperAdmin>} />
                 <Route path="/super-admin/audit-log" element={<RequireSuperAdmin><SuperAdminAuditLog /></RequireSuperAdmin>} />

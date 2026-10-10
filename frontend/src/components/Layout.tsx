@@ -35,6 +35,7 @@ import CallMadeIcon from "@mui/icons-material/CallMade";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import PeopleIcon from "@mui/icons-material/People";
+import LockResetIcon from "@mui/icons-material/LockReset";
 import SecurityIcon from "@mui/icons-material/Security";
 import { useQuery } from "@apollo/client";
 import { UNREAD_COUNT } from "../graphql/queries/wallet";
@@ -58,6 +59,7 @@ const secondaryNav: { label: string; icon: React.ReactNode; path: string; superO
   { label: "Cash In", icon: <CallReceivedIcon />, path: "/cash-in" },
   { label: "Cash Out", icon: <CallMadeIcon />, path: "/cash-out" },
   { label: "Admin", icon: <AdminPanelSettingsIcon />, path: "/admin" },
+  { label: "Recovery", icon: <LockResetIcon />, path: "/admin/recovery" },
   { label: "Dashboard", icon: <DashboardIcon />, path: "/super-admin", superOnly: true },
   { label: "Users", icon: <PeopleIcon />, path: "/super-admin/users", superOnly: true },
   { label: "Audit Log", icon: <ReceiptIcon />, path: "/super-admin/audit-log", superOnly: true },
@@ -75,6 +77,7 @@ export default function Layout() {
   const visibleSecondaryNav = secondaryNav.filter((item) => {
     if (item.auditorOnly) return isAuditor;
     if (item.superOnly) return isSuperAdmin;
+    if (item.path === "/admin/recovery") return can("users:recover-password");
     if (isSuperAdmin) return item.path === "/notifications" || item.path === "/profile";
     if (isAuditor) return item.path === "/notifications" || item.path === "/profile";
     if (item.path === "/cash-in" || item.path === "/cash-out") return can("cash:operate");

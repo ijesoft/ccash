@@ -21,7 +21,6 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
 import BadgeIcon from "@mui/icons-material/Badge";
-import LockResetIcon from "@mui/icons-material/LockReset";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import BlockIcon from "@mui/icons-material/Block";
@@ -40,7 +39,6 @@ import {
 import { formatMoney } from "../utils/format";
 import AccountExportMenu from "../components/AccountExportMenu";
 import SetIdDialog from "../components/SetIdDialog";
-import ResetPasswordDialog from "../components/ResetPasswordDialog";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 interface MemberForm {
@@ -75,7 +73,6 @@ export default function AccountDetail() {
   const [merchantForm, setMerchantForm] = useState<MerchantForm | null>(null);
   const [formError, setFormError] = useState("");
   const [setIdOpen, setSetIdOpen] = useState(false);
-  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false,
@@ -249,9 +246,6 @@ export default function AccountDetail() {
               Change Merchant ID
             </Button>
           )}
-          <Button size="small" variant="outlined" color="warning" startIcon={<LockResetIcon />} onClick={() => setResetPasswordOpen(true)}>
-            Reset Password
-          </Button>
           <Button
             size="small"
             variant="outlined"
@@ -429,15 +423,6 @@ export default function AccountDetail() {
             await refetch();
             setSnackbar({ open: true, message: "Merchant ID updated", severity: "success" });
           }}
-        />
-      )}
-
-      {resetPasswordOpen && (
-        <ResetPasswordDialog
-          open={resetPasswordOpen}
-          onClose={() => setResetPasswordOpen(false)}
-          userId={account.id}
-          email={account.email}
         />
       )}
 

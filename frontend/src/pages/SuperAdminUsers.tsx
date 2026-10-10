@@ -10,12 +10,10 @@ import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import PersonIcon from "@mui/icons-material/Person";
 import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
 import BadgeIcon from "@mui/icons-material/Badge";
-import LockResetIcon from "@mui/icons-material/LockReset";
 import SearchIcon from "@mui/icons-material/Search";
 import { GET_ADMIN_MEMBERS, GET_ADMIN_STATS, GET_ADMIN_USER_COUNT, ACTIVATE_USER, SUSPEND_USER, UPDATE_USER_ROLE, ADMIN_SET_MEMBER_ID } from "../graphql/queries/admin";
 import { formatMoney } from "../utils/format";
 import SetIdDialog from "../components/SetIdDialog";
-import ResetPasswordDialog from "../components/ResetPasswordDialog";
 
 type AccountRow = { id: string; email: string; status: string; role: string; idNo: string | null };
 
@@ -25,7 +23,6 @@ export default function SuperAdminUsers() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<AccountRow | null>(null);
   const [setIdTarget, setSetIdTarget] = useState<AccountRow | null>(null);
-  const [resetPasswordTarget, setResetPasswordTarget] = useState<AccountRow | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({ open: false, message: "", severity: "success" });
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -97,10 +94,8 @@ export default function SuperAdminUsers() {
         {selectedUser?.role !== "SUPER_ADMIN" && (<MenuItem onClick={() => selectedUser && act(() => updateUserRole({ variables: { userId: selectedUser.id, role: "SUPER_ADMIN" } }), `${selectedUser.email} → SUPER_ADMIN`)}><ListItemIcon><SupervisorAccountIcon fontSize="small" color="error" /></ListItemIcon><ListItemText>Make Super Admin</ListItemText></MenuItem>)}
         {(selectedUser?.role === "ADMIN" || selectedUser?.role === "SUPER_ADMIN") && (<MenuItem onClick={() => selectedUser && act(() => updateUserRole({ variables: { userId: selectedUser.id, role: "MEMBER" } }), `${selectedUser.email} → MEMBER`)}><ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon><ListItemText>Demote to Member</ListItemText></MenuItem>)}
         {selectedUser?.role !== "MERCHANT" && (<MenuItem onClick={() => { if (selectedUser) setSetIdTarget(selectedUser); handleMenuClose(); }}><ListItemIcon><BadgeIcon fontSize="small" /></ListItemIcon><ListItemText>{selectedUser?.idNo ? "Change ID No." : "Set ID No."}</ListItemText></MenuItem>)}
-        <MenuItem onClick={() => { if (selectedUser) setResetPasswordTarget(selectedUser); handleMenuClose(); }}><ListItemIcon><LockResetIcon fontSize="small" color="warning" /></ListItemIcon><ListItemText>Reset Password</ListItemText></MenuItem>
       </Menu>
       <SetIdDialog open={Boolean(setIdTarget)} onClose={() => setSetIdTarget(null)} title="Set Member ID No." label="ID No." helperText="9-digit Member/Admin/Super-admin login ID" initialValue={setIdTarget?.idNo} maxLength={9} transform={(raw) => raw.replace(/\D/g, "")} isValid={(v) => /^\d{9}$/.test(v)} invalidMessage="ID No. must be exactly 9 digits" onSubmit={async (value) => { if (!setIdTarget) return; await setMemberId({ variables: { userId: setIdTarget.id, idNo: value } }); setSnackbar({ open: true, message: `ID No. set for ${setIdTarget.email}`, severity: "success" }); }} />
-      {resetPasswordTarget && (<ResetPasswordDialog open={Boolean(resetPasswordTarget)} onClose={() => setResetPasswordTarget(null)} userId={resetPasswordTarget.id} email={resetPasswordTarget.email} />)}
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: "bottom", horizontal: "right" }}><Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} variant="filled">{snackbar.message}</Alert></Snackbar>
     </Box>
   );

@@ -5,11 +5,9 @@ import { useQuery, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import BadgeIcon from "@mui/icons-material/Badge";
-import LockResetIcon from "@mui/icons-material/LockReset";
 import { GET_ADMIN_MERCHANTS, ADMIN_SET_MERCHANT_ID } from "../graphql/queries/admin";
 import AccountExportMenu from "./AccountExportMenu";
 import SetIdDialog from "./SetIdDialog";
-import ResetPasswordDialog from "./ResetPasswordDialog";
 
 type MerchantRow = { id: string; email: string; merchantIdNo: string };
 
@@ -19,7 +17,6 @@ export default function MerchantsTable() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selected, setSelected] = useState<MerchantRow | null>(null);
   const [setIdTarget, setSetIdTarget] = useState<MerchantRow | null>(null);
-  const [resetPasswordTarget, setResetPasswordTarget] = useState<MerchantRow | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false,
     message: "",
@@ -123,15 +120,6 @@ export default function MerchantsTable() {
           <ListItemIcon><BadgeIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Change Merchant ID</ListItemText>
         </MenuItem>
-        <MenuItem
-          onClick={() => {
-            if (selected) setResetPasswordTarget(selected);
-            handleMenuClose();
-          }}
-        >
-          <ListItemIcon><LockResetIcon fontSize="small" color="warning" /></ListItemIcon>
-          <ListItemText>Reset Password</ListItemText>
-        </MenuItem>
       </Menu>
 
       <SetIdDialog
@@ -155,15 +143,6 @@ export default function MerchantsTable() {
           refetch();
         }}
       />
-
-      {resetPasswordTarget && (
-        <ResetPasswordDialog
-          open={Boolean(resetPasswordTarget)}
-          onClose={() => setResetPasswordTarget(null)}
-          userId={resetPasswordTarget.id}
-          email={resetPasswordTarget.email}
-        />
-      )}
 
       <Snackbar
         open={snackbar.open}

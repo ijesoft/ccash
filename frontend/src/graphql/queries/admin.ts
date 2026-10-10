@@ -248,6 +248,47 @@ export const UPDATE_ROLE_PERMISSIONS = gql`
   }
 `;
 
+export const GET_RECOVERY_REQUESTS = gql`
+  query RecoveryRequests($limit: Int, $offset: Int, $status: String, $search: String) {
+    passwordRecoveryRequests(limit: $limit, offset: $offset, status: $status, search: $search) {
+      id
+      email
+      status
+      requestedAt
+      decidedAt
+      decidedBy
+      expiresAt
+    }
+  }
+`;
+
+export const GET_RECOVERY_REQUEST_COUNT = gql`
+  query RecoveryRequestCount($status: String, $search: String) {
+    passwordRecoveryRequestsCount(status: $status, search: $search)
+  }
+`;
+
+export const APPROVE_RECOVERY_REQUEST = gql`
+  mutation ApproveRecoveryRequest($requestId: String!) {
+    approvePasswordRecoveryRequest(requestId: $requestId) {
+      request {
+        id
+        status
+      }
+      recoveryCode
+    }
+  }
+`;
+
+export const CANCEL_RECOVERY_REQUEST = gql`
+  mutation CancelRecoveryRequest($requestId: String!) {
+    cancelPasswordRecoveryRequest(requestId: $requestId) {
+      id
+      status
+    }
+  }
+`;
+
 export const GET_ALL_TRANSACTIONS = gql`
   query AdminAllTransactions($limit: Int, $offset: Int, $txType: String, $status: String, $search: String) {
     adminAllTransactions(limit: $limit, offset: $offset, txType: $txType, status: $status, search: $search) {
