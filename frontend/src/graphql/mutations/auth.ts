@@ -136,3 +136,15 @@ export const CHANGE_PASSWORD = gql`
     changePassword(currentPassword: $currentPassword, newPassword: $newPassword)
   }
 `;
+
+export const REQUEST_PASSWORD_RESET = gql`
+  mutation RequestPasswordReset($email: String!) {
+    requestPasswordReset(email: $email)
+  }
+`;
+
+export const RESET_PASSWORD_WITH_CODE = gql`
+  mutation ResetPasswordWithCode($code: String!, $newPassword: String!, $confirmPassword: String!) {
+    resetPasswordWithCode(code: $code, newPassword: $newPassword, confirmPassword: $confirmPassword)
+  }
+`;

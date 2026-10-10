@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useNavigate, Link as RouterLink, useSearchParams, useLocation } from "react-router-dom";
-import { Box, Button, Card, CardContent, TextField, Typography, Alert, Link } from "@mui/material";
+import { Box, Button, Card, CardContent, TextField, Typography, Alert, Link, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import { useMutation } from "@apollo/client";
 import { useAuth } from "../context/AuthContext";
-import { SEND_LOGIN_OTP } from "../graphql/mutations/auth";
+import { SEND_LOGIN_OTP, REQUEST_PASSWORD_RESET, RESET_PASSWORD_WITH_CODE } from "../graphql/mutations/auth";
 import BrandMark from "../components/BrandMark";
 
 export default function Login() {
@@ -21,6 +21,19 @@ export default function Login() {
 
   const { login, completeLogin } = useAuth();
   const [sendLoginOtp] = useMutation(SEND_LOGIN_OTP);
+  const [requestPasswordReset, { loading: requesting }] = useMutation(REQUEST_PASSWORD_RESET);
+  const [resetPasswordWithCode, { loading: resetting }] = useMutation(RESET_PASSWORD_WITH_CODE);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestEmail, setRequestEmail] = useState("");
+  const [requestError, setRequestError] = useState("");
+  const [requestSuccess, setRequestSuccess] = useState("");
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetCode, setResetCode] = useState("");
+  const [resetNew, setResetNew] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const location = useLocation();
@@ -59,6 +72,82 @@ export default function Login() {
       setError(err.message || "Failed to send code");
     } finally {
       setSendingOtp(false);
+    }
+  };
+
+  const closeInfoDialog = () => {
+    setInfoOpen(false);
+  };
+
+  const openRequestDialog = () => {
+    setRequestEmail("");
+    setRequestError("");
+    setRequestSuccess("");
+    setRequestOpen(true);
+  };
+
+  const closeRequestDialog = () => {
+    setRequestOpen(false);
+    setRequestError("");
+    setRequestSuccess("");
+    setRequestEmail("");
+  };
+
+  const handleProceedToRequest = () => {
+    setInfoOpen(false);
+    openRequestDialog();
+  };
+
+  const handleRequestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRequestError("");
+    setRequestSuccess("");
+    try {
+      await requestPasswordReset({ variables: { email: requestEmail } });
+      setRequestSuccess("Request recorded — ask an admin for your recovery code");
+    } catch (err: any) {
+      setRequestError(err.message || "Request failed");
+    }
+  };
+
+  const openResetDialog = () => {
+    setResetCode("");
+    setResetNew("");
+    setResetConfirm("");
+    setResetError("");
+    setResetSuccess("");
+    setResetOpen(true);
+  };
+
+  const closeResetDialog = () => {
+    setResetOpen(false);
+    setResetError("");
+    setResetSuccess("");
+    setResetCode("");
+    setResetNew("");
+    setResetConfirm("");
+  };
+
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+    setResetSuccess("");
+    if (resetNew !== resetConfirm) {
+      setResetError("Passwords do not match");
+      return;
+    }
+    if (resetNew.length < 8) {
+      setResetError("Password must be at least 8 characters");
+      return;
+    }
+    try {
+      await resetPasswordWithCode({ variables: { code: resetCode, newPassword: resetNew, confirmPassword: resetConfirm } });
+      setResetSuccess("Password changed — please log in.");
+      setResetCode("");
+      setResetNew("");
+      setResetConfirm("");
+    } catch (err: any) {
+      setResetError(err.message || "Reset failed");
     }
   };
 
@@ -173,9 +262,64 @@ export default function Login() {
                 Sign up as a Merchant
               </Link>
             </Typography>
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              <Link component="button" type="button" onClick={() => setInfoOpen(true)} underline="hover" fontWeight={500}>
+                Forgot password?
+              </Link>
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              <Link component="button" type="button" onClick={openResetDialog} underline="hover" fontWeight={500}>
+                Reset password
+              </Link>
+            </Typography>
           </Box>
         </CardContent>
       </Card>
+
+      <Dialog open={infoOpen} onClose={closeInfoDialog} fullWidth maxWidth="xs">
+        <DialogTitle>Forgot password?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Request from the admin a recovery code for you to be able to change your account password.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button type="button" onClick={closeInfoDialog}>Cancel</Button>
+          <Button type="button" variant="contained" onClick={handleProceedToRequest}>Proceed</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={requestOpen} onClose={closeRequestDialog} fullWidth maxWidth="xs">
+        <DialogTitle>Request recovery code</DialogTitle>
+        <Box component="form" onSubmit={handleRequestSubmit}>
+          <DialogContent>
+            <TextField fullWidth label="Email" type="email" value={requestEmail} onChange={(e) => setRequestEmail(e.target.value)} required margin="normal" autoComplete="email" error={!!requestError} />
+            {requestError && <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>{requestError}</Alert>}
+            {requestSuccess && <Alert severity="success" sx={{ mt: 2, borderRadius: 2 }}>{requestSuccess}</Alert>}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button type="button" onClick={closeRequestDialog}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={requesting}>{requesting ? "Submitting..." : "Submit"}</Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
+
+      <Dialog open={resetOpen} onClose={closeResetDialog} fullWidth maxWidth="xs">
+        <DialogTitle>Reset password</DialogTitle>
+        <Box component="form" onSubmit={handleResetSubmit}>
+          <DialogContent>
+            <TextField fullWidth label="Recovery Code" value={resetCode} onChange={(e) => setResetCode(e.target.value)} required margin="normal" autoComplete="one-time-code" />
+            <TextField fullWidth label="New Password" type="password" value={resetNew} onChange={(e) => setResetNew(e.target.value)} required margin="normal" helperText="At least 8 characters" autoComplete="new-password" />
+            <TextField fullWidth label="Confirm New Password" type="password" value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} required margin="normal" autoComplete="new-password" />
+            {resetError && <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>{resetError}</Alert>}
+            {resetSuccess && <Alert severity="success" sx={{ mt: 2, borderRadius: 2 }}>{resetSuccess}</Alert>}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button type="button" onClick={closeResetDialog}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={resetting}>{resetting ? "Saving..." : "Submit"}</Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Box>
   );
 }
