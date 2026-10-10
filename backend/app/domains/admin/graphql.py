@@ -128,6 +128,23 @@ class AdminResetPasswordResult:
 
 
 @strawberry.type
+class RecoveryRequestType:
+    id: str
+    email: str | None
+    status: str
+    requested_at: str
+    decided_at: str | None
+    decided_by: str | None
+    expires_at: str | None
+
+
+@strawberry.type
+class ApproveRecoveryResult:
+    request: RecoveryRequestType
+    recovery_code: str
+
+
+@strawberry.type
 class AdminAccountDetailType:
     id: str
     email: str
@@ -341,6 +358,49 @@ class AdminQueries:
         data = read_branding(base_dir=BASE_DIR)
         return BrandingType(**data)
 
+    @strawberry.field
+    async def password_recovery_requests(
+        self,
+        info: Info,
+        limit: int = 20,
+        offset: int = 0,
+        status: str | None = None,
+        search: str | None = None,
+    ) -> list[RecoveryRequestType]:
+        require_perms(info.context, Permission.USERS_RECOVER_PASSWORD)
+        service = await get_admin_service(info)
+        try:
+            rows, _ = await service.list_recovery_requests(limit, offset, status, search)
+            return [
+                RecoveryRequestType(
+                    id=r["id"],
+                    email=r["email"],
+                    status=r["status"],
+                    requested_at=r["requested_at"],
+                    decided_at=r["decided_at"] or None,
+                    decided_by=r["decided_by"],
+                    expires_at=r["expires_at"] or None,
+                )
+                for r in rows
+            ]
+        finally:
+            await service.session.close()
+
+    @strawberry.field
+    async def password_recovery_requests_count(
+        self,
+        info: Info,
+        status: str | None = None,
+        search: str | None = None,
+    ) -> int:
+        require_perms(info.context, Permission.USERS_RECOVER_PASSWORD)
+        service = await get_admin_service(info)
+        try:
+            _, total = await service.list_recovery_requests(1, 0, status, search)
+            return total
+        finally:
+            await service.session.close()
+
 
 @strawberry.type
 class AdminMutations:
@@ -513,6 +573,53 @@ class AdminMutations:
                 uuid.UUID(user_id), UserRole(role.value), info.context.user_id
             )
             return UserType.from_model(user) if user else None
+        except (NotFoundError, ValidationError) as e:
+            raise Exception(str(e))
+        finally:
+            await service.session.close()
+
+    @strawberry.mutation
+    async def approve_password_recovery_request(self, info: Info, request_id: str) -> ApproveRecoveryResult:
+        require_perms(info.context, Permission.USERS_RECOVER_PASSWORD)
+        service = await get_admin_service(info)
+        try:
+            row, code = await service.approve_recovery_request(
+                uuid.UUID(request_id), info.context.user_id
+            )
+            return ApproveRecoveryResult(
+                request=RecoveryRequestType(
+                    id=row["id"],
+                    email=row.get("email"),
+                    status=row["status"],
+                    requested_at=row.get("requested_at") or "",
+                    decided_at=row.get("decided_at") or None,
+                    decided_by=row.get("decided_by"),
+                    expires_at=row.get("expires_at") or None,
+                ),
+                recovery_code=code,
+            )
+        except (NotFoundError, ValidationError) as e:
+            raise Exception(str(e))
+        finally:
+            await service.session.close()
+
+    @strawberry.mutation
+    async def cancel_password_recovery_request(self, info: Info, request_id: str) -> RecoveryRequestType:
+        require_perms(info.context, Permission.USERS_RECOVER_PASSWORD)
+        service = await get_admin_service(info)
+        try:
+            row = await service.cancel_recovery_request(
+                uuid.UUID(request_id), info.context.user_id
+            )
+            return RecoveryRequestType(
+                id=row["id"],
+                email=row.get("email"),
+                status=row["status"],
+                requested_at=row.get("requested_at") or "",
+                decided_at=row.get("decided_at") or None,
+                decided_by=row.get("decided_by"),
+                expires_at=row.get("expires_at") or None,
+            )
         except (NotFoundError, ValidationError) as e:
             raise Exception(str(e))
         finally:

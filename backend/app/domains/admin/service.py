@@ -9,8 +9,13 @@ from app.core.audit import AuditLog
 from app.core.errors import NotFoundError, ValidationError
 from app.core.masking import mask_mobile, normalize_philippine_mobile
 from app.core.money import format_php
-from app.core.security import generate_temp_password, hash_password
+from app.core.security import generate_recovery_code, generate_temp_password, hash_password
 from app.domains.auth.models import User, UserRole, UserStatus
+from app.domains.auth.password_recovery import (
+    RECOVERY_CODE_TTL_HOURS,
+    PasswordResetRequest,
+    RecoveryStatus,
+)
 from app.domains.auth.repository import UserRepository
 from app.domains.merchants.models import MerchantProfile
 from app.domains.merchants.policy import is_valid_merchant_id_no
@@ -834,3 +839,97 @@ class AdminService:
                 self.session.add(profile)
 
         await self.session.commit()
+
+    async def list_recovery_requests(
+        self, limit: int = 20, offset: int = 0, status: str | None = None, search: str | None = None,
+    ) -> tuple[list[dict], int]:
+        filters = [PasswordResetRequest.deleted_at.is_(None)]
+        if status:
+            filters.append(PasswordResetRequest.status == status)
+        if search:
+            like = f"%{search}%"
+            filters.append(User.email.ilike(like))
+        base = (
+            select(func.count(PasswordResetRequest.id))
+            .select_from(PasswordResetRequest)
+            .outerjoin(User, User.id == PasswordResetRequest.user_id)
+            .where(*filters)
+        )
+        total = (await self.session.execute(base)).scalar() or 0
+        rows = (
+            await self.session.execute(
+                select(PasswordResetRequest, User.email)
+                .outerjoin(User, User.id == PasswordResetRequest.user_id)
+                .where(*filters)
+                .order_by(PasswordResetRequest.requested_at.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+        ).all()
+        # Batch-load deciding admins' emails (same pattern as merchant_profiles
+        # in list_all_transactions_for_report — no per-row queries).
+        admin_ids = {req.decided_by_admin_id for req, _ in rows if req.decided_by_admin_id}
+        admins = (
+            await self.session.execute(select(User).where(User.id.in_(admin_ids)))
+            if admin_ids
+            else None
+        )
+        admin_email = {u.id: u.email for u in admins.scalars().all()} if admins else {}
+        items = [
+            {
+                "id": str(req.id),
+                "email": email,
+                "status": req.status,
+                "requested_at": req.requested_at.isoformat() if req.requested_at else "",
+                "decided_at": req.decided_at.isoformat() if req.decided_at else "",
+                "decided_by": admin_email.get(req.decided_by_admin_id),
+                "expires_at": req.expires_at.isoformat() if req.expires_at else "",
+            }
+            for req, email in rows
+        ]
+        return items, total
+
+    async def approve_recovery_request(self, request_id: uuid.UUID, admin_id: uuid.UUID) -> tuple[dict, str]:
+        req = await self.session.get(PasswordResetRequest, request_id)
+        if not req or req.deleted_at is not None:
+            raise NotFoundError("Request not found")
+        if req.status != RecoveryStatus.PENDING.value:
+            raise ValidationError("Only pending requests can be approved")
+        code = generate_recovery_code()
+        req.code_hash = hash_password(code)
+        req.status = RecoveryStatus.APPROVED.value
+        req.decided_at = datetime.now(timezone.utc)
+        req.decided_by_admin_id = admin_id
+        req.expires_at = req.decided_at + timedelta(hours=RECOVERY_CODE_TTL_HOURS)
+        self.session.add(
+            AuditLog(
+                user_id=admin_id,
+                action="password_recovery.approve",
+                resource_type="password_reset_request",
+                resource_id=str(req.id),
+                new_values={"status": "approved"},
+            )
+        )
+        await self.session.commit()
+        return {"id": str(req.id), "status": req.status}, code
+
+    async def cancel_recovery_request(self, request_id: uuid.UUID, admin_id: uuid.UUID) -> dict:
+        req = await self.session.get(PasswordResetRequest, request_id)
+        if not req or req.deleted_at is not None:
+            raise NotFoundError("Request not found")
+        if req.status not in (RecoveryStatus.PENDING.value, RecoveryStatus.APPROVED.value):
+            raise ValidationError("Only pending or approved requests can be cancelled")
+        req.status = RecoveryStatus.CANCELLED.value
+        req.decided_at = datetime.now(timezone.utc)
+        req.decided_by_admin_id = admin_id
+        self.session.add(
+            AuditLog(
+                user_id=admin_id,
+                action="password_recovery.cancel",
+                resource_type="password_reset_request",
+                resource_id=str(req.id),
+                new_values={"status": "cancelled"},
+            )
+        )
+        await self.session.commit()
+        return {"id": str(req.id), "status": req.status}
