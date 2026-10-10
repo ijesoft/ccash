@@ -22,6 +22,7 @@ export const PERMISSIONS = {
   KYC_REVIEW: "kyc:review",
   AUDIT_READ: "audit:read",
   AUDIT_EXPORT: "audit:export",
+  USERS_RECOVER_PASSWORD: "users:recover-password",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

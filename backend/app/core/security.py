@@ -74,3 +74,12 @@ def generate_temp_password() -> str:
 
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(12))
+
+
+def generate_recovery_code() -> str:
+    """8-char relay-friendly recovery code (shown once to the approving admin)."""
+    import secrets
+    import string
+
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(8))

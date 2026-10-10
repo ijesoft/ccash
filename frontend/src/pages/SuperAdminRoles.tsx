@@ -33,6 +33,7 @@ const GROUPS: { title: string; perms: { value: string; label: string }[] }[] = [
       { value: "users:suspend", label: "Suspend / activate" },
       { value: "users:delete", label: "Delete accounts" },
       { value: "users:reset-password", label: "Reset passwords" },
+      { value: "users:recover-password", label: "Approve password recovery requests" },
       { value: "users:change-role", label: "Change roles" },
       { value: "users:set-id", label: "Set member ID" },
     ],

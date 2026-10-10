@@ -32,6 +32,7 @@ class Permission(str, enum.Enum):
     KYC_REVIEW = "kyc:review"
     AUDIT_READ = "audit:read"
     AUDIT_EXPORT = "audit:export"
+    USERS_RECOVER_PASSWORD = "users:recover-password"
 
 
 _ALL = frozenset(Permission)
