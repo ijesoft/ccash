@@ -16,8 +16,7 @@ from sqlmodel import Field, SQLModel
 
 from app.core.audit import AuditLog
 from app.core.errors import NotFoundError, ValidationError
-from app.core.security import generate_recovery_code, hash_password, verify_password
-from app.domains.auth.models import User, UserRole
+from app.core.security import hash_password, verify_password
 from app.domains.auth.repository import UserRepository
 
 RECOVERY_CODE_TTL_HOURS = 1
@@ -38,12 +37,12 @@ class PasswordResetRequest(SQLModel, table=True):
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     code_hash: str | None = Field(default=None, max_length=255)
     status: str = Field(default=RecoveryStatus.PENDING.value, max_length=20)
-    requested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    decided_at: datetime | None = Field(default=None)
+    requested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_type=sa.DateTime(timezone=True))
+    decided_at: datetime | None = Field(default=None, sa_type=sa.DateTime(timezone=True))
     decided_by_admin_id: uuid.UUID | None = Field(default=None, foreign_key="users.id")
-    used_at: datetime | None = Field(default=None)
-    expires_at: datetime | None = Field(default=None)
-    deleted_at: datetime | None = Field(default=None)
+    used_at: datetime | None = Field(default=None, sa_type=sa.DateTime(timezone=True))
+    expires_at: datetime | None = Field(default=None, sa_type=sa.DateTime(timezone=True))
+    deleted_at: datetime | None = Field(default=None, sa_type=sa.DateTime(timezone=True))
     version: int = Field(default=1)
 
 
