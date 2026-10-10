@@ -49,9 +49,9 @@ New `password_reset_requests` table (one migration):
     `ValidationError("Invalid or expired recovery code")` — no state oracle.
 
 ## 3. Admin module
-- New `USERS_RECOVER_PASSWORD = "users:recover-password"` permission;
-  granted to ADMIN and SUPER_ADMIN in `ROLE_PERMISSIONS` (add explicitly;
-  auditors excluded — do NOT add to `ROLE_PERMISSIONS[AUDITOR]`).
+- New `USERS_RECOVER_PASSWORD = "users:recover-password"` permission in
+  `Permission`: ADMIN + SUPER_ADMIN inherit it automatically via `_ALL`;
+  auditors excluded (do NOT add to `ROLE_PERMISSIONS[AUDITOR]`).
 - The table migration ALSO seeds the `('ADMIN', 'users:recover-password')`
   row: runtime scopes are DB-backed (`permissions_for_role` returns a role's
   `role_permissions` rows when the table is non-empty; only SUPER_ADMIN is
