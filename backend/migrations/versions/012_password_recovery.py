@@ -25,7 +25,7 @@ def upgrade() -> None:
     op.create_table(
         "password_reset_requests",
         sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("users.id"), nullable=False, index=True),
+        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("code_hash", sa.String(255), nullable=True),
         sa.Column("status", sa.String(20), nullable=False, server_default="pending"),
         sa.Column("requested_at", sa.DateTime(timezone=True), nullable=False),
