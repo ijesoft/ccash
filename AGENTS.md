@@ -192,3 +192,61 @@ what the tests assert.
 - `tests/test_policy.py` — amount policy, reference format, mobile masking, peso formatting. No DB.
 
 Not covered by pytest: cross-worker WebSocket delivery. Use `scripts/verify_realtime.py`.
+
+## Security audit (2026-10-11, ponytail-audit)
+
+Full report: `docs/security-audit.md`. Summary below.
+
+Load assumed: demo scale. SQL injection: none found — all queries are parameterized
+SQLAlchemy ORM; the only f-string SQL is in migrations 009/010 with hardcoded constants.
+
+### Must fix
+
+1. **Money requests move money backwards** (`transactions/service.py:704-705`). `respond_to_request`
+   credits the approver (payer) and debits the requester — reversed. No frontend calls it, but the
+   GraphQL mutations are live. Fix: swap the two `update_balance` lines + add an insufficient-funds
+   check on the payer — or delete `request_money`/`respond_to_request` (nothing in the UI uses them).
+2. **Double-approval race** (`transactions/service.py:698-705`). PENDING→SUCCESS with no row lock;
+   two concurrent approvals both move money. Fix: `with_for_update()` on the tx row (or delete, see 1).
+3. **OTP from `random`, not a CSPRNG** (`core/security.py:63-65`). Mersenne Twister for security codes.
+   Fix: `secrets.randbelow(900_000) + 100_000`.
+4. **No per-account attempt limits** (`middleware/rate_limit.py:81`). Only per-IP rate limiting (10/min
+   on auth ops); failed OTP guesses never invalidate the code, so a distributed attack can grind 6-digit
+   codes (~900k). `resetPasswordWithCode`/`requestPasswordReset` also miss `_AUTH_OPERATIONS`.
+   Fix: Redis counter per email (e.g. 5 failures → delete OTP key) + add the recovery mutation names.
+5. **Refresh tokens accepted where access tokens are expected** (`core/security.py:50`,
+   `graphql/middleware.py:23`, `core/rest_auth.py`, `main.py:78`). `decode_token` never checks the
+   `type` claim, so a 7-day refresh token authenticates all user-level GraphQL/REST/WS operations.
+   Fix: reject `type != "access"` in those four places.
+
+### Should fix
+
+6. **Daily limit resets at worker start, not midnight** (`tasks/celery_app.py:18-23`). Beat uses a 24h
+   *interval*, so every PM2 restart shifts the "daily" window up to 24h. Fix: `crontab(hour=0, minute=0)`
+   (timezone already `Asia/Manila`).
+7. **Idempotency replay leaks other users' tx views** (`transactions/service.py:80-82`,
+   `repository.py:23`). Lookup is global, not scoped to the caller; anyone with a leaked key reads that
+   transfer's amount + counterparty masked mobile. Fix: scope by caller or 404 for non-owners.
+8. **KYC "upload" is a client-typed string** (`domains/users/graphql.py:56`). `submitKyc` stores a
+   client-supplied `file_path`; the server never reads or validates a file, so admin approval has no
+   artifact to review. Fix: real upload endpoint (pattern: `branding_service.validate_upload`) or drop
+   the field and make KYC explicitly manual.
+9. **Email failures swallowed** (`tasks/notifications.py:73-74`). SMTP fallback ends in
+   `except Exception: pass` — lost OTP emails with no log line. Fix: `logger.exception`.
+
+### Nice to have
+
+10. QR amount uses float math, banker's rounding at half-cent boundaries (`transactions/service.py:317-321`) — use `Decimal`.
+11. `update_daily_usage` missing the `deleted_at.is_(None)` filter every sibling has (`wallets/repository.py:68-73`).
+12. Master-list upload has no size cap (`api/master_list.py:36`, admin-only OOM) — copy branding's 5MB check.
+13. User enumeration via distinct "User not found" errors in `verifyOtp`/`requestPasswordReset` while login equalizes timing.
+
+### Lean candidates
+
+- Money-request feature: zero frontend callers; deleting it removes findings 1–2 and ~110 lines of untested code.
+- WebSocket stack (`websocket/manager.py`, `/ws`, `verify_realtime.py`, ~150 lines): the UI polls unread
+  counts every 20s (`useNotifications.ts`) and never opens a socket; only the script exercises it. Keep
+  if real-time push is a product requirement.
+
+**Verdict:** fix #1 (or delete) and #4 first; #3/#5 are one-line hardening. Not checked: frontend pages
+beyond auth/notification/QR flows, nginx config, `admin/service.py` internal branches, Docker network isolation.
