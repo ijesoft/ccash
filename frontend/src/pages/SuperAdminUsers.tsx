@@ -36,7 +36,7 @@ export default function SuperAdminUsers() {
   const { data: countData } = useQuery(GET_ADMIN_USER_COUNT, {
     variables: { search: search || null },
   });
-  const [activateUser] = useMutation(ACTIVATE_USER, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }, { query: GET_ADMIN_STATS }] });
+  const [activateUser, { loading: activating }] = useMutation(ACTIVATE_USER, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }, { query: GET_ADMIN_STATS }] });
   const [suspendUser] = useMutation(SUSPEND_USER, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }, { query: GET_ADMIN_STATS }] });
   const [updateUserRole] = useMutation(UPDATE_USER_ROLE, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }, { query: GET_ADMIN_STATS }] });
   const [setMemberId] = useMutation(ADMIN_SET_MEMBER_ID, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }] });
@@ -116,23 +116,33 @@ export default function SuperAdminUsers() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setActivateTarget(null)}>Cancel</Button>
+          <Button onClick={() => setActivateTarget(null)} disabled={activating}>Cancel</Button>
           <Button
             variant="contained"
             color="success"
+            disabled={activating}
             onClick={async () => {
               const cents = Math.round(Number(activateLimit) * 100);
-              if (!Number.isFinite(cents) || cents <= 0) {
-                setActivateError("Enter a daily limit greater than 0");
+              if (!Number.isFinite(cents) || cents < 100 || cents > 100000000) {
+                setActivateError("Enter a limit between ₱1.00 and ₱1,000,000.00");
                 return;
               }
               if (!activateTarget) return;
               const target = activateTarget;
-              setActivateTarget(null);
-              await act(() => activateUser({ variables: { userId: target.id, dailySendLimitCents: cents } }), `${target.email} activated`);
+              setActivateError("");
+              try {
+                await activateUser({ variables: { userId: target.id, dailySendLimitCents: cents } });
+                setActivateTarget(null);
+                setSnackbar({ open: true, message: `${target.email} activated`, severity: "success" });
+                refetch();
+              } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : "Failed to activate";
+                setActivateError(message);
+                setSnackbar({ open: true, message, severity: "error" });
+              }
             }}
           >
-            Activate
+            {activating ? "Activating…" : "Activate"}
           </Button>
         </DialogActions>
       </Dialog>
