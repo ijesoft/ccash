@@ -21,6 +21,7 @@ from app.domains.merchants.models import MerchantProfile
 from app.domains.merchants.policy import is_valid_merchant_id_no
 from app.domains.merchants.repository import MerchantRepository
 from app.domains.transactions.models import Transaction, TransactionStatus
+from app.domains.transactions.policy import validate_daily_limit
 from app.domains.wallets.models import Wallet, WalletStatus
 from app.domains.wallets.repository import WalletRepository
 from app.tasks.notifications import send_email_notification
@@ -417,6 +418,35 @@ class AdminService:
         ):
             raise ValidationError("Only a super admin can activate a super admin account")
         return await self.activate_user(user_id)
+
+    async def set_wallet_daily_limit(
+        self, user_id: uuid.UUID, limit_cents: int, actor_id: uuid.UUID
+    ) -> Wallet:
+        validate_daily_limit(limit_cents)
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("Account not found")
+        if user.role in (UserRole.SUPER_ADMIN, UserRole.AUDITOR):
+            raise ValidationError(f"{user.role.value} accounts do not have wallets")
+        wallet = await self.wallet_repo.get_by_user_id(user_id)
+        if not wallet:
+            raise NotFoundError("Wallet not found")
+        old_limit = wallet.daily_send_limit_cents
+        wallet.daily_send_limit_cents = limit_cents
+        wallet.version += 1
+        self.session.add(wallet)
+        self.session.add(
+            AuditLog(
+                user_id=actor_id,
+                action="wallet.limit.change",
+                resource_type="wallet",
+                resource_id=str(wallet.id),
+                old_values={"daily_send_limit_cents": old_limit},
+                new_values={"daily_send_limit_cents": limit_cents},
+            )
+        )
+        await self.session.commit()
+        return wallet
 
     async def update_user_role(
         self, user_id: uuid.UUID, new_role: UserRole, actor_id: uuid.UUID

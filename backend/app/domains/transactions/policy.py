@@ -15,6 +15,10 @@ from app.core.money import pesos
 MIN_TRANSACTION_CENTS = 100  # ₱1.00
 MAX_TRANSACTION_CENTS = 10_000_000  # ₱100,000.00
 
+MIN_DAILY_LIMIT_CENTS = 100  # ₱1.00
+MAX_DAILY_LIMIT_CENTS = 100_000_000  # ₱1,000,000.00
+DEFAULT_DAILY_LIMIT_CENTS = 5_000_000  # ₱50,000.00
+
 # Crockford-style alphabet: no I, L, O or U, so a reference read over the phone
 # or retyped from a screenshot is unambiguous.
 _REFERENCE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
@@ -35,6 +39,18 @@ def validate_amount(amount_cents: int) -> None:
     if amount_cents > MAX_TRANSACTION_CENTS:
         raise ValidationError(
             f"Maximum amount per transaction is PHP {pesos(MAX_TRANSACTION_CENTS):,}"
+        )
+
+
+def validate_daily_limit(limit_cents: int) -> None:
+    """Reject anything that is not a positive, in-range whole number of centavos."""
+    if isinstance(limit_cents, bool) or not isinstance(limit_cents, int):
+        raise ValidationError("Daily limit must be a whole number of centavos")
+    if limit_cents < MIN_DAILY_LIMIT_CENTS:
+        raise ValidationError(f"Minimum daily limit is PHP {pesos(MIN_DAILY_LIMIT_CENTS):,}")
+    if limit_cents > MAX_DAILY_LIMIT_CENTS:
+        raise ValidationError(
+            f"Maximum daily limit is PHP {pesos(MAX_DAILY_LIMIT_CENTS):,}"
         )
 
 
