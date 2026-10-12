@@ -5,11 +5,13 @@ import { useQuery, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import BadgeIcon from "@mui/icons-material/Badge";
-import { GET_ADMIN_MERCHANTS, ADMIN_SET_MERCHANT_ID } from "../graphql/queries/admin";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import { GET_ADMIN_MERCHANTS, ADMIN_SET_MERCHANT_ID, SET_WALLET_DAILY_LIMIT } from "../graphql/queries/admin";
+import { formatMoney } from "../utils/format";
 import AccountExportMenu from "./AccountExportMenu";
 import SetIdDialog from "./SetIdDialog";
 
-type MerchantRow = { id: string; email: string; merchantIdNo: string };
+type MerchantRow = { id: string; email: string; merchantIdNo: string; dailySendLimitCents?: number | null };
 
 export default function MerchantsTable() {
   const navigate = useNavigate();
@@ -30,6 +32,8 @@ export default function MerchantsTable() {
     },
   });
   const [setMerchantId] = useMutation(ADMIN_SET_MERCHANT_ID);
+  const [setWalletDailyLimit] = useMutation(SET_WALLET_DAILY_LIMIT);
+  const [limitTarget, setLimitTarget] = useState<MerchantRow | null>(null);
 
   const merchants = data?.adminMerchants ?? [];
 
@@ -63,6 +67,12 @@ export default function MerchantsTable() {
     { field: "contactPerson", headerName: "Contact Person", width: 160 },
     { field: "mobileNo", headerName: "Mobile No.", width: 130 },
     { field: "email", headerName: "Email", width: 200 },
+    {
+      field: "dailySendLimitCents",
+      headerName: "Daily Limit",
+      width: 130,
+      renderCell: (params) => <span>{formatMoney(params.value ?? 0)}</span>,
+    },
     {
       field: "status",
       headerName: "Status",
@@ -120,6 +130,15 @@ export default function MerchantsTable() {
           <ListItemIcon><BadgeIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Change Merchant ID</ListItemText>
         </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (selected) setLimitTarget(selected);
+            handleMenuClose();
+          }}
+        >
+          <ListItemIcon><AttachMoneyIcon fontSize="small" color="success" /></ListItemIcon>
+          <ListItemText>Set daily limit</ListItemText>
+        </MenuItem>
       </Menu>
 
       <SetIdDialog
@@ -140,6 +159,32 @@ export default function MerchantsTable() {
           if (!setIdTarget) return;
           await setMerchantId({ variables: { userId: setIdTarget.id, merchantIdNo: value } });
           setSnackbar({ open: true, message: `Merchant ID set for ${setIdTarget.email}`, severity: "success" });
+          refetch();
+        }}
+      />
+
+      <SetIdDialog
+        open={Boolean(limitTarget)}
+        onClose={() => setLimitTarget(null)}
+        title={`Set daily send limit — ${limitTarget?.email ?? ""}`}
+        label="Daily limit (PHP)"
+        helperText="Between ₱1.00 and ₱1,000,000.00"
+        initialValue={limitTarget ? String((limitTarget.dailySendLimitCents ?? 5000000) / 100) : ""}
+        maxLength={10}
+        transform={(raw) => {
+          const cleaned = raw.replace(/[^0-9.]/g, "");
+          const parts = cleaned.split(".");
+          return parts.length <= 2 ? cleaned : `${parts[0]}.${parts.slice(1).join("")}`;
+        }}
+        isValid={(v) => {
+          const cents = Math.round(Number(v) * 100);
+          return Number.isFinite(cents) && cents >= 100 && cents <= 100000000;
+        }}
+        invalidMessage="Enter a limit between ₱1.00 and ₱1,000,000.00"
+        onSubmit={async (value) => {
+          if (!limitTarget) return;
+          await setWalletDailyLimit({ variables: { userId: limitTarget.id, dailySendLimitCents: Math.round(Number(value) * 100) } });
+          setSnackbar({ open: true, message: `Daily limit updated for ${limitTarget.email}`, severity: "success" });
           refetch();
         }}
       />

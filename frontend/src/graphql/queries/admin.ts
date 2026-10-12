@@ -59,6 +59,8 @@ export const GET_ADMIN_MERCHANTS = gql`
       email
       status
       createdAt
+      dailySendLimitCents
+      dailySendUsedCents
     }
   }
 `;

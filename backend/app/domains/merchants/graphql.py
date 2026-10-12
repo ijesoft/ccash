@@ -33,6 +33,8 @@ class AdminMerchantType:
     email: str
     status: str
     created_at: str
+    daily_send_limit_cents: int
+    daily_send_used_cents: int
 
 
 @strawberry.input
@@ -131,6 +133,8 @@ class MerchantQueries:
                     email=m["email"],
                     status=m["status"],
                     created_at=m["created_at"],
+                    daily_send_limit_cents=m["daily_send_limit_cents"],
+                    daily_send_used_cents=m["daily_send_used_cents"],
                 )
                 for m in merchants
             ]

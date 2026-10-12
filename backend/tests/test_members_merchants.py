@@ -412,3 +412,41 @@ async def test_list_users_search(session, make_account):
     nothing, total = await service.list_users(search="zzz-no-such-user")
     assert total == 0
     assert nothing == []
+
+
+async def test_list_merchants_includes_daily_limits(session, make_account):
+    """adminMerchants rows carry the wallet's daily limit so the admin
+    Merchants table can display it (member table reads adminUsers)."""
+    from app.domains.auth.models import UserRole
+    from app.domains.merchants.models import MerchantProfile
+    from app.domains.merchants.service import MerchantService
+    from app.domains.transactions.policy import DEFAULT_DAILY_LIMIT_CENTS
+
+    merchant, wallet = await make_account()
+    merchant.role = UserRole.MERCHANT
+    merchant.id_no = None
+    await session.commit()
+    session.add(
+        MerchantProfile(
+            user_id=merchant.id,
+            merchant_id_no="M111222333",
+            company_name="Limit Store",
+            contact_person="Owner",
+            mobile_no="09189999904",
+            address="Somewhere",
+            tin="000-000-002",
+        )
+    )
+    await session.commit()
+
+    rows, total = await MerchantService(session, None).list_merchants()
+    assert total == 1
+    row = rows[0]
+    assert row["id"] == str(merchant.id)
+    assert row["daily_send_limit_cents"] == DEFAULT_DAILY_LIMIT_CENTS
+    assert row["daily_send_used_cents"] == 0
+
+    wallet.daily_send_limit_cents = 1_500_000
+    await session.commit()
+    rows, _ = await MerchantService(session, None).list_merchants()
+    assert rows[0]["daily_send_limit_cents"] == 1_500_000

@@ -10,12 +10,15 @@ import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import PersonIcon from "@mui/icons-material/Person";
 import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
 import BadgeIcon from "@mui/icons-material/Badge";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import SearchIcon from "@mui/icons-material/Search";
-import { GET_ADMIN_MEMBERS, GET_ADMIN_STATS, GET_ADMIN_USER_COUNT, ACTIVATE_USER, SUSPEND_USER, UPDATE_USER_ROLE, ADMIN_SET_MEMBER_ID } from "../graphql/queries/admin";
+import { GET_ADMIN_MEMBERS, GET_ADMIN_STATS, GET_ADMIN_USER_COUNT, ACTIVATE_USER, SUSPEND_USER, UPDATE_USER_ROLE, ADMIN_SET_MEMBER_ID, SET_WALLET_DAILY_LIMIT } from "../graphql/queries/admin";
 import { formatMoney } from "../utils/format";
 import SetIdDialog from "../components/SetIdDialog";
 
-type AccountRow = { id: string; email: string; status: string; role: string; idNo: string | null };
+type AccountRow = { id: string; email: string; status: string; role: string; idNo: string | null; dailySendLimitCents?: number | null };
+
+const isLimitHolder = (role: string) => role === "MEMBER" || role === "MERCHANT";
 
 export default function SuperAdminUsers() {
   const navigate = useNavigate();
@@ -40,6 +43,8 @@ export default function SuperAdminUsers() {
   const [suspendUser] = useMutation(SUSPEND_USER, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }, { query: GET_ADMIN_STATS }] });
   const [updateUserRole] = useMutation(UPDATE_USER_ROLE, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }, { query: GET_ADMIN_STATS }] });
   const [setMemberId] = useMutation(ADMIN_SET_MEMBER_ID, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }] });
+  const [setWalletDailyLimit] = useMutation(SET_WALLET_DAILY_LIMIT, { refetchQueries: [{ query: GET_ADMIN_MEMBERS }, { query: GET_ADMIN_STATS }] });
+  const [limitTarget, setLimitTarget] = useState<AccountRow | null>(null);
   const members = membersData?.adminUsers ?? [];
   const rowCount = countData?.adminUsersCount ?? 0;
 
@@ -61,6 +66,8 @@ export default function SuperAdminUsers() {
     { field: "status", headerName: "Status", width: 120,
       renderCell: (params) => (<Chip label={params.value} color={params.value === "ACTIVE" ? "success" : params.value === "SUSPENDED" ? "error" : "warning"} size="small" />) },
     { field: "walletBalanceCents", headerName: "Balance", width: 130, valueFormatter: (value) => formatMoney(value) },
+    { field: "dailySendLimitCents", headerName: "Daily Limit", width: 130,
+      renderCell: (params) => (<span>{isLimitHolder(params.row.role) ? formatMoney(params.value ?? 0) : ""}</span>) },
     { field: "createdAt", headerName: "Joined", width: 150,
       valueFormatter: (value) => { if (!value) return ""; return new Date(value).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" }); } },
     { field: "actions", headerName: "Actions", width: 80, sortable: false, filterable: false,
@@ -97,8 +104,10 @@ export default function SuperAdminUsers() {
         {selectedUser?.role !== "SUPER_ADMIN" && (<MenuItem onClick={() => selectedUser && act(() => updateUserRole({ variables: { userId: selectedUser.id, role: "SUPER_ADMIN" } }), `${selectedUser.email} → SUPER_ADMIN`)}><ListItemIcon><SupervisorAccountIcon fontSize="small" color="error" /></ListItemIcon><ListItemText>Make Super Admin</ListItemText></MenuItem>)}
         {(selectedUser?.role === "ADMIN" || selectedUser?.role === "SUPER_ADMIN") && (<MenuItem onClick={() => selectedUser && act(() => updateUserRole({ variables: { userId: selectedUser.id, role: "MEMBER" } }), `${selectedUser.email} → MEMBER`)}><ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon><ListItemText>Demote to Member</ListItemText></MenuItem>)}
         {selectedUser?.role !== "MERCHANT" && (<MenuItem onClick={() => { if (selectedUser) setSetIdTarget(selectedUser); handleMenuClose(); }}><ListItemIcon><BadgeIcon fontSize="small" /></ListItemIcon><ListItemText>{selectedUser?.idNo ? "Change ID No." : "Set ID No."}</ListItemText></MenuItem>)}
+        {selectedUser && isLimitHolder(selectedUser.role) && (<MenuItem onClick={() => { if (selectedUser) setLimitTarget(selectedUser); handleMenuClose(); }}><ListItemIcon><AttachMoneyIcon fontSize="small" color="success" /></ListItemIcon><ListItemText>Set daily limit</ListItemText></MenuItem>)}
       </Menu>
       <SetIdDialog open={Boolean(setIdTarget)} onClose={() => setSetIdTarget(null)} title="Set Member ID No." label="ID No." helperText="9-digit Member/Admin/Super-admin login ID" initialValue={setIdTarget?.idNo} maxLength={9} transform={(raw) => raw.replace(/\D/g, "")} isValid={(v) => /^\d{9}$/.test(v)} invalidMessage="ID No. must be exactly 9 digits" onSubmit={async (value) => { if (!setIdTarget) return; await setMemberId({ variables: { userId: setIdTarget.id, idNo: value } }); setSnackbar({ open: true, message: `ID No. set for ${setIdTarget.email}`, severity: "success" }); }} />
+      <SetIdDialog open={Boolean(limitTarget)} onClose={() => setLimitTarget(null)} title={`Set daily send limit — ${limitTarget?.email ?? ""}`} label="Daily limit (PHP)" helperText="Between ₱1.00 and ₱1,000,000.00" initialValue={limitTarget ? String((limitTarget.dailySendLimitCents ?? 5000000) / 100) : ""} maxLength={10} transform={(raw) => { const cleaned = raw.replace(/[^0-9.]/g, ""); const parts = cleaned.split("."); return parts.length <= 2 ? cleaned : `${parts[0]}.${parts.slice(1).join("")}`; }} isValid={(v) => { const cents = Math.round(Number(v) * 100); return Number.isFinite(cents) && cents >= 100 && cents <= 100000000; }} invalidMessage="Enter a limit between ₱1.00 and ₱1,000,000.00" onSubmit={async (value) => { if (!limitTarget) return; await setWalletDailyLimit({ variables: { userId: limitTarget.id, dailySendLimitCents: Math.round(Number(value) * 100) } }); setSnackbar({ open: true, message: `Daily limit updated for ${limitTarget.email}`, severity: "success" }); refetch(); }} />
       <Dialog open={Boolean(activateTarget)} onClose={() => setActivateTarget(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Activate {activateTarget?.email}</DialogTitle>
         <DialogContent>

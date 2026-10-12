@@ -2,6 +2,7 @@ import re
 import uuid
 
 from redis.asyncio import Redis
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +14,7 @@ from app.domains.auth.repository import UserRepository
 from app.domains.merchants.models import MerchantProfile
 from app.domains.merchants.policy import generate_merchant_id_no, is_valid_merchant_id_no
 from app.domains.merchants.repository import MerchantRepository
+from app.domains.wallets.models import Wallet
 from app.domains.wallets.repository import WalletRepository
 
 _MAX_ID_GENERATION_ATTEMPTS = 5
@@ -106,9 +108,21 @@ class MerchantService:
 
     async def list_merchants(self, limit: int = 20, offset: int = 0) -> tuple[list[dict], int]:
         profiles, total = await self.merchant_repo.list_all(limit, offset)
+        user_ids = [p.user_id for p in profiles]
+        wallets: dict = {}
+        if user_ids:
+            rows = (
+                await self.session.execute(
+                    select(Wallet).where(
+                        Wallet.user_id.in_(user_ids), Wallet.deleted_at.is_(None)
+                    )
+                )
+            ).scalars().all()
+            wallets = {w.user_id: w for w in rows}
         results = []
         for profile in profiles:
             user = await self.user_repo.get_by_id(profile.user_id)
+            wallet = wallets.get(profile.user_id)
             results.append({
                 "id": str(profile.user_id),
                 "merchant_id_no": profile.merchant_id_no,
@@ -121,5 +135,7 @@ class MerchantService:
                 "email": user.email if user else "",
                 "status": user.status.value if user else "",
                 "created_at": profile.created_at.isoformat() if profile.created_at else "",
+                "daily_send_limit_cents": wallet.daily_send_limit_cents if wallet else 0,
+                "daily_send_used_cents": wallet.daily_send_used_cents if wallet else 0,
             })
         return results, total
