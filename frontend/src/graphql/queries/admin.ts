@@ -32,6 +32,8 @@ export const GET_ADMIN_MEMBERS = gql`
       status
       walletBalanceCents
       walletStatus
+      dailySendLimitCents
+      dailySendUsedCents
       createdAt
     }
   }
@@ -113,11 +115,20 @@ export const GET_ADMIN_USER_TRANSACTIONS = gql`
 `;
 
 export const ACTIVATE_USER = gql`
-  mutation ActivateUser($userId: String!) {
-    activateUser(userId: $userId) {
+  mutation ActivateUser($userId: String!, $dailySendLimitCents: Int) {
+    activateUser(userId: $userId, dailySendLimitCents: $dailySendLimitCents) {
       id
       email
       status
+    }
+  }
+`;
+
+export const SET_WALLET_DAILY_LIMIT = gql`
+  mutation SetWalletDailyLimit($userId: String!, $dailySendLimitCents: Int!) {
+    setWalletDailyLimit(userId: $userId, dailySendLimitCents: $dailySendLimitCents) {
+      id
+      email
     }
   }
 `;
@@ -187,6 +198,8 @@ export const GET_ADMIN_ACCOUNT_DETAIL = gql`
       createdAt
       walletBalanceCents
       walletStatus
+      dailySendLimitCents
+      dailySendUsedCents
       merchant {
         merchantIdNo
         companyName

@@ -13,12 +13,13 @@ const ACTION_OPTIONS = [
   "transaction.qr_payment",
   "transaction.cash_in",
   "transaction.cash_out",
+  "wallet.limit.change",
   "role.change",
 ];
 
 function actionColor(action: string): "success" | "info" | "warning" | "error" | "default" {
   if (action === "transaction.send" || action === "transaction.qr_payment") return "success";
-  if (action === "transaction.cash_in") return "info";
+  if (action === "transaction.cash_in" || action === "wallet.limit.change") return "info";
   if (action === "transaction.cash_out") return "warning";
   if (action === "role.change") return "error";
   return "default";

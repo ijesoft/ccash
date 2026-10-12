@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Typography, Stack, Button, Chip, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Snackbar, Alert, TextField } from "@mui/material";
+import { Box, Typography, Stack, Button, Chip, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Snackbar, Alert, TextField, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useQuery, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
@@ -23,6 +23,9 @@ export default function SuperAdminUsers() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<AccountRow | null>(null);
   const [setIdTarget, setSetIdTarget] = useState<AccountRow | null>(null);
+  const [activateTarget, setActivateTarget] = useState<AccountRow | null>(null);
+  const [activateLimit, setActivateLimit] = useState("50000");
+  const [activateError, setActivateError] = useState("");
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({ open: false, message: "", severity: "success" });
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -88,7 +91,7 @@ export default function SuperAdminUsers() {
         <DataGrid rows={members} columns={columns} loading={membersLoading} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} paginationMode="server" rowCount={rowCount} pageSizeOptions={[5, 10, 25]} disableRowSelectionOnClick sx={{ border: 1, borderColor: "divider", borderRadius: 2 }} />
       </Box>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        {selectedUser?.status !== "ACTIVE" && (<MenuItem onClick={() => selectedUser && act(() => activateUser({ variables: { userId: selectedUser.id } }), `${selectedUser.email} activated`)}><ListItemIcon><CheckCircleIcon fontSize="small" color="success" /></ListItemIcon><ListItemText>Activate</ListItemText></MenuItem>)}
+        {selectedUser?.status !== "ACTIVE" && (<MenuItem onClick={() => { if (selectedUser) { setActivateTarget(selectedUser); setActivateLimit("50000"); setActivateError(""); } handleMenuClose(); }}><ListItemIcon><CheckCircleIcon fontSize="small" color="success" /></ListItemIcon><ListItemText>Activate…</ListItemText></MenuItem>)}
         {selectedUser?.status === "ACTIVE" && (<MenuItem onClick={() => selectedUser && act(() => suspendUser({ variables: { userId: selectedUser.id } }), `${selectedUser.email} suspended`)}><ListItemIcon><BlockIcon fontSize="small" color="error" /></ListItemIcon><ListItemText>Suspend</ListItemText></MenuItem>)}
         {selectedUser?.role !== "ADMIN" && (<MenuItem onClick={() => selectedUser && act(() => updateUserRole({ variables: { userId: selectedUser.id, role: "ADMIN" } }), `${selectedUser.email} → ADMIN`)}><ListItemIcon><AdminPanelSettingsIcon fontSize="small" color="primary" /></ListItemIcon><ListItemText>Make Admin</ListItemText></MenuItem>)}
         {selectedUser?.role !== "SUPER_ADMIN" && (<MenuItem onClick={() => selectedUser && act(() => updateUserRole({ variables: { userId: selectedUser.id, role: "SUPER_ADMIN" } }), `${selectedUser.email} → SUPER_ADMIN`)}><ListItemIcon><SupervisorAccountIcon fontSize="small" color="error" /></ListItemIcon><ListItemText>Make Super Admin</ListItemText></MenuItem>)}
@@ -96,6 +99,43 @@ export default function SuperAdminUsers() {
         {selectedUser?.role !== "MERCHANT" && (<MenuItem onClick={() => { if (selectedUser) setSetIdTarget(selectedUser); handleMenuClose(); }}><ListItemIcon><BadgeIcon fontSize="small" /></ListItemIcon><ListItemText>{selectedUser?.idNo ? "Change ID No." : "Set ID No."}</ListItemText></MenuItem>)}
       </Menu>
       <SetIdDialog open={Boolean(setIdTarget)} onClose={() => setSetIdTarget(null)} title="Set Member ID No." label="ID No." helperText="9-digit Member/Admin/Super-admin login ID" initialValue={setIdTarget?.idNo} maxLength={9} transform={(raw) => raw.replace(/\D/g, "")} isValid={(v) => /^\d{9}$/.test(v)} invalidMessage="ID No. must be exactly 9 digits" onSubmit={async (value) => { if (!setIdTarget) return; await setMemberId({ variables: { userId: setIdTarget.id, idNo: value } }); setSnackbar({ open: true, message: `ID No. set for ${setIdTarget.email}`, severity: "success" }); }} />
+      <Dialog open={Boolean(activateTarget)} onClose={() => setActivateTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Activate {activateTarget?.email}</DialogTitle>
+        <DialogContent>
+          {activateError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{activateError}</Alert>}
+          <TextField
+            fullWidth
+            autoFocus
+            label="Daily limit (PHP)"
+            type="number"
+            value={activateLimit}
+            onChange={(e) => setActivateLimit(e.target.value)}
+            helperText="Daily send limit applied on activation"
+            required
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setActivateTarget(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={async () => {
+              const cents = Math.round(Number(activateLimit) * 100);
+              if (!Number.isFinite(cents) || cents <= 0) {
+                setActivateError("Enter a daily limit greater than 0");
+                return;
+              }
+              if (!activateTarget) return;
+              const target = activateTarget;
+              setActivateTarget(null);
+              await act(() => activateUser({ variables: { userId: target.id, dailySendLimitCents: cents } }), `${target.email} activated`);
+            }}
+          >
+            Activate
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: "bottom", horizontal: "right" }}><Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} variant="filled">{snackbar.message}</Alert></Snackbar>
     </Box>
   );

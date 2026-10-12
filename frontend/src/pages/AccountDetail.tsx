@@ -17,6 +17,10 @@ import {
   Alert,
   Snackbar,
   Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
@@ -35,6 +39,7 @@ import {
   ADMIN_SET_MERCHANT_ID,
   ACTIVATE_USER,
   SUSPEND_USER,
+  SET_WALLET_DAILY_LIMIT,
 } from "../graphql/queries/admin";
 import { formatMoney } from "../utils/format";
 import AccountExportMenu from "../components/AccountExportMenu";
@@ -74,6 +79,9 @@ export default function AccountDetail() {
   const [formError, setFormError] = useState("");
   const [setIdOpen, setSetIdOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [limitOpen, setLimitOpen] = useState(false);
+  const [limitValue, setLimitValue] = useState("");
+  const [limitError, setLimitError] = useState("");
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false,
     message: "",
@@ -99,6 +107,7 @@ export default function AccountDetail() {
   const [suspendUser] = useMutation(SUSPEND_USER);
   const [setMemberId] = useMutation(ADMIN_SET_MEMBER_ID);
   const [setMerchantId] = useMutation(ADMIN_SET_MERCHANT_ID);
+  const [setWalletDailyLimit, { loading: savingLimit }] = useMutation(SET_WALLET_DAILY_LIMIT);
 
   const isMerchant = account?.role === "MERCHANT";
 
@@ -187,6 +196,30 @@ export default function AccountDetail() {
       await refetch();
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message || "Failed to update status", severity: "error" });
+    }
+  };
+
+  const openLimitDialog = () => {
+    if (!account) return;
+    setLimitValue(String((account.dailySendLimitCents ?? 0) / 100));
+    setLimitError("");
+    setLimitOpen(true);
+  };
+
+  const handleSaveLimit = async () => {
+    const cents = Math.round(Number(limitValue) * 100);
+    if (!Number.isFinite(cents) || cents < 100 || cents > 100000000) {
+      setLimitError("Enter a limit between ₱1.00 and ₱1,000,000.00");
+      return;
+    }
+    setLimitError("");
+    try {
+      await setWalletDailyLimit({ variables: { userId: id, dailySendLimitCents: cents } });
+      setLimitOpen(false);
+      await refetch();
+      setSnackbar({ open: true, message: "Daily send limit updated", severity: "success" });
+    } catch (err: any) {
+      setLimitError(err.message || "Failed to save limit");
     }
   };
 
@@ -354,6 +387,23 @@ export default function AccountDetail() {
             </CardContent>
           </Card>
 
+          <Card sx={{ mb: 3, borderRadius: 3 }}>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                <Typography variant="body2" color="text.secondary">Daily Send Limit</Typography>
+                <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={openLimitDialog}>
+                  Edit
+                </Button>
+              </Stack>
+              <Typography variant="h5" fontWeight="bold">
+                {formatMoney(account.dailySendLimitCents ?? 0)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Used today: {formatMoney(account.dailySendUsedCents ?? 0)} · Remaining: {formatMoney((account.dailySendLimitCents ?? 0) - (account.dailySendUsedCents ?? 0))}
+              </Typography>
+            </CardContent>
+          </Card>
+
           <Card sx={{ borderRadius: 3 }}>
             <CardContent>
               <Typography variant="subtitle1" fontWeight={700} mb={1.5}>Recent Transactions</Typography>
@@ -425,6 +475,30 @@ export default function AccountDetail() {
           }}
         />
       )}
+
+      <Dialog open={limitOpen} onClose={() => setLimitOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Set Daily Send Limit</DialogTitle>
+        <DialogContent>
+          {limitError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{limitError}</Alert>}
+          <TextField
+            fullWidth
+            autoFocus
+            label="Daily limit (PHP)"
+            type="number"
+            value={limitValue}
+            onChange={(e) => setLimitValue(e.target.value)}
+            helperText="Between ₱1.00 and ₱1,000,000.00"
+            required
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLimitOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSaveLimit} disabled={savingLimit}>
+            {savingLimit ? "Saving..." : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <ConfirmDialog
         open={deleteOpen}
