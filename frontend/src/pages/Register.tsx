@@ -2,13 +2,15 @@ import { useState } from "react";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import { Box, Button, Card, CardContent, TextField, Typography, Alert, Link, Stack } from "@mui/material";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
-import { useMutation } from "@apollo/client";
+import { useMutation, useLazyQuery } from "@apollo/client";
 import { REGISTER } from "../graphql/mutations/auth";
+import { MASTER_LIST_LOOKUP } from "../graphql/queries/masterList";
 import BrandMark from "../components/BrandMark";
 
 export default function Register() {
   const [idNo, setIdNo] = useState("");
   const [idNoError, setIdNoError] = useState("");
+  const [lookedUpIdNo, setLookedUpIdNo] = useState<string | null>(null);
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
@@ -19,7 +21,45 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [registerMutation, { loading }] = useMutation(REGISTER);
+  const [lookupMasterList, { loading: lookupLoading }] = useLazyQuery<{
+    masterListLookup: {
+      idNo: string;
+      lastName: string;
+      firstName: string;
+      middleName: string | null;
+      mobileNumber: string;
+      email: string;
+    } | null;
+  }>(MASTER_LIST_LOOKUP);
   const navigate = useNavigate();
+
+  // Look up the ID No. in the master list and prefill the matching fields.
+  // Returns true on a hit, false on miss/error (errors set inline).
+  const runMasterListLookup = async (value: string): Promise<boolean> => {
+    try {
+      const { data } = await lookupMasterList({ variables: { idNo: value } });
+      const entry = data?.masterListLookup ?? null;
+      if (!entry) {
+        setLookedUpIdNo(null);
+        setIdNoError("ID No. not found in the master list");
+        setError("ID No. not found in the master list");
+        return false;
+      }
+      setLookedUpIdNo(value);
+      setLastName(entry.lastName ?? "");
+      setFirstName(entry.firstName ?? "");
+      setMiddleName(entry.middleName ?? "");
+      setEmail(entry.email ?? "");
+      setPhone((entry.mobileNumber ?? "").replace(/\D/g, "").slice(0, 11));
+      if (idNoError) setIdNoError("");
+      if (error) setError("");
+      return true;
+    } catch (err: any) {
+      setLookedUpIdNo(null);
+      setError(err.message || "Master list lookup failed");
+      return false;
+    }
+  };
 
   const validatePhone = (value: string): string | null => {
     if (!/^\d+$/.test(value)) {
@@ -52,6 +92,7 @@ export default function Register() {
   const handleIdNoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 9);
     setIdNo(digitsOnly);
+    setLookedUpIdNo(null);
     if (idNoError) setIdNoError("");
     if (error) setError("");
   };
@@ -67,6 +108,12 @@ export default function Register() {
       setIdNoError(idNoValidationError);
       setError(idNoValidationError);
       return;
+    }
+
+    // Never submit against an unverified ID: run the lookup now if blur didn't.
+    if (lookedUpIdNo !== idNo) {
+      const ok = await runMasterListLookup(idNo);
+      if (!ok) return;
     }
 
     const phoneValidationError = validatePhone(phone);
@@ -148,12 +195,16 @@ export default function Register() {
               onChange={handleIdNoChange}
               onBlur={() => {
                 const err = idNo ? validateIdNo(idNo) : null;
-                if (err) setIdNoError(err);
+                if (err) {
+                  setIdNoError(err);
+                  return;
+                }
+                if (idNo && lookedUpIdNo !== idNo) void runMasterListLookup(idNo);
               }}
               required
               margin="normal"
               placeholder="123456789"
-              helperText={idNoError || "Your 9-digit employee/member ID"}
+              helperText={idNoError || "Your 9-digit employee/member ID — details fill in automatically"}
               error={!!idNoError}
               inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 9 }}
             />
@@ -241,7 +292,7 @@ export default function Register() {
               type="submit"
               variant="contained"
               size="large"
-              disabled={loading}
+              disabled={loading || lookupLoading}
               sx={{ mt: 2, mb: 1, borderRadius: 2, py: 1.5, minHeight: 48 }}
             >
               {loading ? "Creating account..." : "Create Account"}

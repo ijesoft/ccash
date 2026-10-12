@@ -19,6 +19,20 @@ export const GET_MASTER_LIST = gql`
   }
 `;
 
+export const MASTER_LIST_LOOKUP = gql`
+  query MasterListLookup($idNo: String!) {
+    masterListLookup(idNo: $idNo) {
+      idNo
+      lastName
+      firstName
+      middleName
+      mobileNumber
+      email
+      status
+    }
+  }
+`;
+
 export const MASTER_LIST_CREATE_ENTRY = gql`
   mutation MasterListCreateEntry($input: MasterListCreateInput!) {
     masterListCreateEntry(input: $input) {

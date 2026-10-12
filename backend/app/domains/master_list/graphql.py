@@ -89,6 +89,22 @@ class MasterListQueries:
         finally:
             await session.close()
 
+    @strawberry.field
+    async def master_list_lookup(self, info: Info, id_no: str) -> MasterListType | None:
+        """Public pre-registration lookup for the sign-up page. No auth check
+        (callers are logged out): exact id_no match, ACTIVE entries only.
+        Misses and inactive rows both return None."""
+        session = async_session_factory()
+        try:
+            service = MasterListService(session)
+            try:
+                entry = await service.lookup_by_id_no(id_no)
+            except ValidationError as e:
+                raise Exception(str(e))
+            return MasterListType.from_model(entry) if entry else None
+        finally:
+            await session.close()
+
 
 @strawberry.type
 class MasterListMutations:

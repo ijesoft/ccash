@@ -143,6 +143,38 @@ async def test_list_entries_pagination_returns_page_and_total(session):
     assert {e.id for e in page1}.isdisjoint({e.id for e in page2})
 
 
+@pytest.mark.asyncio
+async def test_lookup_by_id_no_returns_active_entry(session):
+    svc = MasterListService(session)
+    await svc.create_entry(
+        id_no="300000001", first_name="Luz", last_name="Aquino",
+        mobile_number="09172222221", email="luz@example.ph",
+    )
+    entry = await svc.lookup_by_id_no("300000001")
+    assert entry is not None
+    assert entry.first_name == "Luz"
+    assert entry.last_name == "Aquino"
+
+
+@pytest.mark.asyncio
+async def test_lookup_by_id_no_returns_none_for_missing_and_inactive(session):
+    svc = MasterListService(session)
+    assert await svc.lookup_by_id_no("300000002") is None
+    await svc.create_entry(
+        id_no="300000003", first_name="Inactive", last_name="Person",
+        mobile_number="09172222223", email="inactive@example.ph",
+        status="INACTIVE",
+    )
+    assert await svc.lookup_by_id_no("300000003") is None
+
+
+@pytest.mark.asyncio
+async def test_lookup_by_id_no_rejects_bad_format(session):
+    svc = MasterListService(session)
+    with pytest.raises(Exception, match="9 digits"):
+        await svc.lookup_by_id_no("123")
+
+
 def test_import_template_headers_parse_cleanly():
     from io import BytesIO
 

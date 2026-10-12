@@ -68,6 +68,18 @@ class MasterListService:
         await self.session.commit()
         return entry
 
+    async def lookup_by_id_no(self, id_no: str) -> MasterListEntry | None:
+        """Public pre-registration lookup: exact id_no match, ACTIVE entries
+        only. Misses and inactive rows both return None so callers cannot
+        distinguish them."""
+        id_no = (id_no or "").strip()
+        if not re.fullmatch(r"\d{9}", id_no):
+            raise ValidationError(f"ID No. must be exactly 9 digits: got '{id_no}'")
+        entry = await self.repo.get_by_id_no(id_no)
+        if not entry or entry.status != MasterListStatus.ACTIVE:
+            return None
+        return entry
+
     async def list_entries(self, limit: int = 20, offset: int = 0, q: str = ""):
         return await self.repo.list_entries(limit, offset, q)
 
