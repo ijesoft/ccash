@@ -129,6 +129,16 @@ class AdminService:
         if action == "role.change":
             old_role = (old_values or {}).get("role", "?")
             return f"role {old_role} → {nv.get('role', '?')}"
+        if action == "wallet.limit.change":
+            def _fmt(v) -> str:
+                try:
+                    return format_php(int(v))  # type: ignore[arg-type]
+                except (TypeError, ValueError):
+                    return str(v)
+
+            old = (old_values or {}).get("daily_send_limit_cents", "?")
+            new = nv.get("daily_send_limit_cents", "?")
+            return f"daily limit {_fmt(old)} → {_fmt(new)}"
         return action
 
     async def list_audit_logs(
@@ -254,6 +264,8 @@ class AdminService:
                 "status": user.status.value,
                 "wallet_balance_cents": wallet.balance_cents if wallet else 0,
                 "wallet_status": wallet.status.value if wallet else "NONE",
+                "daily_send_limit_cents": wallet.daily_send_limit_cents if wallet else 0,
+                "daily_send_used_cents": wallet.daily_send_used_cents if wallet else 0,
                 "created_at": user.created_at.isoformat() if user.created_at else "",
             })
         return members, total
@@ -408,7 +420,9 @@ class AdminService:
             raise ValidationError("Only a super admin can suspend a super admin account")
         return await self.suspend_user(user_id)
 
-    async def activate_user_as(self, user_id: uuid.UUID, actor_id: uuid.UUID) -> User | None:
+    async def activate_user_as(
+        self, user_id: uuid.UUID, actor_id: uuid.UUID, daily_send_limit_cents: int | None = None
+    ) -> User | None:
         actor = await self.user_repo.get_by_id(actor_id)
         target = await self.user_repo.get_by_id(user_id)
         if (
@@ -417,7 +431,10 @@ class AdminService:
             and (not actor or actor.role != UserRole.SUPER_ADMIN)
         ):
             raise ValidationError("Only a super admin can activate a super admin account")
-        return await self.activate_user(user_id)
+        user = await self.activate_user(user_id)
+        if daily_send_limit_cents is not None:
+            await self.set_wallet_daily_limit(user_id, daily_send_limit_cents, actor_id)
+        return user
 
     async def set_wallet_daily_limit(
         self, user_id: uuid.UUID, limit_cents: int, actor_id: uuid.UUID
@@ -684,6 +701,8 @@ class AdminService:
             "created_at": user.created_at.isoformat() if user.created_at else "",
             "wallet_balance_cents": wallet.balance_cents if wallet else 0,
             "wallet_status": wallet.status.value if wallet else "NONE",
+            "daily_send_limit_cents": wallet.daily_send_limit_cents if wallet else 0,
+            "daily_send_used_cents": wallet.daily_send_used_cents if wallet else 0,
             "merchant": (
                 {
                     "merchant_id_no": merchant_profile.merchant_id_no,

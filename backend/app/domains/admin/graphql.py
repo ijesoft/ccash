@@ -66,6 +66,8 @@ class AdminMemberType:
     status: str
     wallet_balance_cents: int
     wallet_status: str
+    daily_send_limit_cents: int
+    daily_send_used_cents: int
     created_at: str
 
 
@@ -159,6 +161,8 @@ class AdminAccountDetailType:
     created_at: str
     wallet_balance_cents: int
     wallet_status: str
+    daily_send_limit_cents: int
+    daily_send_used_cents: int
     merchant: MerchantProfileType | None
 
 
@@ -551,13 +555,34 @@ class AdminMutations:
             await service.session.close()
 
     @strawberry.mutation
-    async def activate_user(self, info: Info, user_id: str) -> UserType | None:
+    async def activate_user(
+        self, info: Info, user_id: str, daily_send_limit_cents: int | None = None
+    ) -> UserType | None:
         require_perms(info.context, Permission.USERS_SUSPEND)
         service = await get_admin_service(info)
         try:
-            user = await service.activate_user_as(uuid.UUID(user_id), info.context.user_id)
+            user = await service.activate_user_as(
+                uuid.UUID(user_id), info.context.user_id, daily_send_limit_cents
+            )
             return UserType.from_model(user) if user else None
         except ValidationError as e:
+            raise Exception(str(e))
+        finally:
+            await service.session.close()
+
+    @strawberry.mutation
+    async def set_wallet_daily_limit(
+        self, info: Info, user_id: str, daily_send_limit_cents: int
+    ) -> UserType:
+        require_perms(info.context, Permission.USERS_UPDATE)
+        service = await get_admin_service(info)
+        try:
+            await service.set_wallet_daily_limit(
+                uuid.UUID(user_id), daily_send_limit_cents, info.context.user_id
+            )
+            user = await service.user_repo.get_by_id(uuid.UUID(user_id))
+            return UserType.from_model(user)
+        except (NotFoundError, ValidationError) as e:
             raise Exception(str(e))
         finally:
             await service.session.close()
