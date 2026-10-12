@@ -51,6 +51,15 @@ def decode_token(token: str) -> dict:
     return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
 
 
+def decode_access_token(token: str) -> dict:
+    """Decode for user-facing gates (GraphQL/REST/WebSocket). Refresh tokens
+    are rejected: their 7-day life must only buy new access tokens."""
+    payload = decode_token(token)
+    if payload.get("type") != "access":
+        raise ValueError("Access token required")
+    return payload
+
+
 def generate_totp_secret() -> str:
     return pyotp.random_base32()
 
@@ -61,8 +70,8 @@ def verify_totp(secret: str, code: str) -> bool:
 
 
 def generate_otp() -> str:
-    import random
-    return str(random.randint(100000, 999999))
+    import secrets
+    return str(secrets.randbelow(900_000) + 100_000)
 
 
 def generate_temp_password() -> str:

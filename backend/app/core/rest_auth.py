@@ -11,7 +11,7 @@ from collections.abc import Callable
 
 from fastapi import HTTPException, Request
 
-from app.core.security import decode_token
+from app.core.security import decode_access_token
 
 
 async def require_user_token(request: Request) -> uuid.UUID:
@@ -19,7 +19,7 @@ async def require_user_token(request: Request) -> uuid.UUID:
     if not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        payload = decode_token(auth[7:])
+        payload = decode_access_token(auth[7:])
         return uuid.UUID(payload.get("sub"))
     except Exception:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -30,7 +30,7 @@ async def require_admin_token(request: Request) -> uuid.UUID:
     if not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        payload = decode_token(auth[7:])
+        payload = decode_access_token(auth[7:])
         user_id = uuid.UUID(payload.get("sub"))
         scopes = payload.get("scopes", [])
     except Exception:
@@ -48,7 +48,7 @@ def require_perms_token(*perms: str) -> Callable:
         if not auth.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Not authenticated")
         try:
-            payload = decode_token(auth[7:])
+            payload = decode_access_token(auth[7:])
             user_id = uuid.UUID(payload.get("sub"))
             scopes = payload.get("scopes", [])
         except Exception:

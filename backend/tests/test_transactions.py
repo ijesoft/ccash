@@ -362,3 +362,59 @@ async def test_cannot_read_another_users_transaction(session, make_account):
 
     with pytest.raises(AuthorizationError):
         await service.get_transaction(view.transaction.id, outsider_wallet.user_id)
+
+
+# ------------------------------------------------------- money request payout
+
+
+async def test_respond_to_request_moves_money_from_approver_to_requester(
+    session, make_account
+):
+    """Approval used to credit the approver (the payer) and debit the
+    requester: money moved backwards."""
+    requester, requester_wallet = await make_account(balance_cents=100_000)
+    approver, approver_wallet = await make_account(balance_cents=100_000)
+    service = TransactionService(session)
+
+    view = await service.request_money(
+        requester.id, approver_wallet.id, 25_000, str(uuid.uuid4())
+    )
+    await service.respond_to_request(approver.id, view.transaction.id, True)
+
+    assert await balance_of(session, requester_wallet.id) == 125_000
+    assert await balance_of(session, approver_wallet.id) == 75_000
+
+
+async def test_respond_to_request_rejects_when_approver_cannot_cover(
+    session, make_account
+):
+    requester, requester_wallet = await make_account(balance_cents=100_000)
+    approver, approver_wallet = await make_account(balance_cents=10_000)
+    service = TransactionService(session)
+
+    view = await service.request_money(
+        requester.id, approver_wallet.id, 25_000, str(uuid.uuid4())
+    )
+    with pytest.raises(InsufficientFundsError):
+        await service.respond_to_request(approver.id, view.transaction.id, True)
+
+    assert await balance_of(session, requester_wallet.id) == 100_000
+    assert await balance_of(session, approver_wallet.id) == 10_000
+
+
+async def test_respond_to_request_second_approval_fails(session, make_account):
+    """A second approval (the sequential shadow of a concurrent double-submit)
+    must see a non-PENDING row and fail without moving money again."""
+    requester, requester_wallet = await make_account(balance_cents=100_000)
+    approver, approver_wallet = await make_account(balance_cents=100_000)
+    service = TransactionService(session)
+
+    view = await service.request_money(
+        requester.id, approver_wallet.id, 25_000, str(uuid.uuid4())
+    )
+    await service.respond_to_request(approver.id, view.transaction.id, True)
+    with pytest.raises(ValidationError, match="not pending"):
+        await service.respond_to_request(approver.id, view.transaction.id, True)
+
+    assert await balance_of(session, requester_wallet.id) == 125_000
+    assert await balance_of(session, approver_wallet.id) == 75_000

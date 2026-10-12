@@ -87,3 +87,39 @@ def test_mask_mobile(mobile, expected):
 )
 def test_format_php(cents, expected):
     assert format_php(cents) == expected
+
+
+def test_generate_otp_is_six_digits_and_varies():
+    from app.core.security import generate_otp
+
+    seen = {generate_otp() for _ in range(200)}
+    assert len(seen) > 190
+    assert all(re.fullmatch(r"\d{6}", code) for code in seen)
+
+
+def test_decode_access_token_rejects_refresh_tokens():
+    from app.core.security import (
+        create_access_token,
+        create_refresh_token,
+        decode_access_token,
+    )
+
+    user_id = "11111111-1111-1111-1111-111111111111"
+    assert decode_access_token(create_access_token(user_id))["type"] == "access"
+    refresh, _ = create_refresh_token(user_id)
+    with pytest.raises(Exception):
+        decode_access_token(refresh)
+
+
+def test_graphql_context_rejects_refresh_token():
+    import asyncio
+
+    from starlette.requests import Request
+
+    from app.core.security import create_refresh_token
+    from app.graphql.middleware import get_context
+
+    refresh, _ = create_refresh_token("11111111-1111-1111-1111-111111111111")
+    scope = {"type": "http", "headers": [(b"authorization", f"Bearer {refresh}".encode())]}
+    context = asyncio.run(get_context(Request(scope)))
+    assert context.user_id is None

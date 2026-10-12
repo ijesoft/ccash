@@ -216,3 +216,48 @@ async def test_complete_login_rejects_account_suspended_after_password_step(sess
 
     with pytest.raises(AuthenticationError):
         await service.complete_login(user.email, "666666666")
+
+
+# ------------------------------------------------- per-account attempt limits
+
+
+async def test_verify_otp_five_failures_burn_the_code(session, redis):
+    """Guessing must consume the code: after 5 wrong tries the stored code is
+    deleted, so even the right code no longer works."""
+    user = await _make_user(session, id_no="777777771")
+    service = _service(session, redis)
+    await redis.setex(f"otp:{user.email}", 300, "123456")
+
+    for _ in range(5):
+        with pytest.raises(ValidationError, match="Invalid or expired"):
+            await service.verify_otp(user.email, "000000")
+
+    assert await redis.get(f"otp:{user.email}") is None
+    with pytest.raises(ValidationError, match="Invalid or expired"):
+        await service.verify_otp(user.email, "123456")
+
+
+async def test_verify_otp_success_resets_attempts(session, redis):
+    user = await _make_user(session, id_no="777777772")
+    service = _service(session, redis)
+    await redis.setex(f"otp:{user.email}", 300, "123456")
+
+    with pytest.raises(ValidationError, match="Invalid or expired"):
+        await service.verify_otp(user.email, "000000")
+    assert await service.verify_otp(user.email, "123456") is True
+
+
+async def test_login_2fa_email_fallback_five_failures_burn_the_code(session, redis):
+    user = await _make_user(session, id_no="777777773")
+    user.is_2fa_enabled = True
+    await session.commit()
+    service = _service(session, redis)
+    await redis.setex(f"login_otp:{user.email}", 300, "654321")
+
+    for _ in range(5):
+        with pytest.raises(AuthenticationError):
+            await service.login(user.email, PASSWORD, "000000")
+
+    assert await redis.get(f"login_otp:{user.email}") is None
+    with pytest.raises(AuthenticationError):
+        await service.login(user.email, PASSWORD, "654321")

@@ -16,8 +16,11 @@ class TransactionRepository:
         await self.session.flush()
         return transaction
 
-    async def get_by_id(self, tx_id: uuid.UUID) -> Transaction | None:
-        result = await self.session.execute(select(Transaction).where(Transaction.id == tx_id))
+    async def get_by_id(self, tx_id: uuid.UUID, *, for_update: bool = False) -> Transaction | None:
+        query = select(Transaction).where(Transaction.id == tx_id)
+        if for_update:
+            query = query.with_for_update()
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def get_by_idempotency_key(self, key: str) -> Transaction | None:

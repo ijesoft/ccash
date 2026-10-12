@@ -14,7 +14,7 @@ from app.api.reports import admin_router as admin_reports_router
 from app.api.reports import router as reports_router
 from app.config import settings
 from app.core.redis import close_redis, get_redis
-from app.core.security import decode_token
+from app.core.security import decode_access_token
 from app.database import close_db, create_tables
 from app.graphql.middleware import get_context
 from app.graphql.schema import schema
@@ -75,7 +75,7 @@ async def websocket_endpoint(websocket: WebSocket):
         return
 
     try:
-        payload = decode_token(token)
+        payload = decode_access_token(token)
         user_id = payload.get("sub")
     except Exception:
         await websocket.close(code=4001)

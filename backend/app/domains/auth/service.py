@@ -130,6 +130,22 @@ class AuthService:
 
         return secret, uri
 
+    _MAX_OTP_ATTEMPTS = 5
+
+    async def _register_failed_otp_attempt(self, scope: str, email: str, *code_keys: str) -> None:
+        """Count a wrong code guess per account. On the 5th failure the code
+        itself is deleted, so an attacker spread across IPs cannot keep
+        grinding the 6-digit space against a live code."""
+        attempts_key = f"otp_attempts:{scope}:{email}"
+        attempts = await self.redis.incr(attempts_key)
+        if attempts == 1:
+            await self.redis.expire(attempts_key, 300)
+        if attempts >= self._MAX_OTP_ATTEMPTS:
+            await self.redis.delete(attempts_key, *code_keys)
+
+    async def _clear_otp_attempts(self, scope: str, email: str) -> None:
+        await self.redis.delete(f"otp_attempts:{scope}:{email}")
+
     async def verify_otp(self, email: str, code: str) -> bool:
         user = await self.repo.get_by_email(email)
         if not user:
@@ -151,8 +167,12 @@ class AuthService:
                 await self.redis.delete(f"verify_totp_secret:{email}")
 
         if not verified:
+            await self._register_failed_otp_attempt(
+                "verify", email, f"otp:{email}", f"verify_totp_secret:{email}"
+            )
             raise ValidationError("Invalid or expired code")
 
+        await self._clear_otp_attempts("verify", email)
         user.is_verified = True
         user.status = UserStatus.ACTIVE
         await self.repo.update(user)
@@ -218,9 +238,13 @@ class AuthService:
                 # Fall back to email OTP
                 stored = await self.redis.get(f"login_otp:{email}")
                 if not stored or stored != otp_code:
+                    await self._register_failed_otp_attempt(
+                        "login", email, f"login_otp:{email}"
+                    )
                     raise AuthenticationError("Invalid 2FA code")
                 # Consume the OTP so it cannot be reused
                 await self.redis.delete(f"login_otp:{email}")
+                await self._clear_otp_attempts("login", email)
 
         has_existing_id = await self._expected_id_no(user) is not None
 

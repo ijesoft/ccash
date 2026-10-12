@@ -4,7 +4,7 @@ from fastapi import Request
 from strawberry.fastapi import BaseContext
 from strawberry.permission import PermissionExtension
 
-from app.core.security import decode_token
+from app.core.security import decode_access_token
 
 
 class AuthContext(BaseContext):
@@ -20,7 +20,7 @@ async def get_context(request: Request) -> AuthContext:
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header[7:]
         try:
-            payload = decode_token(token)
+            payload = decode_access_token(token)
             context.user_id = uuid.UUID(payload.get("sub"))
             context.scopes = payload.get("scopes", [])
             context.role = payload.get("role")

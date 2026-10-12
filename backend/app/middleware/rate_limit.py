@@ -41,6 +41,12 @@ _AUTH_OPERATIONS = frozenset(
         "VerifyOtp",
         "sendLoginOtp",
         "SendLoginOtp",
+        "masterListLookup",
+        "MasterListLookup",
+        "requestPasswordReset",
+        "RequestPasswordReset",
+        "resetPasswordWithCode",
+        "ResetPasswordWithCode",
     }
 )
 

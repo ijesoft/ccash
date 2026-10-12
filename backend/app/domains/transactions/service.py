@@ -687,7 +687,9 @@ class TransactionService:
         if caller is not None and caller.role in (UserRole.SUPER_ADMIN, UserRole.AUDITOR):
             raise ValidationError("Super admin accounts cannot transact (no wallet)")
 
-        tx = await self.tx_repo.get_by_id(tx_id)
+        # Locked: two concurrent approvals must queue here so only the first
+        # sees PENDING; the second fails below without moving money again.
+        tx = await self.tx_repo.get_by_id(tx_id, for_update=True)
         if not tx:
             raise NotFoundError("Request not found")
 
@@ -699,16 +701,20 @@ class TransactionService:
             raise ValidationError("Request is not pending")
 
         if approve:
+            # The approver owns the receiver wallet, so they are the payer:
+            # debit them, credit the requester (sender wallet owner).
+            if wallet.balance_cents < tx.amount_cents:
+                raise InsufficientFundsError("Insufficient balance")
             tx.status = TransactionStatus.SUCCESS
             await self.tx_repo.create(tx)
-            await self.wallet_repo.update_balance(wallet.id, tx.amount_cents)
-            await self.wallet_repo.update_balance(tx.sender_wallet_id, -tx.amount_cents)
+            await self.wallet_repo.update_balance(tx.sender_wallet_id, tx.amount_cents)
+            await self.wallet_repo.update_balance(wallet.id, -tx.amount_cents)
 
             owners = await self.wallet_repo.get_owners_by_wallet_ids(
                 [tx.sender_wallet_id, tx.receiver_wallet_id]
             )
             await self._queue_notification(
-                tx.sender_wallet_id,
+                owners[tx.sender_wallet_id].id,
                 NotificationType.SENT,
                 "Payment completed",
                 f"Your request of {format_php(tx.amount_cents)} was paid by "
@@ -716,7 +722,7 @@ class TransactionService:
                 tx,
             )
             await self._queue_notification(
-                tx.receiver_wallet_id,
+                owners[tx.receiver_wallet_id].id,
                 NotificationType.TRANSFER_RECEIVED,
                 "Request approved",
                 f"You paid {format_php(tx.amount_cents)} to "
