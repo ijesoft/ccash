@@ -431,6 +431,8 @@ class AdminService:
             and (not actor or actor.role != UserRole.SUPER_ADMIN)
         ):
             raise ValidationError("Only a super admin can activate a super admin account")
+        if daily_send_limit_cents is not None:
+            validate_daily_limit(daily_send_limit_cents)
         user = await self.activate_user(user_id)
         if daily_send_limit_cents is not None:
             await self.set_wallet_daily_limit(user_id, daily_send_limit_cents, actor_id)
