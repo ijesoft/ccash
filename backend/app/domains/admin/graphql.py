@@ -565,7 +565,7 @@ class AdminMutations:
                 uuid.UUID(user_id), info.context.user_id, daily_send_limit_cents
             )
             return UserType.from_model(user) if user else None
-        except ValidationError as e:
+        except (NotFoundError, ValidationError) as e:
             raise Exception(str(e))
         finally:
             await service.session.close()
