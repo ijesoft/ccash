@@ -32,6 +32,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import BadgeIcon from "@mui/icons-material/Badge";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import {
   GET_ADMIN_STATS,
   GET_ADMIN_MEMBERS,
@@ -39,6 +40,7 @@ import {
   SUSPEND_USER,
   UPDATE_USER_ROLE,
   ADMIN_SET_MEMBER_ID,
+  SET_WALLET_DAILY_LIMIT,
 } from "../graphql/queries/admin";
 import { formatMoney } from "../utils/format";
 import { downloadReport } from "../utils/reportDownload";
@@ -49,7 +51,9 @@ import AddMemberDialog from "../components/AddMemberDialog";
 import BatchUploadDialog from "../components/BatchUploadDialog";
 import SetIdDialog from "../components/SetIdDialog";
 
-type AccountRow = { id: string; email: string; status: string; role: string; idNo: string | null };
+type AccountRow = { id: string; email: string; status: string; role: string; idNo: string | null; dailySendLimitCents?: number | null };
+
+const isLimitHolder = (role: string) => role === "MEMBER" || role === "MERCHANT";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -90,6 +94,11 @@ export default function AdminDashboard() {
   const [setMemberId] = useMutation(ADMIN_SET_MEMBER_ID, {
     refetchQueries: [{ query: GET_ADMIN_MEMBERS }],
   });
+
+  const [setWalletDailyLimit] = useMutation(SET_WALLET_DAILY_LIMIT, {
+    refetchQueries: [{ query: GET_ADMIN_MEMBERS }, { query: GET_ADMIN_STATS }],
+  });
+  const [limitTarget, setLimitTarget] = useState<AccountRow | null>(null);
 
   const stats = statsData?.platformStats;
   const members = membersData?.adminUsers ?? [];
@@ -204,6 +213,14 @@ export default function AdminDashboard() {
       headerName: "Balance",
       width: 130,
       valueFormatter: (value) => formatMoney(value),
+    },
+    {
+      field: "dailySendLimitCents",
+      headerName: "Daily Limit",
+      width: 130,
+      renderCell: (params) => (
+        <span>{isLimitHolder(params.row.role) ? formatMoney(params.value ?? 0) : ""}</span>
+      ),
     },
     {
       field: "createdAt",
@@ -413,6 +430,19 @@ export default function AdminDashboard() {
             <ListItemText>{selectedUser?.idNo ? "Change ID No." : "Set ID No."}</ListItemText>
           </MenuItem>
         )}
+        {selectedUser && isLimitHolder(selectedUser.role) && (
+          <MenuItem
+            onClick={() => {
+              if (selectedUser) setLimitTarget(selectedUser);
+              handleMenuClose();
+            }}
+          >
+            <ListItemIcon>
+              <AttachMoneyIcon fontSize="small" color="success" />
+            </ListItemIcon>
+            <ListItemText>Set daily limit</ListItemText>
+          </MenuItem>
+        )}
       </Menu>
 
       <SetIdDialog
@@ -430,6 +460,32 @@ export default function AdminDashboard() {
           if (!setIdTarget) return;
           await setMemberId({ variables: { userId: setIdTarget.id, idNo: value } });
           setSnackbar({ open: true, message: `ID No. set for ${setIdTarget.email}`, severity: "success" });
+        }}
+      />
+
+      <SetIdDialog
+        open={Boolean(limitTarget)}
+        onClose={() => setLimitTarget(null)}
+        title={`Set daily send limit — ${limitTarget?.email ?? ""}`}
+        label="Daily limit (PHP)"
+        helperText="Between ₱1.00 and ₱1,000,000.00"
+        initialValue={limitTarget ? String((limitTarget.dailySendLimitCents ?? 5000000) / 100) : ""}
+        maxLength={10}
+        transform={(raw) => {
+          const cleaned = raw.replace(/[^0-9.]/g, "");
+          const parts = cleaned.split(".");
+          return parts.length <= 2 ? cleaned : `${parts[0]}.${parts.slice(1).join("")}`;
+        }}
+        isValid={(v) => {
+          const cents = Math.round(Number(v) * 100);
+          return Number.isFinite(cents) && cents >= 100 && cents <= 100000000;
+        }}
+        invalidMessage="Enter a limit between ₱1.00 and ₱1,000,000.00"
+        onSubmit={async (value) => {
+          if (!limitTarget) return;
+          await setWalletDailyLimit({ variables: { userId: limitTarget.id, dailySendLimitCents: Math.round(Number(value) * 100) } });
+          setSnackbar({ open: true, message: `Daily limit updated for ${limitTarget.email}`, severity: "success" });
+          refetch();
         }}
       />
 
