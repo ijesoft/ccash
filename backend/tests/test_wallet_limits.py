@@ -132,3 +132,27 @@ def test_audit_summary_wallet_limit_change():
         {"daily_send_limit_cents": 5_000_000},
     )
     assert summary == f"daily limit {format_php(5_000_000)} → {format_php(2_500_000)}"
+
+
+async def test_send_money_uses_updated_limit(session, make_account):
+    import uuid
+
+    from app.core.errors import DailyLimitExceededError
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+    from app.domains.transactions.service import TransactionService
+
+    sender, _ = await make_account()  # default balance 100_000 covers the 5_000 send
+    _, receiver_wallet = await make_account()
+
+    admin_user, _ = await make_account()
+    admin_user.role = UserRole.ADMIN
+    session.add(admin_user)
+    await session.commit()
+
+    await AdminService(session).set_wallet_daily_limit(sender.id, 2_000, admin_user.id)
+
+    with pytest.raises(DailyLimitExceededError):
+        await TransactionService(session).send_money(
+            sender.id, receiver_wallet.id, 5_000, str(uuid.uuid4())
+        )
