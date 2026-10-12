@@ -156,3 +156,43 @@ async def test_send_money_uses_updated_limit(session, make_account):
         await TransactionService(session).send_money(
             sender.id, receiver_wallet.id, 5_000, str(uuid.uuid4())
         )
+
+
+async def test_set_wallet_daily_limit_rejects_walletless_roles(session, make_account):
+    from sqlalchemy import select
+
+    from app.core.audit import AuditLog
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import UserRole
+
+    super_admin, _ = await make_account()
+    super_admin.role = UserRole.SUPER_ADMIN
+    session.add(super_admin)
+    await session.commit()
+
+    auditor, _ = await make_account()
+    auditor.role = UserRole.AUDITOR
+    session.add(auditor)
+    await session.commit()
+
+    admin_user, _ = await make_account()
+    admin_user.role = UserRole.ADMIN
+    session.add(admin_user)
+    await session.commit()
+
+    service = AdminService(session)
+    with pytest.raises(ValidationError):
+        await service.set_wallet_daily_limit(super_admin.id, 1_000_000, admin_user.id)
+    with pytest.raises(ValidationError):
+        await service.set_wallet_daily_limit(auditor.id, 1_000_000, admin_user.id)
+
+    rows = (
+        (
+            await session.execute(
+                select(AuditLog).where(AuditLog.action == "wallet.limit.change")
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(rows) == 0
