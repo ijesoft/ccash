@@ -23,7 +23,7 @@ import { useMutation, useQuery, useLazyQuery, gql } from "@apollo/client";
 import QRCode from "qrcode";
 import { GET_WALLET, GET_TRANSACTIONS } from "../graphql/queries/wallet";
 import { SCAN_QR_PAYMENT } from "../graphql/mutations/transactions";
-import { amountToCents, cleanPhilippineMobile, formatDate } from "../utils/format";
+import { amountToCents, cleanPhilippineMobile, formatDate, formatMoney } from "../utils/format";
 import SuccessDialog from "../components/SuccessDialog";
 import QrCameraScanner from "../components/QrCameraScanner";
 import { useAuth } from "../context/AuthContext";
@@ -89,7 +89,12 @@ export default function QrPayment() {
   const payFormRef = useRef<HTMLFormElement | null>(null);
 
   const { data: qrData } = useQuery(MY_QR_CODE);
+  const { data: walletData } = useQuery(GET_WALLET);
   const [resolveRecipient] = useLazyQuery(RESOLVE_RECIPIENT);
+
+  const dailyLimit: number | null = walletData?.wallet?.dailySendLimit?.cents ?? null;
+  const dailyRemaining: number | null =
+    dailyLimit != null ? dailyLimit - (walletData?.wallet?.dailySendUsed?.cents ?? 0) : null;
 
   useEffect(() => {
     if (qrData?.myQrCode?.payload) {
@@ -227,6 +232,10 @@ export default function QrPayment() {
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
       setError("Please enter a valid amount to pay");
+      return;
+    }
+    if (dailyRemaining != null && Math.round(Number(amount) * 100) > dailyRemaining) {
+      setError(`Exceeds your remaining daily limit of ${formatMoney(dailyRemaining)}`);
       return;
     }
 
@@ -465,7 +474,14 @@ export default function QrPayment() {
                 inputRef={amountRef}
                 sx={{ mb: 1.5 }}
                 inputProps={{ min: 1, step: 0.01, inputMode: "decimal" }}
-                helperText={isDynamicAmount ? "Amount is pre-set by the merchant/sender QR code" : undefined}
+                helperText={
+                  [
+                    isDynamicAmount ? "Amount is pre-set by the merchant/sender QR code" : null,
+                    dailyRemaining != null ? `Daily remaining: ${formatMoney(dailyRemaining)}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || undefined
+                }
               />
 
               {!isDynamicAmount && (

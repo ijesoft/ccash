@@ -46,10 +46,15 @@ export default function SendMoney() {
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<{ tx: Transaction; recipientLabel: string; note: string } | null>(null);
   const { data: favsData } = useQuery<{ favorites: Favorite[] }>(GET_FAVORITES);
+  const { data: walletData } = useQuery(GET_WALLET);
   const [resolveRecipient, { loading: resolving }] = useLazyQuery(RESOLVE_RECIPIENT);
   const [sendMoneyMut, { loading }] = useMutation(SEND_MONEY, {
     refetchQueries: [{ query: GET_WALLET }, { query: GET_TRANSACTIONS, variables: { limit: 5, offset: 0 } }],
   });
+
+  const dailyLimit: number | null = walletData?.wallet?.dailySendLimit?.cents ?? null;
+  const dailyUsed: number = walletData?.wallet?.dailySendUsed?.cents ?? 0;
+  const dailyRemaining: number | null = dailyLimit != null ? dailyLimit - dailyUsed : null;
 
   const resetForm = () => {
     setStep(0);
@@ -140,6 +145,11 @@ export default function SendMoney() {
     }
     if (!pin || pin.length < 4) {
       setError("Enter your MPIN");
+      return;
+    }
+    const amountCents = amountToCents(Number(amount));
+    if (dailyRemaining != null && amountCents > dailyRemaining) {
+      setError(`Exceeds your remaining daily limit of ${formatMoney(dailyRemaining)} (${formatMoney(dailyUsed)} of ${formatMoney(dailyLimit ?? 0)} used)`);
       return;
     }
 
@@ -291,6 +301,7 @@ export default function SendMoney() {
                   required
                   sx={{ mb: 2 }}
                   inputProps={{ min: 1, step: 0.01, inputMode: "decimal" }}
+                  helperText={dailyRemaining != null ? `Daily remaining: ${formatMoney(dailyRemaining)}` : undefined}
                 />
                 <TextField
                   fullWidth
