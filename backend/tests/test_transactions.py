@@ -4,6 +4,7 @@ Every test here corresponds to a defect found during the Phase 0 investigation.
 If one of these regresses, money is wrong.
 """
 
+import json
 import uuid
 
 import pytest
@@ -17,6 +18,7 @@ from app.core.errors import (
     ValidationError,
     WalletNotActiveError,
 )
+from app.domains.auth.models import UserRole
 from app.domains.transactions.policy import MAX_TRANSACTION_CENTS, MIN_TRANSACTION_CENTS
 from app.domains.transactions.service import TransactionService
 from app.domains.transactions.views import TransactionDirection
@@ -418,3 +420,103 @@ async def test_respond_to_request_second_approval_fails(session, make_account):
 
     assert await balance_of(session, requester_wallet.id) == 125_000
     assert await balance_of(session, approver_wallet.id) == 75_000
+
+
+# ------------------------------------------------- merchant cannot spend (buy)
+# Merchants may remit sales proceeds to ADMIN only; every other counterparty
+# is blocked (they must register an individual account to buy).
+
+
+async def test_merchant_cannot_send_money(session, make_account):
+    """A merchant sending to a member must be told to use an individual
+    account instead."""
+    _, merchant_wallet = await make_account(
+        balance_cents=500_000, role=UserRole.MERCHANT
+    )
+    _, receiver_wallet = await make_account(balance_cents=0)
+    service = TransactionService(session)
+
+    with pytest.raises(ValidationError, match="Merchant accounts"):
+        await service.send_money(
+            merchant_wallet.user_id, receiver_wallet.id, 5_000, str(uuid.uuid4())
+        )
+
+    assert await balance_of(session, merchant_wallet.id) == 500_000
+    assert await balance_of(session, receiver_wallet.id) == 0
+
+
+async def test_merchant_can_remit_to_admin(session, make_account):
+    """Sales remittance: the one transfer a merchant is allowed to make."""
+    _, merchant_wallet = await make_account(
+        balance_cents=500_000, role=UserRole.MERCHANT
+    )
+    _, admin_wallet = await make_account(balance_cents=0, role=UserRole.ADMIN)
+    service = TransactionService(session)
+
+    view = await service.send_money(
+        merchant_wallet.user_id, admin_wallet.id, 5_000, str(uuid.uuid4()), "sales"
+    )
+
+    assert view.transaction.status.value == "SUCCESS"
+    assert await balance_of(session, merchant_wallet.id) == 495_000
+    assert await balance_of(session, admin_wallet.id) == 5_000
+
+
+async def test_merchant_cannot_pay_via_qr(session, make_account):
+    """scan_qr_payment delegates to send_money, but the merchant must be
+    rejected with the merchant message — not tripping the MPIN guard first."""
+    _, merchant_wallet = await make_account(
+        balance_cents=500_000, role=UserRole.MERCHANT
+    )
+    _, receiver_wallet = await make_account(balance_cents=0)
+    service = TransactionService(session)
+    payload = json.dumps({"wallet_id": str(receiver_wallet.id), "amount_cents": 5_000})
+
+    with pytest.raises(ValidationError, match="Merchant accounts"):
+        await service.scan_qr_payment(
+            merchant_wallet.user_id, payload, str(uuid.uuid4()), pin="1234"
+        )
+
+    assert await balance_of(session, merchant_wallet.id) == 500_000
+    assert await balance_of(session, receiver_wallet.id) == 0
+
+
+async def test_merchant_cannot_approve_member_money_request(session, make_account):
+    """Approving an incoming request debits the approver — a merchant paying a
+    member is a purchase, so it must be rejected."""
+    requester, requester_wallet = await make_account(balance_cents=0)
+    _, merchant_wallet = await make_account(
+        balance_cents=100_000, role=UserRole.MERCHANT
+    )
+    service = TransactionService(session)
+
+    view = await service.request_money(
+        requester.id, merchant_wallet.id, 25_000, str(uuid.uuid4())
+    )
+
+    with pytest.raises(ValidationError, match="Merchant accounts"):
+        await service.respond_to_request(
+            merchant_wallet.user_id, view.transaction.id, True
+        )
+
+    assert await balance_of(session, requester_wallet.id) == 0
+    assert await balance_of(session, merchant_wallet.id) == 100_000
+
+
+async def test_merchant_can_approve_admin_money_request(session, make_account):
+    """Paying an admin's money request is remittance, not a purchase."""
+    admin, admin_wallet = await make_account(balance_cents=0, role=UserRole.ADMIN)
+    _, merchant_wallet = await make_account(
+        balance_cents=100_000, role=UserRole.MERCHANT
+    )
+    service = TransactionService(session)
+
+    view = await service.request_money(
+        admin.id, merchant_wallet.id, 25_000, str(uuid.uuid4())
+    )
+    await service.respond_to_request(
+        merchant_wallet.user_id, view.transaction.id, True
+    )
+
+    assert await balance_of(session, admin_wallet.id) == 25_000
+    assert await balance_of(session, merchant_wallet.id) == 75_000

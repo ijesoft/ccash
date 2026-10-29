@@ -64,6 +64,26 @@ class TransactionService:
                 raise ValidationError("Mobile number must be exactly 11 digits (e.g. 09171234567)")
             receiver_mobile = normalized
 
+        # Sales remittance: a merchant may move money to an ADMIN counterparty
+        # only; any other receiver means the buyer needs an individual account.
+        # Resolved read-only and before the MPIN guard so the merchant always
+        # sees the merchant message. Unresolvable receivers fall through to the
+        # normal NotFound below.
+        if caller is not None and caller.role == UserRole.MERCHANT:
+            receiver_user: User | None = None
+            if receiver_wallet_id is not None:
+                receiver_wallet_row = await self.wallet_repo.get_by_id(receiver_wallet_id)
+                if receiver_wallet_row is not None:
+                    receiver_user = await UserRepository(self.session).get_by_id(
+                        receiver_wallet_row.user_id
+                    )
+            elif receiver_mobile:
+                receiver_user = await self._find_user_by_mobile(receiver_mobile)
+            if receiver_user is not None and receiver_user.role != UserRole.ADMIN:
+                raise ValidationError(
+                    "Merchant accounts can only send money to admin accounts (sales remittance)"
+                )
+
         validate_amount(amount_cents)
 
         if pin is not None:
@@ -701,6 +721,18 @@ class TransactionService:
             raise ValidationError("Request is not pending")
 
         if approve:
+            # Sales remittance: a merchant may only pay an ADMIN's request.
+            # Declining stays open — it moves no money.
+            if caller is not None and caller.role == UserRole.MERCHANT:
+                owners_pre = await self.wallet_repo.get_owners_by_wallet_ids(
+                    [tx.sender_wallet_id]
+                )
+                requester = owners_pre.get(tx.sender_wallet_id)
+                if requester is None or requester.role != UserRole.ADMIN:
+                    raise ValidationError(
+                        "Merchant accounts can only pay admin money requests (sales remittance)"
+                    )
+
             # The approver owns the receiver wallet, so they are the payer:
             # debit them, credit the requester (sender wallet owner).
             if wallet.balance_cents < tx.amount_cents:

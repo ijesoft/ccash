@@ -21,7 +21,7 @@ from sqlalchemy.pool import NullPool
 
 from app.config import settings
 from app.core.security import hash_password
-from app.domains.auth.models import User, UserStatus
+from app.domains.auth.models import User, UserRole, UserStatus
 from app.domains.wallets.models import Wallet
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
@@ -117,7 +117,9 @@ async def make_account(session: AsyncSession):
 
     counter = {"n": 0}
 
-    async def _make(balance_cents: int = 100_000, **wallet_kwargs) -> tuple[User, Wallet]:
+    async def _make(
+        balance_cents: int = 100_000, role: UserRole = UserRole.MEMBER, **wallet_kwargs
+    ) -> tuple[User, Wallet]:
         counter["n"] += 1
         n = counter["n"]
 
@@ -127,6 +129,7 @@ async def make_account(session: AsyncSession):
             password_hash=hash_password("Test123!"),
             status=UserStatus.ACTIVE,
             is_verified=True,
+            role=role,
         )
         session.add(user)
         await session.flush()
