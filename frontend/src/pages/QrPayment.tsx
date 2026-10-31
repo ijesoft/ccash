@@ -94,7 +94,9 @@ export default function QrPayment() {
 
   const dailyLimit: number | null = walletData?.wallet?.dailySendLimit?.cents ?? null;
   const dailyRemaining: number | null =
-    dailyLimit != null ? dailyLimit - (walletData?.wallet?.dailySendUsed?.cents ?? 0) : null;
+    user?.role !== "ADMIN" && dailyLimit != null
+      ? dailyLimit - (walletData?.wallet?.dailySendUsed?.cents ?? 0)
+      : null;
 
   useEffect(() => {
     if (qrData?.myQrCode?.payload) {

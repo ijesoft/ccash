@@ -21,6 +21,7 @@ import { GET_FAVORITES, GET_WALLET, GET_TRANSACTIONS } from "../graphql/queries/
 import { amountToCents, formatDate, formatMoney } from "../utils/format";
 import SuccessDialog from "../components/SuccessDialog";
 import type { Favorite, Transaction } from "../types";
+import { useAuth } from "../context/AuthContext";
 
 const RESOLVE_RECIPIENT = gql`
   query ResolveRecipient($mobile: String!) {
@@ -36,6 +37,7 @@ const STEPS = ["Recipient", "Amount", "Confirm"];
 
 export default function SendMoney() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [step, setStep] = useState(0);
   const [mobile, setMobile] = useState("");
   const [mobileError, setMobileError] = useState("");
@@ -54,7 +56,7 @@ export default function SendMoney() {
 
   const dailyLimit: number | null = walletData?.wallet?.dailySendLimit?.cents ?? null;
   const dailyUsed: number = walletData?.wallet?.dailySendUsed?.cents ?? 0;
-  const dailyRemaining: number | null = dailyLimit != null ? dailyLimit - dailyUsed : null;
+  const dailyRemaining: number | null = !isAdmin && dailyLimit != null ? dailyLimit - dailyUsed : null;
 
   const resetForm = () => {
     setStep(0);

@@ -85,8 +85,8 @@ export default function Dashboard() {
       {wallet && (
         <BalanceCard
           balanceCents={wallet.balance.cents}
-          dailyLimitCents={wallet.dailySendLimit?.cents}
-          dailyUsedCents={wallet.dailySendUsed?.cents}
+          dailyLimitCents={isAdmin ? undefined : wallet.dailySendLimit?.cents}
+          dailyUsedCents={isAdmin ? undefined : wallet.dailySendUsed?.cents}
         />
       )}
 

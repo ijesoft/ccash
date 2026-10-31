@@ -149,9 +149,10 @@ class TransactionService:
         if sender_wallet.balance_cents < amount_cents:
             raise InsufficientFundsError("Insufficient balance")
 
-        daily_remaining = sender_wallet.daily_send_limit_cents - sender_wallet.daily_send_used_cents
-        if daily_remaining < amount_cents:
-            raise DailyLimitExceededError("Daily send limit exceeded")
+        if caller is None or caller.role != UserRole.ADMIN:
+            daily_remaining = sender_wallet.daily_send_limit_cents - sender_wallet.daily_send_used_cents
+            if daily_remaining < amount_cents:
+                raise DailyLimitExceededError("Daily send limit exceeded")
 
         fee_cents = 0
         net_amount = amount_cents - fee_cents

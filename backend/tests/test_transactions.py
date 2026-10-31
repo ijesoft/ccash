@@ -164,6 +164,25 @@ async def test_send_money_enforces_daily_limit(session, make_account):
         )
 
 
+async def test_admin_send_money_bypasses_daily_limit(session, make_account):
+    admin, admin_wallet = await make_account(
+        balance_cents=500_000,
+        role=UserRole.ADMIN,
+        daily_send_limit_cents=10_000,
+        daily_send_used_cents=8_000,
+    )
+    _, receiver_wallet = await make_account()
+    service = TransactionService(session)
+
+    view = await service.send_money(
+        admin.id, receiver_wallet.id, 5_000, str(uuid.uuid4())
+    )
+
+    assert view.transaction.status.value == "SUCCESS"
+    assert await balance_of(session, admin_wallet.id) == 495_000
+    assert await balance_of(session, receiver_wallet.id) == 105_000
+
+
 async def test_send_money_rejects_frozen_receiver(session, make_account):
     _, sender_wallet = await make_account(balance_cents=500_000)
     _, receiver_wallet = await make_account(status=WalletStatus.FROZEN)

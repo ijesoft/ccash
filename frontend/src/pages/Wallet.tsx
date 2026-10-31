@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Box, Typography, TextField, Button, Alert, Card, CardContent, Paper } from "@mui/material";
 import LockIcon from "@mui/icons-material/Lock";
 import { useWallet } from "../hooks/useWallet";
+import { useAuth } from "../context/AuthContext";
 import BalanceCard from "../components/BalanceCard";
 import { useMutation, gql } from "@apollo/client";
 import { formatMoney } from "../utils/format";
@@ -14,6 +15,7 @@ const SET_PIN = gql`
 
 export default function WalletPage() {
   const { wallet, loading } = useWallet();
+  const { isAdmin } = useAuth();
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
   const [pinSuccess, setPinSuccess] = useState(false);
@@ -49,12 +51,12 @@ export default function WalletPage() {
       {wallet && (
         <BalanceCard
           balanceCents={wallet.balance.cents}
-          dailyLimitCents={wallet.dailySendLimit?.cents}
-          dailyUsedCents={wallet.dailySendUsed?.cents}
+          dailyLimitCents={isAdmin ? undefined : wallet.dailySendLimit?.cents}
+          dailyUsedCents={isAdmin ? undefined : wallet.dailySendUsed?.cents}
         />
       )}
 
-      {wallet && (
+      {wallet && !isAdmin && (
         <Paper
           elevation={0}
           sx={{
