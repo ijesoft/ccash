@@ -37,6 +37,7 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import PeopleIcon from "@mui/icons-material/People";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import SecurityIcon from "@mui/icons-material/Security";
+import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
 import { useQuery } from "@apollo/client";
 import { UNREAD_COUNT } from "../graphql/queries/wallet";
 import { GET_BRANDING, type BrandingData } from "../graphql/queries/branding";
@@ -46,12 +47,19 @@ import { useAuth } from "../context/AuthContext";
 
 const DRAWER_WIDTH = 260;
 
-const primaryNav: { label: string; icon: React.ReactNode; path: string; perm?: string; adminOnly?: boolean }[] = [
+const primaryNav: { label: string; icon: React.ReactNode; path: string; perm?: string; adminOnly?: boolean; superAdminPrimary?: boolean }[] = [
   { label: "Home", icon: <HomeIcon />, path: "/" },
   { label: "Wallet", icon: <AccountBalanceWalletIcon />, path: "/wallet" },
   { label: "Send", icon: <SendIcon />, path: "/send" },
   { label: "QR", icon: <QrCodeIcon />, path: "/qr-payment" },
   { label: "History", icon: <ReceiptIcon />, path: "/transactions" },
+  {
+    label: "Credit Memos",
+    icon: <RequestQuoteIcon />,
+    path: "/credit-memos",
+    perm: "credit-memo:read",
+    superAdminPrimary: true,
+  },
   { label: "Master List", icon: <ListAltIcon />, path: "/master-list", perm: "masterlist:read" },
 ];
 
@@ -84,9 +92,11 @@ export default function Layout() {
     if (item.path === "/admin") return can("users:read");
     return true;
   });
-  const visiblePrimaryNav = primaryNav.filter(
-    (item) => (!item.perm || can(item.perm)) && (!item.adminOnly || isAdmin),
-  ).filter(() => !isSuperAdmin && !isAuditor);
+  const visiblePrimaryNav = primaryNav.filter((item) => {
+    if (isAuditor) return false;
+    if (isSuperAdmin) return !!item.superAdminPrimary;
+    return (!item.perm || can(item.perm)) && (!item.adminOnly || isAdmin);
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();

@@ -54,6 +54,14 @@ const GROUPS: { title: string; perms: { value: string; label: string }[] }[] = [
     ],
   },
   {
+    title: "Credit Memos",
+    perms: [
+      { value: "credit-memo:read", label: "View credit memos" },
+      { value: "credit-memo:submit", label: "Submit credit memos" },
+      { value: "credit-memo:review", label: "Approve / decline credit memos" },
+    ],
+  },
+  {
     title: "Reports & Master List",
     perms: [
       { value: "reports:export", label: "Export reports" },

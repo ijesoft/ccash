@@ -13,6 +13,7 @@ class TransactionType(str, enum.Enum):
     SEND = "SEND"
     RECEIVE = "RECEIVE"
     QR_PAYMENT = "QR_PAYMENT"
+    CREDIT_MEMO = "CREDIT_MEMO"
 
 
 class TransactionStatus(str, enum.Enum):

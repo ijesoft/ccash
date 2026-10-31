@@ -27,7 +27,7 @@ async def test_matrix_falls_back_to_constants_on_empty_table(session):
     assert "users:read" in matrix["ADMIN"]
     assert len(matrix["ADMIN"]) == len(Permission)
     assert matrix["MEMBER"] == []
-    assert matrix["MERCHANT"] == []
+    assert matrix["MERCHANT"] == ["credit-memo:read", "credit-memo:submit"]
     assert len(matrix["SUPER_ADMIN"]) == len(Permission)
 
 

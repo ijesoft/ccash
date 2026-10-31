@@ -44,6 +44,7 @@ const typeLabels: Record<string, string> = {
   CASH_OUT: "Cash Out",
   SEND: "Transfer",
   QR_PAYMENT: "QR Payment",
+  CREDIT_MEMO: "Credit Memo",
 };
 
 function receiptTitle(tx: Transaction): string {

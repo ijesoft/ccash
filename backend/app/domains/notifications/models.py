@@ -15,6 +15,7 @@ class NotificationType(str, enum.Enum):
     QR_PAYMENT = "QR_PAYMENT"
     KYC_UPDATE = "KYC_UPDATE"
     SECURITY = "SECURITY"
+    CREDIT_MEMO = "CREDIT_MEMO"
 
 
 class Notification(SQLModel, table=True):

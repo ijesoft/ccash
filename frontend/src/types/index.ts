@@ -109,3 +109,52 @@ export interface NotificationConnection {
   items: Notification[];
   pagination: PaginationInfo;
 }
+export type CreditMemoStatus =
+  | "FOR_REVIEW"
+  | "CANCELLED"
+  | "DECLINED"
+  | "APPROVED";
+
+export interface CreditMemoParty {
+  userId: string;
+  name: string | null;
+  email: string;
+  maskedMobile: string;
+}
+
+export interface CreditMemo {
+  id: string;
+  reference: string;
+  status: CreditMemoStatus;
+  amount: Money;
+  reason: string;
+  adminNote: string | null;
+  merchant: CreditMemoParty;
+  customer: CreditMemoParty;
+  transactionId: string;
+  transactionReference: string | null;
+  transactionAmount: Money;
+  transactionCreatedAt: string;
+  refundTransactionId: string | null;
+  refundTransactionReference: string | null;
+  decidedByEmail: string | null;
+  decidedAt: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+}
+
+export interface CreditMemoConnection {
+  items: CreditMemo[];
+  pagination: PaginationInfo;
+}
+
+export interface TaggableTransaction {
+  id: string;
+  reference: string | null;
+  amount: Money;
+  createdAt: string;
+  customerName: string | null;
+  customerMaskedMobile: string;
+  alreadyCreditedCents: number;
+  remainingCreditableCents: number;
+}

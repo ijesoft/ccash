@@ -33,13 +33,21 @@ class Permission(str, enum.Enum):
     AUDIT_READ = "audit:read"
     AUDIT_EXPORT = "audit:export"
     USERS_RECOVER_PASSWORD = "users:recover-password"
+    CREDIT_MEMO_READ = "credit-memo:read"
+    CREDIT_MEMO_SUBMIT = "credit-memo:submit"
+    CREDIT_MEMO_REVIEW = "credit-memo:review"
 
 
 _ALL = frozenset(Permission)
 
 ROLE_PERMISSIONS: dict[UserRole, frozenset[Permission]] = {
     UserRole.MEMBER: frozenset(),
-    UserRole.MERCHANT: frozenset(),
+    UserRole.MERCHANT: frozenset(
+        {
+            Permission.CREDIT_MEMO_READ,
+            Permission.CREDIT_MEMO_SUBMIT,
+        }
+    ),
     UserRole.ADMIN: _ALL,
     UserRole.SUPER_ADMIN: _ALL,
     UserRole.AUDITOR: frozenset(

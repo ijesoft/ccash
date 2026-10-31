@@ -91,6 +91,7 @@ export default function TransactionsPage() {
             <MenuItem value="CASH_OUT">Cash Out</MenuItem>
             <MenuItem value="SEND">Transfers</MenuItem>
             <MenuItem value="QR_PAYMENT">QR Payment</MenuItem>
+            <MenuItem value="CREDIT_MEMO">Credit Memo</MenuItem>
           </Select>
         </FormControl>
 

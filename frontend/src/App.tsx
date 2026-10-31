@@ -17,6 +17,7 @@ import CashIn from "./pages/CashIn";
 import CashOut from "./pages/CashOut";
 import QrPayment from "./pages/QrPayment";
 import TransactionsPage from "./pages/Transactions";
+import CreditMemos from "./pages/CreditMemos";
 import MasterList from "./pages/MasterList";
 import Profile from "./pages/Profile";
 import NotificationsPage from "./pages/Notifications";
@@ -55,6 +56,14 @@ export default function App() {
                 <Route path="/cash-out" element={<RequirePerm perm="cash:operate"><CashOut /></RequirePerm>} />
                 <Route path="/qr-payment" element={<QrPayment />} />
                 <Route path="/transactions" element={<TransactionsPage />} />
+                <Route
+                  path="/credit-memos"
+                  element={
+                    <RequireRole roles={["MERCHANT", "ADMIN", "SUPER_ADMIN"]}>
+                      <CreditMemos />
+                    </RequireRole>
+                  }
+                />
                 <Route path="/master-list" element={<RequirePerm perm="masterlist:read"><MasterList /></RequirePerm>} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/notifications" element={<NotificationsPage />} />

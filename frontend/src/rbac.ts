@@ -23,6 +23,9 @@ export const PERMISSIONS = {
   AUDIT_READ: "audit:read",
   AUDIT_EXPORT: "audit:export",
   USERS_RECOVER_PASSWORD: "users:recover-password",
+  CREDIT_MEMO_READ: "credit-memo:read",
+  CREDIT_MEMO_SUBMIT: "credit-memo:submit",
+  CREDIT_MEMO_REVIEW: "credit-memo:review",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -31,7 +34,10 @@ const ALL = Object.values(PERMISSIONS) as Permission[];
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   MEMBER: [],
-  MERCHANT: [],
+  MERCHANT: [
+    PERMISSIONS.CREDIT_MEMO_READ,
+    PERMISSIONS.CREDIT_MEMO_SUBMIT,
+  ],
   ADMIN: [...ALL],
   SUPER_ADMIN: [...ALL],
   AUDITOR: [
