@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import async_session_factory
 from app.domains.wallets.models import Wallet
 from app.tasks.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task
@@ -71,7 +74,7 @@ def send_email_notification(
         with smtplib.SMTP(settings.mailpit_smtp_host, settings.mailpit_smtp_port) as server:
             server.sendmail(settings.mail_from, [to_email], msg.as_string())
     except Exception:
-        pass
+        logger.exception("Email delivery failed via SMTP (mailpit) to %s", to_email)
 
 
 @celery_app.task

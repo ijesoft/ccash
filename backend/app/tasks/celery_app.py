@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 
 from app.config import settings
 
@@ -18,7 +19,7 @@ celery_app.conf.update(
     beat_schedule={
         "reset-daily-limits": {
             "task": "app.tasks.notifications.reset_daily_limits",
-            "schedule": 86400.0,
+            "schedule": crontab(hour=0, minute=0),
         },
     },
 )

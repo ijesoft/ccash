@@ -16,6 +16,7 @@ from app.domains.master_list.service import MasterListService
 from app.domains.master_list.template import TEMPLATE_FILENAME, build_template_bytes
 
 MAX_BATCH_ROWS = 5000
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB, same ceiling as branding uploads
 
 router = APIRouter()
 
@@ -33,7 +34,9 @@ async def download_master_list_template(actor_id: uuid.UUID = Depends(require_pe
 async def batch_upload_master_list(
     file: UploadFile = File(...), actor_id: uuid.UUID = Depends(require_perms_token(Permission.MASTERLIST_WRITE))
 ):
-    content = await file.read()
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 5MB)")
     try:
         rows = parse_member_rows(content, file.filename or "")
     except BatchImportError as e:

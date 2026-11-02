@@ -132,6 +132,26 @@ class AuthService:
 
     _MAX_OTP_ATTEMPTS = 5
 
+    # Per-account password/2FA failure cap. Argon2 already slows brute force and
+    # the IP limiter covers single-source floods; this closes distributed spray.
+    # shortcut: fixed 5/15min window, email-keyed; upgrade to a risk engine +
+    # captcha when there is real abuse traffic.
+    _MAX_LOGIN_ATTEMPTS = 5
+    _LOGIN_LOCK_SECONDS = 900
+
+    async def _login_attempts_exceeded(self, email: str) -> bool:
+        raw = await self.redis.get(f"login_attempts:{email}")
+        return raw is not None and int(raw) >= self._MAX_LOGIN_ATTEMPTS
+
+    async def _record_login_failure(self, email: str) -> None:
+        key = f"login_attempts:{email}"
+        attempts = await self.redis.incr(key)
+        if attempts == 1:
+            await self.redis.expire(key, self._LOGIN_LOCK_SECONDS)
+
+    async def _clear_login_attempts(self, email: str) -> None:
+        await self.redis.delete(f"login_attempts:{email}")
+
     async def _register_failed_otp_attempt(self, scope: str, email: str, *code_keys: str) -> None:
         """Count a wrong code guess per account. On the 5th failure the code
         itself is deleted, so an attacker spread across IPs cannot keep
@@ -150,6 +170,11 @@ class AuthService:
         user = await self.repo.get_by_email(email)
         if not user:
             raise NotFoundError("User not found")
+        # verifyOtp is a self-service registration step (no auth), so it must
+        # never resurrect an account an admin suspended. Only PENDING signups
+        # (and already-active ones) may verify here.
+        if user.status == UserStatus.SUSPENDED:
+            raise ValidationError(INACTIVE_ACCOUNT_MESSAGE)
 
         verified = False
 
@@ -224,7 +249,11 @@ class AuthService:
         if user.status != UserStatus.ACTIVE:
             raise AuthenticationError(INACTIVE_ACCOUNT_MESSAGE)
 
+        if await self._login_attempts_exceeded(email):
+            raise AuthenticationError("Too many login attempts. Try again later.")
+
         if not verify_password(password, user.password_hash):
+            await self._record_login_failure(email)
             raise AuthenticationError("Invalid credentials")
 
         if user.is_2fa_enabled:
@@ -241,11 +270,13 @@ class AuthService:
                     await self._register_failed_otp_attempt(
                         "login", email, f"login_otp:{email}"
                     )
+                    await self._record_login_failure(email)
                     raise AuthenticationError("Invalid 2FA code")
                 # Consume the OTP so it cannot be reused
                 await self.redis.delete(f"login_otp:{email}")
                 await self._clear_otp_attempts("login", email)
 
+        await self._clear_login_attempts(email)
         has_existing_id = await self._expected_id_no(user) is not None
 
         await self.redis.setex(f"login_pending:{email}", _LOGIN_PENDING_TTL_SECONDS, "1")

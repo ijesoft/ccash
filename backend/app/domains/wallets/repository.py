@@ -68,7 +68,7 @@ class WalletRepository:
     async def update_daily_usage(self, wallet_id: uuid.UUID, amount_cents: int) -> None:
         await self.session.execute(
             update(Wallet)
-            .where(Wallet.id == wallet_id)
+            .where(Wallet.id == wallet_id, Wallet.deleted_at.is_(None))
             .values(daily_send_used_cents=Wallet.daily_send_used_cents + amount_cents, version=Wallet.version + 1)
         )
 

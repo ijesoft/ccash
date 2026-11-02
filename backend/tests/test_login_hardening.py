@@ -261,3 +261,31 @@ async def test_login_2fa_email_fallback_five_failures_burn_the_code(session, red
     assert await redis.get(f"login_otp:{user.email}") is None
     with pytest.raises(AuthenticationError):
         await service.login(user.email, PASSWORD, "654321")
+
+
+async def test_verify_otp_cannot_unsuspend_account(session, redis):
+    """verifyOtp is unauthenticated (registration step); it must never flip a
+    SUSPENDED account back to ACTIVE."""
+    user = await _make_user(session, id_no="888888881")
+    user.status = UserStatus.SUSPENDED
+    await session.commit()
+    service = _service(session, redis)
+    await redis.setex(f"otp:{user.email}", 300, "123456")
+
+    with pytest.raises(ValidationError):
+        await service.verify_otp(user.email, "123456")
+
+    await session.refresh(user)
+    assert user.status == UserStatus.SUSPENDED
+
+
+async def test_login_locks_account_after_five_failed_passwords(session, redis):
+    user = await _make_user(session, id_no="888888882")
+    service = _service(session, redis)
+
+    for _ in range(5):
+        with pytest.raises(AuthenticationError):
+            await service.login(user.email, "WrongPass!")
+
+    with pytest.raises(AuthenticationError, match="Too many login attempts"):
+        await service.login(user.email, PASSWORD)

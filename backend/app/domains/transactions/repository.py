@@ -59,7 +59,9 @@ class TransactionRepository:
 
         return list(result.scalars().all()), total
 
-    async def get_statement(self, wallet_id: uuid.UUID, from_date: datetime, to_date: datetime) -> list[Transaction]:
+    async def get_statement(
+        self, wallet_id: uuid.UUID, from_date: datetime, to_date: datetime, limit: int = 100_000
+    ) -> list[Transaction]:
         result = await self.session.execute(
             select(Transaction)
             .where(
@@ -69,5 +71,6 @@ class TransactionRepository:
                 Transaction.status == TransactionStatus.SUCCESS,
             )
             .order_by(Transaction.created_at.asc())
+            .limit(limit)
         )
         return list(result.scalars().all())

@@ -219,6 +219,26 @@ async def test_replaying_an_idempotency_key_does_not_move_money_twice(session, m
     assert await balance_of(session, receiver_wallet.id) == 255_000
 
 
+async def test_foreign_idempotency_key_is_not_replayed_or_absorbed(session, make_account):
+    """A key used on someone else's transfer must neither hand back their
+    transaction nor silently swallow the caller's own — it is rejected."""
+    _, wallet_a = await make_account(balance_cents=500_000)
+    _, wallet_b = await make_account(balance_cents=250_000)
+    _, wallet_c = await make_account(balance_cents=250_000)
+    service = TransactionService(session)
+    key = str(uuid.uuid4())
+
+    # A pays B under `key`.
+    await service.send_money(wallet_a.user_id, wallet_b.id, 5_000, key)
+
+    # An unrelated caller (C) reusing that key must not read A's transfer, and
+    # must not have their own send silently dropped for it.
+    with pytest.raises(ValidationError, match="Idempotency key already in use"):
+        await service.send_money(wallet_c.user_id, wallet_a.id, 3_000, key)
+
+    assert await balance_of(session, wallet_c.id) == 250_000
+
+
 async def test_references_are_unique_across_transactions(session, make_account):
     _, sender_wallet = await make_account(balance_cents=500_000)
     _, receiver_wallet = await make_account()

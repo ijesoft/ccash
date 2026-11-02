@@ -97,13 +97,15 @@ class TransactionService:
             if not await self.wallet_repo.verify_pin_for_user(sender_wallet_pre.id, pin):
                 raise ValidationError("Invalid PIN")
 
-        existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
-        if existing:
-            return await self._view_for_user(existing, sender_user_id)
-
         sender_wallet = await self.wallet_repo.get_by_user_id(sender_user_id)
         if not sender_wallet:
             raise NotFoundError("Sender wallet not found")
+
+        existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
+        if existing:
+            if sender_wallet.id not in (existing.sender_wallet_id, existing.receiver_wallet_id):
+                raise ValidationError("Idempotency key already in use")
+            return await self._view_for_user(existing, sender_user_id)
 
         resolved_receiver_wallet_id = receiver_wallet_id
         if receiver_mobile and not resolved_receiver_wallet_id:
@@ -207,7 +209,7 @@ class TransactionService:
         )
         self._audit_transfer(sender_user_id, tx, action)
 
-        winner = await self._commit(idempotency_key)
+        winner = await self._commit(idempotency_key, sender_wallet.id)
         return await self._view_for_user(winner or tx, sender_user_id)
 
     def _audit_transfer(self, user_id: uuid.UUID, tx: Transaction, action: str) -> None:
@@ -277,6 +279,7 @@ class TransactionService:
         self, payload: str
     ) -> tuple[uuid.UUID | None, str | None, int | None, str | None]:
         import json as _json
+        from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
         raw = (payload or "").strip()
         if not raw:
@@ -335,11 +338,11 @@ class TransactionService:
             try:
                 if isinstance(val, bool):
                     raise ValueError
-                pesos = float(val)
-            except (TypeError, ValueError):
+                pesos = Decimal(str(val))
+            except (InvalidOperation, TypeError, ValueError):
                 raise ValidationError("Invalid QR amount") from None
             if pesos > 0:
-                payload_amount_cents = round(pesos * 100)
+                payload_amount_cents = int((pesos * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
         payload_desc = data.get("description") or data.get("note")
         if payload_desc is not None:
@@ -360,13 +363,15 @@ class TransactionService:
 
         validate_amount(amount_cents)
 
-        existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
-        if existing:
-            return await self._view_for_user(existing, user_id)
-
         wallet = await self._lock_own_wallet(user_id)
         if wallet.status != WalletStatus.ACTIVE:
             raise WalletNotActiveError("Wallet is not active")
+
+        existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
+        if existing:
+            if wallet.id not in (existing.sender_wallet_id, existing.receiver_wallet_id):
+                raise ValidationError("Idempotency key already in use")
+            return await self._view_for_user(existing, user_id)
 
         tx = Transaction(
             idempotency_key=idempotency_key,
@@ -393,7 +398,7 @@ class TransactionService:
 
         self._audit_transfer(user_id, tx, "transaction.cash_in")
 
-        winner = await self._commit(idempotency_key)
+        winner = await self._commit(idempotency_key, wallet.id)
         return await self._view_for_user(winner or tx, user_id)
 
     async def cash_out(
@@ -409,15 +414,17 @@ class TransactionService:
 
         validate_amount(amount_cents)
 
-        existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
-        if existing:
-            return await self._view_for_user(existing, user_id)
-
         wallet = await self._lock_own_wallet(user_id)
         if wallet.status != WalletStatus.ACTIVE:
             raise WalletNotActiveError("Wallet is not active")
         if wallet.balance_cents < amount_cents:
             raise InsufficientFundsError("Insufficient balance")
+
+        existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
+        if existing:
+            if wallet.id not in (existing.sender_wallet_id, existing.receiver_wallet_id):
+                raise ValidationError("Idempotency key already in use")
+            return await self._view_for_user(existing, user_id)
 
         tx = Transaction(
             idempotency_key=idempotency_key,
@@ -444,7 +451,7 @@ class TransactionService:
 
         self._audit_transfer(user_id, tx, "transaction.cash_out")
 
-        winner = await self._commit(idempotency_key)
+        winner = await self._commit(idempotency_key, wallet.id)
         return await self._view_for_user(winner or tx, user_id)
 
     # ------------------------------------------------------------------- reads
@@ -482,7 +489,7 @@ class TransactionService:
         if not wallet:
             return []
 
-        txs = await self.tx_repo.get_statement(wallet.id, from_date, to_date)
+        txs = await self.tx_repo.get_statement(wallet.id, from_date, to_date, self.REPORT_ROW_LIMIT)
         return await self._build_views(txs, wallet.id)
 
     # Report generation (PDF/Excel export) wants the full history, unpaginated.
@@ -522,12 +529,15 @@ class TransactionService:
             raise NotFoundError("Wallet not found")
         return locked
 
-    async def _commit(self, idempotency_key: str) -> Transaction | None:
+    async def _commit(
+        self, idempotency_key: str, owner_wallet_id: uuid.UUID | None = None
+    ) -> Transaction | None:
         """Commit, then release the buffered pushes.
 
         Returns the winning transaction if a concurrent request already used this
         idempotency key, so a double-submit yields one transfer and two identical
-        responses rather than a 500.
+        responses rather than a 500. If the key was already consumed by a
+        transaction the caller is not a party to, reject instead of echoing it.
         """
         try:
             await self.session.commit()
@@ -537,6 +547,11 @@ class TransactionService:
             winner = await self.tx_repo.get_by_idempotency_key(idempotency_key)
             if not winner:
                 raise
+            if owner_wallet_id is not None and owner_wallet_id not in (
+                winner.sender_wallet_id,
+                winner.receiver_wallet_id,
+            ):
+                raise ValidationError("Idempotency key already in use")
             return winner
 
         pushes, self._pending_pushes = self._pending_pushes, []
@@ -654,13 +669,16 @@ class TransactionService:
 
         validate_amount(amount_cents)
 
-        existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
-        if existing:
-            return await self._view_for_user(existing, sender_user_id)
-
         sender_wallet = await self.wallet_repo.get_by_user_id(sender_user_id)
         if not sender_wallet:
             raise NotFoundError("Sender wallet not found")
+
+        existing = await self.tx_repo.get_by_idempotency_key(idempotency_key)
+        if existing:
+            if sender_wallet.id not in (existing.sender_wallet_id, existing.receiver_wallet_id):
+                raise ValidationError("Idempotency key already in use")
+            return await self._view_for_user(existing, sender_user_id)
+
         if sender_wallet.id == receiver_wallet_id:
             raise ValidationError("Cannot request money from yourself")
 
@@ -695,7 +713,7 @@ class TransactionService:
             tx,
         )
 
-        await self._commit(idempotency_key)
+        await self._commit(idempotency_key, sender_wallet.id)
         return await self._view_for_user(tx, sender_user_id)
 
     async def respond_to_request(
@@ -766,5 +784,5 @@ class TransactionService:
             tx.status = TransactionStatus.FAILED
             await self.tx_repo.create(tx)
 
-        await self._commit(str(tx.idempotency_key))
+        await self._commit(str(tx.idempotency_key), wallet.id)
         return await self._view_for_user(tx, user_id)

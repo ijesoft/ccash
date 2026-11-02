@@ -50,6 +50,21 @@ _AUTH_OPERATIONS = frozenset(
     }
 )
 
+# Mutation field names, matched in the query text when operationName is absent.
+_AUTH_MARKERS = frozenset(
+    {
+        "login(",
+        "completeLogin(",
+        "register(",
+        "registerMerchant(",
+        "verifyOtp(",
+        "sendLoginOtp(",
+        "masterListLookup(",
+        "requestPasswordReset(",
+        "resetPasswordWithCode(",
+    }
+)
+
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -81,7 +96,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         else:
             subject = "ip:" + client_ip
 
+        # operationName is client-supplied, so trusting it alone lets a caller
+        # drop the field and skip the strict auth limit. When it is absent, fall
+        # back to scanning the query text for the auth mutation field names.
+        # shortcut: aliases still evade text matching; the per-account login
+        # lockout in AuthService is the real defense.
         is_auth = operation_name in _AUTH_OPERATIONS
+        if not is_auth and not operation_name:
+            query_text = ""
+            try:
+                query_text = json.loads(body or b"{}").get("query") or ""
+            except (json.JSONDecodeError, AttributeError, TypeError):
+                query_text = ""
+            is_auth = any(marker in query_text for marker in _AUTH_MARKERS)
         bucket = "auth" if is_auth else "graphql"
         key = f"rate:{subject}:{bucket}"
         limit = 10 if is_auth else 300
