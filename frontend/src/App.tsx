@@ -32,6 +32,7 @@ import AuditorDashboard from "./pages/AuditorDashboard";
 import AuditorTransactions from "./pages/AuditorTransactions";
 import AuditorAuditLog from "./pages/AuditorAuditLog";
 import AccountDetail from "./pages/AccountDetail";
+import UserGuidelines from "./pages/UserGuidelines";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import SessionGuard from "./components/SessionGuard";
 
@@ -66,6 +67,7 @@ export default function App() {
                 />
                 <Route path="/master-list" element={<RequirePerm perm="masterlist:read"><MasterList /></RequirePerm>} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/guidelines" element={<UserGuidelines />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/admin" element={<RequirePerm perm="users:read"><AdminDashboard /></RequirePerm>} />
                 <Route path="/admin/recovery" element={<RequirePerm perm="users:recover-password"><RecoveryRequests /></RequirePerm>} />

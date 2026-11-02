@@ -105,6 +105,66 @@ def test_transaction_history_pdf_and_excel_handle_empty_history():
     assert xlsx_bytes.startswith(b"PK")  # xlsx is a zip archive
 
 
+def test_transaction_history_reports_include_unmasked_mobile():
+    from app.domains.transactions.views import TransactionView, Counterparty, TransactionDirection
+    from app.domains.transactions.models import Transaction, TransactionType, TransactionStatus
+    from datetime import datetime, timezone
+    import uuid
+
+    tx = Transaction(
+        id=uuid.uuid4(),
+        sender_wallet_id=uuid.uuid4(),
+        receiver_wallet_id=uuid.uuid4(),
+        amount_cents=50000,
+        fee_cents=0,
+        type=TransactionType.SEND,
+        status=TransactionStatus.SUCCESS,
+        reference="CC260918ABCD5678",
+        description="Transfer test",
+        created_at=datetime.now(timezone.utc),
+    )
+    view = TransactionView(
+        transaction=tx,
+        direction=TransactionDirection.OUT,
+        counterparty=Counterparty(
+            wallet_id=tx.receiver_wallet_id,
+            name=None,
+            masked_mobile="0918••••003",
+            mobile="09180000003",
+        ),
+    )
+    meta = [("Email", "alice@ccash.ph"), ("Mobile", "09180000003")]
+    pdf_bytes = generate_transaction_history_pdf("Alice Doe", meta, [view])
+    assert pdf_bytes.startswith(b"%PDF")
+
+    xlsx_bytes = generate_transaction_history_excel("Alice Doe", meta, [view])
+    from openpyxl import load_workbook
+    wb = load_workbook(io.BytesIO(xlsx_bytes))
+    ws = wb.active
+    values = [cell.value for row in ws.iter_rows() for cell in row]
+    assert "09180000003" in values
+    assert "0918••••003" not in values
+
+
+async def test_get_account_report_context_returns_unmasked_mobile(session):
+    from app.domains.admin.service import AdminService
+    from app.domains.auth.models import User, UserRole, UserStatus
+    from app.domains.auth.repository import UserRepository
+
+    user = await UserRepository(session).create(
+        email="test_unmasked@ccash.ph",
+        phone="+639171234567",
+        password_hash="hash",
+        role=UserRole.MEMBER,
+        status=UserStatus.ACTIVE,
+    )
+    admin_service = AdminService(session)
+    label, meta = await admin_service.get_account_report_context(user.id)
+    meta_dict = dict(meta)
+    assert meta_dict["Mobile"] == "09171234567"
+    assert "•" not in meta_dict["Mobile"]
+
+
 def test_admin_all_transactions_pdf_and_excel_handle_empty_ledger():
     pdf_bytes = generate_all_transactions_pdf([])
     assert pdf_bytes.startswith(b"%PDF")

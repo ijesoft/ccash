@@ -279,7 +279,8 @@ class AdminService:
         merchant_profile = await self.merchant_repo.get_by_user_id(user_id)
         label = display_name_for(user, merchant_profile)
 
-        meta = [("Email", user.email), ("Mobile", mask_mobile(user.phone))]
+        mobile_display = normalize_philippine_mobile(user.phone) or user.phone or "-"
+        meta = [("Email", user.email), ("Mobile", mobile_display)]
         if merchant_profile:
             meta.insert(0, ("Merchant ID", merchant_profile.merchant_id_no))
             meta.append(("Contact Person", merchant_profile.contact_person))

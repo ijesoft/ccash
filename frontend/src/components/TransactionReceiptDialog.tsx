@@ -123,8 +123,9 @@ export default function TransactionReceiptDialog({ transaction, onClose }: Props
   const shareData = useMemo<ReceiptShareData | null>(() => {
     if (!transaction) return null;
     const incoming = transaction.direction === "IN";
+    const cp = transaction.counterparty;
     const counterparty =
-      transaction.counterparty?.name || transaction.counterparty?.maskedMobile || "—";
+      cp?.name || cp?.mobile || cp?.maskedMobile || "—";
     return {
       title: receiptTitle(transaction),
       subtitle: transaction.status === "SUCCESS" ? "Transaction completed" : transaction.status,

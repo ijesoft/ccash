@@ -16,10 +16,16 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from app.core.money import format_php
+from app.core.money import format_php, format_php_whole
 from app.domains.transactions.views import TransactionView
+
+# Register DejaVu Sans for peso sign support
+pdfmetrics.registerFont(TTFont("DejaVuSans", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
+pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
 
 COLUMN_HEADERS = ["Date", "Reference", "Type", "Direction", "Counterparty", "Amount", "Status", "Description"]
 BRAND_COLOR = colors.HexColor("#0F6ECD")
@@ -31,7 +37,12 @@ def _row_for(view: TransactionView) -> list[str]:
     tx = view.transaction
     counterparty = "-"
     if view.counterparty:
-        counterparty = view.counterparty.name or view.counterparty.masked_mobile or "-"
+        counterparty = (
+            view.counterparty.name
+            or view.counterparty.mobile
+            or view.counterparty.masked_mobile
+            or "-"
+        )
     created = tx.created_at.strftime("%Y-%m-%d %H:%M") if tx.created_at else ""
     signed_amount = tx.amount_cents if view.direction.value == "IN" else -tx.amount_cents
     return [
@@ -40,7 +51,7 @@ def _row_for(view: TransactionView) -> list[str]:
         tx.type.value,
         view.direction.value,
         counterparty,
-        format_php(signed_amount),
+        format_php_whole(signed_amount),
         tx.status.value,
         tx.description or "",
     ]
@@ -57,18 +68,24 @@ def generate_transaction_history_pdf(
     doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.6 * inch, bottomMargin=0.6 * inch)
     styles = getSampleStyleSheet()
 
+    # Create custom styles with DejaVuSans for peso sign support
+    from reportlab.lib.styles import ParagraphStyle
+    styles.add(ParagraphStyle(name="DejaVuTitle", parent=styles["Title"], fontName="DejaVuSans-Bold", fontSize=16))
+    styles.add(ParagraphStyle(name="DejaVuHeading2", parent=styles["Heading2"], fontName="DejaVuSans-Bold", fontSize=14))
+    styles.add(ParagraphStyle(name="DejaVuNormal", parent=styles["Normal"], fontName="DejaVuSans", fontSize=10))
+
     elements = [
-        Paragraph("Campe Wallet Transaction History", styles["Title"]),
-        Paragraph(account_label, styles["Heading2"]),
+        Paragraph("Campe Wallet Transaction History", styles["DejaVuTitle"]),
+        Paragraph(account_label, styles["DejaVuHeading2"]),
     ]
     for label, value in account_meta:
-        elements.append(Paragraph(f"<b>{label}:</b> {value}", styles["Normal"]))
-    elements.append(Paragraph(f"Generated: {_generated_at()}", styles["Normal"]))
+        elements.append(Paragraph(f"<b>{label}:</b> {value}", styles["DejaVuNormal"]))
+    elements.append(Paragraph(f"Generated: {_generated_at()}", styles["DejaVuNormal"]))
     elements.append(Spacer(1, 0.25 * inch))
 
     data = [COLUMN_HEADERS] + [_row_for(v) for v in views]
     if len(data) == 1:
-        elements.append(Paragraph("No transactions found.", styles["Normal"]))
+        elements.append(Paragraph("No transactions found.", styles["DejaVuNormal"]))
     else:
         table = Table(data, repeatRows=1)
         table.setStyle(
@@ -76,6 +93,7 @@ def generate_transaction_history_pdf(
                 [
                     ("BACKGROUND", (0, 0), (-1, 0), BRAND_COLOR),
                     ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, -1), "DejaVuSans"),
                     ("FONTSIZE", (0, 0), (-1, -1), 7),
                     ("GRID", (0, 0), (-1, -1), 0.5, GRID_COLOR),
                     ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, STRIPE_COLOR]),

@@ -18,3 +18,10 @@ def format_php(cents: int) -> str:
 def pesos(cents: int) -> int:
     """Whole pesos, for limit messages. Truncates."""
     return cents // CENTS_PER_PESO
+
+
+def format_php_whole(cents: int) -> str:
+    """1234567 -> '₱12,346' (rounded to nearest peso)"""
+    sign = "-" if cents < 0 else ""
+    whole = (abs(cents) + 50) // CENTS_PER_PESO
+    return f"{sign}₱{whole:,}"

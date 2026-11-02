@@ -38,6 +38,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import SecurityIcon from "@mui/icons-material/Security";
 import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
+import MenuBookIcon from "@mui/icons-material/MenuBook";
 import { useQuery } from "@apollo/client";
 import { UNREAD_COUNT } from "../graphql/queries/wallet";
 import { GET_BRANDING, type BrandingData } from "../graphql/queries/branding";
@@ -61,6 +62,7 @@ const primaryNav: { label: string; icon: React.ReactNode; path: string; perm?: s
     superAdminPrimary: true,
   },
   { label: "Master List", icon: <ListAltIcon />, path: "/master-list", perm: "masterlist:read" },
+  { label: "Guidelines", icon: <MenuBookIcon />, path: "/guidelines", superAdminPrimary: true },
 ];
 
 const secondaryNav: { label: string; icon: React.ReactNode; path: string; superOnly?: boolean; auditorOnly?: boolean }[] = [
@@ -97,6 +99,8 @@ export default function Layout() {
     if (isSuperAdmin) return !!item.superAdminPrimary;
     return (!item.perm || can(item.perm)) && (!item.adminOnly || isAdmin);
   });
+  // Guidelines is a utility page — reachable via the drawer on mobile, not the bottom bar.
+  const bottomNav = visiblePrimaryNav.filter((item) => item.path !== "/guidelines");
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -383,10 +387,10 @@ export default function Layout() {
         <Outlet />
       </Box>
 
-      {isMobile && !mobileOpen && visiblePrimaryNav.length > 0 && (
+      {isMobile && !mobileOpen && bottomNav.length > 0 && (
         <BottomNavigation
           showLabels
-          value={visiblePrimaryNav.some((n) => n.path === currentPath) ? currentPath : false}
+          value={bottomNav.some((n) => n.path === currentPath) ? currentPath : false}
           onChange={handleBottomNav}
           sx={{
             position: "fixed",
@@ -407,7 +411,7 @@ export default function Layout() {
             },
           }}
         >
-          {visiblePrimaryNav.map((item) => (
+          {bottomNav.map((item) => (
             <BottomNavigationAction
               key={item.path}
               label={item.label}
