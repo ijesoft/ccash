@@ -4,23 +4,19 @@ import { Box, Button, Card, CardContent, TextField, Typography, Alert, Link, Dia
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import { useMutation } from "@apollo/client";
 import { useAuth } from "../context/AuthContext";
-import { SEND_LOGIN_OTP, REQUEST_PASSWORD_RESET, RESET_PASSWORD_WITH_CODE } from "../graphql/mutations/auth";
+import { REQUEST_PASSWORD_RESET, RESET_PASSWORD_WITH_CODE } from "../graphql/mutations/auth";
 import BrandMark from "../components/BrandMark";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [otpCode, setOtpCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [sendingOtp, setSendingOtp] = useState(false);
 
   // The ID No. confirmation step is disabled: completeLogin is called with an
-  // empty id right after the password (+2FA) challenge succeeds.
+  // empty id right after the password challenge succeeds.
 
   const { login, completeLogin } = useAuth();
-  const [sendLoginOtp] = useMutation(SEND_LOGIN_OTP);
   const [requestPasswordReset, { loading: requesting }] = useMutation(REQUEST_PASSWORD_RESET);
   const [resetPasswordWithCode, { loading: resetting }] = useMutation(RESET_PASSWORD_WITH_CODE);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -46,7 +42,7 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const challenge = await login(email, password, otpCode || undefined);
+      const challenge = await login(email, password);
       await completeLogin(challenge.email, "");
       const raw = localStorage.getItem("user");
       const role = raw ? (JSON.parse(raw).role as string) : "";
@@ -55,23 +51,6 @@ export default function Login() {
       setError(err.message || "Login failed");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSendOtp = async () => {
-    if (!email) {
-      setError("Enter your email first");
-      return;
-    }
-    setSendingOtp(true);
-    setError("");
-    try {
-      await sendLoginOtp({ variables: { email } });
-      setOtpSent(true);
-    } catch (err: any) {
-      setError(err.message || "Failed to send code");
-    } finally {
-      setSendingOtp(false);
     }
   };
 
@@ -198,8 +177,6 @@ export default function Login() {
                 : `Account created for ${justRegisteredEmail}. Please sign in.`}
             </Alert>
           )}
-          {otpSent && <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>Verification code sent to your email</Alert>}
-
           <Box component="form" onSubmit={handleSubmit}>
             <TextField
               fullWidth
@@ -221,15 +198,6 @@ export default function Login() {
               margin="normal"
               autoComplete="current-password"
             />
-            <TextField
-              fullWidth
-              label="2FA / OTP Code (optional)"
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value)}
-              placeholder="6-digit code"
-              margin="normal"
-              inputProps={{ maxLength: 6, inputMode: "numeric" }}
-            />
             <Button
               fullWidth
               type="submit"
@@ -241,17 +209,6 @@ export default function Login() {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </Box>
-
-          <Button
-            fullWidth
-            variant="outlined"
-            size="small"
-            disabled={sendingOtp}
-            onClick={handleSendOtp}
-            sx={{ borderRadius: 2, minHeight: 40 }}
-          >
-            {sendingOtp ? "Sending..." : "Send code to email"}
-          </Button>
 
           <Box sx={{ textAlign: "center", mt: 3 }}>
             <Link component={RouterLink} to="/register" underline="hover" fontWeight={500}>
